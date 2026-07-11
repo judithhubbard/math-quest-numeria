@@ -54,7 +54,7 @@ async function battleToVictory(page, rounds) {
     }
     await page.waitForTimeout(700);
   }
-  await page.waitForSelector('#victOk', { timeout: 20000 });
+  await page.waitForSelector('#victOk', { timeout: 60000 });
   await page.click('#victOk');
   await page.waitForFunction(() => !MM.battle.active());
   await page.waitForTimeout(300);
@@ -350,6 +350,14 @@ async function bumpTile(page, ch) {
   }), 'fleeing heals the Murk AND resets its thicken phase');
   check((await page.evaluate(() => MM.engine.state.monsters.find(m => m.boss).atk)) === atkThick - 2,
     'the +2 thicken attack is rolled back on flee');
+  // restore the boss's REAL pool — the deterministic flee setup inflated
+  // it to 200, which silently doubled the main fight below and overran
+  // its round budget (a self-inflicted sweep failure)
+  await page.evaluate(() => {
+    const b = MM.engine.state.monsters.find(m => m.boss);
+    const st = MM.engine.monsterStats(17, true);
+    b.maxhp = st.hp; b.hp = st.hp;
+  });
 
   await page.evaluate(() => {
     const s = MM.engine.state;
@@ -375,7 +383,7 @@ async function bumpTile(page, ch) {
     }
     await page.waitForTimeout(700);
   }
-  await page.waitForSelector('#victOk', { timeout: 20000 });
+  await page.waitForSelector('#victOk', { timeout: 60000 });
   await page.screenshot({ path: SHOTS + '/8-murk-victory.png' });
   await page.click('#victOk');
   await page.waitForFunction(() => !MM.battle.active());

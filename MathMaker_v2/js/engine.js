@@ -265,6 +265,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   // You can OWN every charm, but only WEAR three at a time (s.charmsOn) —
   // a real choice, like the one-ring rule. Effects check what's WORN.
   E.CHARM_SLOTS = 3;
+  E.PET_FETCH_CHANCE = 0.10; // stage-2+ pets fetch after victories (Wave 5)
   E.hasCharm = id => !!(E.state && E.state.charmsOn && E.state.charmsOn.includes(id));
 
   E.toggleCharm = function (id) {
@@ -1347,7 +1348,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   function petFetch(lines) {
     const s = E.state;
     const pet = s.isles && s.isles.pet;
-    if (!pet || pet.stage < 2 || Math.random() >= 0.10) return;
+    // exposed as a constant so drive-depth can pin it to 1 — a 10% roll
+    // asserted probabilistically false-failed sweeps ~12% of the time
+    if (!pet || pet.stage < 2 || Math.random() >= E.PET_FETCH_CHANCE) return;
     const roll = Math.random();
     if (roll < 0.08) {
       const gem = E.awardGem();

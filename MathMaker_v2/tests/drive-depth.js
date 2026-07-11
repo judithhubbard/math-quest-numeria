@@ -166,8 +166,12 @@ async function winBattle(page, maxRounds) {
   // 20 trials at 10% each is overwhelmingly likely to fetch at least once.
   // Victory lines render into .victory-lines (the battle panel), NOT the
   // persistent world #log — must be read before clicking past it.
+  // The fetch trick is a 10% roll per victory — asserting it over 20 tries
+  // still false-fails ~12% of the time (0.9^20), which finally bit in a
+  // sweep. Pin the exposed chance to 1 (deterministic); restored after.
+  await page.evaluate(() => { MM.engine.PET_FETCH_CHANCE = 1; });
   let fetched = false;
-  for (let i = 0; i < 20 && !fetched; i++) {
+  for (let i = 0; i < 3 && !fetched; i++) {
     await page.evaluate(() => { MM.engine.state.hp = MM.engine.state.maxhp; MM.engine.startArenaBattle(1); });
     await page.waitForSelector('#battleProblem', { timeout: 5000 });
     await page.waitForTimeout(150);
@@ -185,7 +189,8 @@ async function winBattle(page, maxRounds) {
     await page.click('#victOk');
     await page.waitForFunction(() => !MM.battle.active());
   }
-  check(fetched, 'stage-3 (Champion) pet fetched a bonus item within 20 arena victories');
+  await page.evaluate(() => { MM.engine.PET_FETCH_CHANCE = 0.10; });
+  check(fetched, 'stage-3 (Champion) pet fetches a bonus item (chance pinned to 1 — deterministic)');
 
   // ================= Item 4: Champion's Gauntlet =================
   await page.evaluate(() => {

@@ -63,7 +63,7 @@ async function battleToVictory(page, rounds) {
     await answerBattle(page);
     await page.waitForTimeout(700);
   }
-  await page.waitForSelector('#victOk', { timeout: 20000 });
+  await page.waitForSelector('#victOk', { timeout: 60000 });
   await page.click('#victOk');
   await page.waitForFunction(() => !MM.battle.active());
   await page.waitForTimeout(300);
@@ -73,6 +73,9 @@ async function battleToVictory(page, rounds) {
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const page = await (await browser.newContext({ viewport: { width: 1150, height: 800 } })).newPage();
+  // sweeps run 18 drives' worth of screenshots + Dropbox indexing — the
+  // 30s Playwright default has proven flaky under that load
+  page.setDefaultTimeout(90000);
   const errors = [];
   const checks = [];
   const check = (ok, msg) => checks.push((ok ? 'ok   ' : 'FAIL ') + msg);
@@ -213,6 +216,13 @@ async function battleToVictory(page, rounds) {
   const theft = await page.evaluate(() => {
     const s = MM.engine.state;
     const t = s.monsters.find(m => m.behavior === 'thief');
+    // retire every OTHER mobile monster first — wanderers drift randomly
+    // with each player action, and one on the flee lane (or, later, the
+    // stairs path) turns a scripted walk into a surprise battle. The
+    // guard stays: it never moves and its post is off every path. (First
+    // attempt PARKED them at row 2 — right beside the stairs the drive
+    // walks later. Deterministic means gone, not elsewhere.)
+    s.monsters.filter(m => m !== t && m.hp > 0 && m.behavior !== 'guard' && !m.boss).forEach(m => { m.hp = 0; });
     s.px = 8; s.py = 10; s.gold = 60;
     t.x = 9; t.y = 10; t.stun = 0;
     MM.engine.monsterTurn();

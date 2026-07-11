@@ -55,6 +55,10 @@ async function winBattle(page) {
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const page = await (await browser.newContext({ viewport: { width: 1150, height: 800 } })).newPage();
+  // full-sweep I/O load (17 drives' screenshots + Dropbox indexing) can
+  // slow animation chains past Playwright's 30s default — this drive and
+  // drive-lighthouse both flaked in sweeps while passing standalone
+  page.setDefaultTimeout(90000);
   const errors = [];
   const checks = [];
   const check = (ok, msg) => checks.push((ok ? 'ok   ' : 'FAIL ') + msg);
