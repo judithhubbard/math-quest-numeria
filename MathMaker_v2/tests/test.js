@@ -1338,6 +1338,34 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
     if (!g.has('W')) fail(`${name}: no dock — a kid can't leave`);
     if (!g.has('I') && !BUNK_ISLANDS.includes(name)) fail(`${name}: no inn and not a bunk island — no way to rest`);
   }
+
+  // Wave 7.1: NO TRAP TILES — every standable tile on every overworld must
+  // reach its dock (mainland: the arrival tile P). A tile a player can be
+  // PLACED on but never walk out of strands them forever — the user hit
+  // Horologe (20,2) live. Murk modeled cleared, bridge modeled laid.
+  const STAND = '.P=';
+  for (const [name, dockCh] of [['ISLES', 'W'], ['HOROLOGE', 'W'], ['CHIME', 'W'], ['GULLWRACK', 'W'], ['OVERWORLD', 'P']]) {
+    const grid = MM.maps.parse(MM.maps[name], '~').map(row => row.map(ch => 'uvw'.includes(ch) && name === 'ISLES' ? '.' : ch));
+    if (name === 'OVERWORLD') MM.maps.BRIDGE.forEach(b => { grid[b.y][b.x] = '='; });
+    const dock = MM.maps.find(grid, dockCh)[0];
+    const seen = new Set([dock.x + ',' + dock.y]);
+    const q = [dock];
+    while (q.length) {
+      const { x, y } = q.shift();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+        if (seen.has(k)) continue;
+        const ch = (grid[ny] || [])[nx];
+        if (ch == null || !STAND.includes(ch)) continue;
+        seen.add(k); q.push({ x: nx, y: ny });
+      }
+    }
+    for (let y = 0; y < grid.length; y++) for (let x = 0; x < grid[y].length; x++) {
+      if (STAND.includes(grid[y][x]) && grid[y][x] !== dockCh && !seen.has(x + ',' + y)) {
+        fail(`${name}: TRAP TILE at ${x},${y} — standable but can never reach the dock`);
+      }
+    }
+  }
 }
 
 // ---------- sail destination registry (Wave 6.5) ----------

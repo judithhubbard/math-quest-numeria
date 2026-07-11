@@ -399,3 +399,7 @@ button.mini { padding: 2px 10px; font-size: 12px; }
   border-radius: 8px; border: 2px solid #5e51a0;
   background: #171331; color: #fff; font-family: inherit;
 }
+
+/* Wave 7.1: spells look dimmed when not castable but stay CLICKABLE —
+   every click gets a log answer instead of silent nothing */
+button.spell-dim { opacity: 0.5; }

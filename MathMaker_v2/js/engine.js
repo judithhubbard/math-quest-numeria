@@ -1877,8 +1877,17 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   // Scout: secret walls on the current floor shimmer for 10 seconds (drawn
   // by ui.js's drawWorld). Once per dungeon visit.
+  // Wave 7.1: every cast ANSWERS — silent returns taught a live playtester
+  // that spells "do nothing". Scout with nothing to find also says so,
+  // without spending the once-per-visit cast.
   E.castScout = function () {
-    if (!E.state || !E.inDungeon() || !E.spellUnlocked('scout') || E.spellsUsedThisVisit.scout) return;
+    const s = E.state;
+    if (!s || !E.spellUnlocked('scout')) return;
+    if (!E.inDungeon()) return MM.ui.log('🔍 Spells only work inside a dungeon.');
+    if (E.spellsUsedThisVisit.scout) return MM.ui.log('🔍 Scout is spent for this visit — it recharges at the entrance.');
+    if (!MM.maps.find(s.grid, '%').length) {
+      return MM.ui.log('🔍 You cast Scout... and sense <b>no hidden walls on this floor</b>. (The cast isn\'t used up.)');
+    }
     E.spellsUsedThisVisit.scout = true;
     E.scoutUntil = performance.now() + 10000;
     MM.sound.dodge();
@@ -1891,7 +1900,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   // 10 stamina, no other limit.
   E.castBlink = function () {
     const s = E.state;
-    if (!s || !E.inDungeon() || !E.spellUnlocked('blink') || !E.lastDir) return;
+    if (!s || !E.spellUnlocked('blink')) return;
+    if (!E.inDungeon()) return MM.ui.log('⚡ Spells only work inside a dungeon.');
+    if (!E.lastDir) return MM.ui.log('⚡ Take a step first — Blink hops in the direction you last moved.');
     if (s.stamina < 10) { MM.ui.log(`⚡ ${MM.data.SPELL_TOOLTIPS.noStamina}`); return; }
     const { dx, dy } = E.lastDir;
     const lx = s.px + dx, ly = s.py + dy;       // the hazard/gap being hopped
@@ -1921,7 +1932,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   // Beacon: instantly return to the dungeon's entrance. Once per visit.
   E.castBeacon = function () {
     const s = E.state;
-    if (!s || !E.inDungeon() || !E.spellUnlocked('beacon') || E.spellsUsedThisVisit.beacon) return;
+    if (!s || !E.spellUnlocked('beacon')) return;
+    if (!E.inDungeon()) return MM.ui.log('🕯 Spells only work inside a dungeon.');
+    if (E.spellsUsedThisVisit.beacon) return MM.ui.log('🕯 Beacon is spent for this visit — it recharges at the entrance.');
     E.spellsUsedThisVisit.beacon = true;
     while (s.floorIndex > 0) E.changeFloor(-1);
     const x = MM.maps.find(s.grid, 'X')[0];

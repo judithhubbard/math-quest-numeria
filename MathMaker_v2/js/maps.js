@@ -32,7 +32,8 @@ var MM = globalThis.MM = globalThis.MM || {};
     '~~..T...................T.........T...',
     '~~.T.....T.....TTT.............T......',
     '~~..T..........TT..C.n......T.....5...',
-    '~~.....T..............T..........e.M..',
+    // Wave 7.1: (34,5) was a day-one trap pocket under dungeon 5's door
+    '~~.....T..............T..........eMM..',
     '~~...........j.S.......I...q...M.MM...',
     '~~W.T.....T...........................',
     '~~...........TT....P..h..T...2.....T..',
@@ -1011,7 +1012,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   MM.maps.HOROLOGE = [
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-    '~~~~~~~~~~~~~~MMMMMM.MMMMMM~~~~~~~~~~~~~',
+    // Wave 7.1: the ring gap above the Spire was a TRAP tile — a player
+    // placed at (20,2) could never leave (ocean/mountains/entrance).
+    '~~~~~~~~~~~~~~MMMMMMMMMMMMM~~~~~~~~~~~~~',
     '~~~~~~~~~MMM........5........MMM~~~~~~~~',
     '~~~~~~MMM......T.........T......MMM~~~~~',
     '~~~~~MM...........................MM~~~~',
@@ -1031,7 +1034,8 @@ var MM = globalThis.MM = globalThis.MM || {};
   MM.maps.CHIME = [
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-    '~~~~~~~~~~MMMM.6.MMMM~~~~~~~~~',
+    // Wave 7.1: the two pockets flanking the hall were trap tiles too
+    '~~~~~~~~~~MMMMM6MMMMM~~~~~~~~~',
     '~~~~~~MM......s.s......MM~~~~~',
     '~~~~MM....T.........T....MM~~~',
     '~~~~M.....................M~~~',

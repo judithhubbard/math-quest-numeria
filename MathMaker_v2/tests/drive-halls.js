@@ -180,8 +180,10 @@ async function solveEchoDoor(page) {
   check(await page.evaluate(() => MM.engine.state.mapId === 'chime'), 'arrived on Chime Isle');
   await page.screenshot({ path: SHOTS + '/1-chime-overworld.png' });
 
-  await page.evaluate(() => { const s = MM.engine.state; s.px = 14; s.py = 2; });
-  await page.keyboard.press('ArrowRight'); // bump the '6' at (15,2)
+  // Wave 7.1: approach from below — (14,2) was a trap tile, now sealed
+  // mountain; the drive should walk a path a real kid can
+  await page.evaluate(() => { const s = MM.engine.state; s.px = 15; s.py = 3; });
+  await page.keyboard.press('ArrowUp'); // bump the '6' at (15,2)
   await page.waitForFunction(() => MM.engine.state.mapId === 'd20f0');
   check(true, 'entered the Resonant Halls (4 floors, dungeon 20)');
 
@@ -225,8 +227,8 @@ async function solveEchoDoor(page) {
 
   // back on the Chime overworld now — re-bump '6' to re-enter the Halls;
   // floor 0's opened doors are remembered via s.opened, so this replays clean
-  await page.evaluate(() => { const s = MM.engine.state; s.px = 14; s.py = 2; });
-  await page.keyboard.press('ArrowRight');
+  await page.evaluate(() => { const s = MM.engine.state; s.px = 15; s.py = 3; });
+  await page.keyboard.press('ArrowUp');
   await page.waitForFunction(() => MM.engine.state.mapId === 'd20f0');
   await page.evaluate(() => { const s = MM.engine.state; s.px = 21; s.py = 11; });
   await page.keyboard.press('ArrowRight');

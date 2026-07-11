@@ -858,25 +858,30 @@ var MM = globalThis.MM = globalThis.MM || {};
   // what they're working toward. Each disabled button carries a `title`
   // tooltip explaining exactly why (Wave 4 carry-over — these used to just
   // grey out with no explanation).
+  // Wave 7.1: spell buttons are NEVER disabled — a greyed button ignores
+  // clicks silently, and kids don't hover tooltips ("I have not been able
+  // to make the spells do anything", live playtest). Every click now
+  // reaches the engine, which answers in the log with exactly why.
+  // The dimmed look + tooltip stay as a visual hint only.
   function renderSpellRow(s) {
     const el = document.getElementById('spellRow');
     if (!el) return;
     const inDungeon = MM.engine.inDungeon();
     const used = MM.engine.spellsUsedThisVisit || {};
     const T = MM.data.SPELL_TOOLTIPS;
-    const btn = (id, label, disabled, title) => `<button class="mini secondary" id="${id}" ${disabled ? 'disabled' : ''} title="${title}">${label}</button>`;
+    const btn = (id, label, dim, title) => `<button class="mini secondary${dim ? ' spell-dim' : ''}" id="${id}" title="${title}">${label}</button>`;
     const items = [];
     if (MM.engine.spellUnlocked('scout')) {
-      const disabled = !inDungeon || used.scout;
-      items.push(btn('castScout', `🔍 Scout${used.scout ? ' (used)' : ''}`, disabled, !inDungeon ? T.outside : used.scout ? T.used : ''));
+      const dim = !inDungeon || used.scout;
+      items.push(btn('castScout', `🔍 Scout${used.scout ? ' (used)' : ''}`, dim, !inDungeon ? T.outside : used.scout ? T.used : ''));
     }
     if (MM.engine.spellUnlocked('blink')) {
-      const disabled = !inDungeon || s.stamina < 10;
-      items.push(btn('castBlink', '⚡ Blink (10🍗)', disabled, !inDungeon ? T.outside : s.stamina < 10 ? T.noStamina : ''));
+      const dim = !inDungeon || s.stamina < 10;
+      items.push(btn('castBlink', '⚡ Blink (10🍗)', dim, !inDungeon ? T.outside : s.stamina < 10 ? T.noStamina : ''));
     }
     if (MM.engine.spellUnlocked('beacon')) {
-      const disabled = !inDungeon || used.beacon;
-      items.push(btn('castBeacon', `🕯 Beacon${used.beacon ? ' (used)' : ''}`, disabled, !inDungeon ? T.outside : used.beacon ? T.used : ''));
+      const dim = !inDungeon || used.beacon;
+      items.push(btn('castBeacon', `🕯 Beacon${used.beacon ? ' (used)' : ''}`, dim, !inDungeon ? T.outside : used.beacon ? T.used : ''));
     }
     if (!items.length) { el.innerHTML = ''; return; }
     el.innerHTML = `<div class="dim" style="margin-bottom:4px">📖 Spellbook</div><div style="display:flex;gap:6px;flex-wrap:wrap">${items.join('')}</div>`;
