@@ -1091,5 +1091,165 @@ var MM = globalThis.MM = globalThis.MM || {};
     return p;
   }
 
-  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock };
+  // ---------- Wave 7: the Final Exam, inverted (the kid grades the teacher) ----------
+  // The MathMaker sits as the student and works a problem on his slate. Some
+  // slates contain exactly ONE wrong step; the kid says which one — or says
+  // it's correct. Error analysis is the summit of mastery, and "the student
+  // becomes the grader" is the whole story in one mechanic.
+  //
+  // Deliberately NOT in GENERATORS/QUICK: these never enter battles, mixed
+  // review, or the ~400-per-tier smoke loop. They're authored, not sampled —
+  // each carries a CURATED error (the classic slip a real 5th grader makes),
+  // and the later steps follow honestly from the bad one, so exactly one step
+  // is where it went wrong. Corrupting a step and then "fixing" the total
+  // would put TWO errors on the slate and make the question unanswerable.
+  //
+  // Returns kind:'choice' — no parser work, no checkAnswer change. `steps`
+  // and `badStep` are exposed so the drive (and the slate renderer) can see
+  // the structure; `badStep` is -1 when the slate is clean.
+  function examSlate(o) {
+    const labels = o.steps.map((_, i) => `Step ${i + 1}`);
+    const choices = labels.concat(['✓ Every step is correct']);
+    const answer = o.badStep < 0 ? o.steps.length : o.badStep;
+    const rows = o.steps.map((st, i) =>
+      `<div class="slate-step"><span class="slate-n">${i + 1}</span>${st}</div>`).join('');
+    return {
+      kind: 'choice', choices, answer,
+      skill: o.skill, tier: o.tier || 2,
+      exam: true, steps: o.steps.slice(), badStep: o.badStep, prompt: o.prompt,
+      text: `<div class="slate"><div class="slate-prompt">${o.prompt}</div>${rows}</div>`,
+      solution: o.badStep < 0
+        ? 'Every step really was right — the slate is clean.'
+        : `Step ${o.badStep + 1} is where it goes wrong. ${o.why}`,
+    };
+  }
+
+  // The five slates, in curriculum order. Each builds a CLEAN worked solution
+  // and a FLAWED one that shares the same shape, so nothing but the mistake
+  // distinguishes them.
+  const EXAM_SLATES = [
+    // 1. addsub_facts — the classic: the carry gets dropped.
+    function (flawed) {
+      const a = R.int(24, 48), b = R.int(24, 48);
+      const o1 = a % 10, o2 = b % 10;
+      if (o1 + o2 < 10) return null;           // we want a carry to exist
+      const ones = o1 + o2, carry = 1;
+      const t1 = Math.floor(a / 10), t2 = Math.floor(b / 10);
+      const tens = t1 + t2 + (flawed ? 0 : carry);   // <- the slip
+      const total = tens * 10 + (ones % 10);
+      return examSlate({
+        skill: 'addsub_facts', tier: 1, prompt: `${a} + ${b} = ?`,
+        steps: [
+          `Ones: ${o1} + ${o2} = ${ones}. Write ${ones % 10}, carry 1.`,
+          flawed
+            ? `Tens: ${t1} + ${t2} = ${tens}.`
+            : `Tens: ${t1} + ${t2} = ${t1 + t2}, plus the carried 1 makes ${tens}.`,
+          `So ${a} + ${b} = ${total}.`,
+        ],
+        badStep: flawed ? 1 : -1,
+        why: 'The 1 carried out of the ones column never made it into the tens.',
+      });
+    },
+    // 2. multidigit_mult — partial products, and the tens place loses its zero.
+    function (flawed) {
+      const a = R.int(23, 78), b = R.int(3, 8);
+      const tensDigit = Math.floor(a / 10), onesDigit = a % 10;
+      const p1 = b * onesDigit;
+      const p2 = flawed ? b * tensDigit : b * tensDigit * 10;   // <- the slip
+      const total = p1 + p2;
+      return examSlate({
+        skill: 'multidigit_mult', tier: 2, prompt: `${a} × ${b} = ?`,
+        steps: [
+          `Split ${a} into ${tensDigit * 10} + ${onesDigit}.`,
+          flawed
+            ? `Tens part: ${b} × ${tensDigit} = ${p2}.`
+            : `Tens part: ${b} × ${tensDigit * 10} = ${p2}.`,
+          `Ones part: ${b} × ${onesDigit} = ${p1}.`,
+          `Add them: ${p2} + ${p1} = ${total}.`,
+        ],
+        badStep: flawed ? 1 : -1,
+        why: `The tens part is ${b} × ${tensDigit * 10}, not ${b} × ${tensDigit} — the zero got left behind.`,
+      });
+    },
+    // 3. decimals_md — the classic misplaced decimal point.
+    function (flawed) {
+      const d = R.int(2, 8);            // 0.d
+      const m = R.int(3, 9);
+      const whole = d * m;              // e.g. 6 x 7 = 42
+      if (whole % 10 === 0) return null; // 0.5 x 8 = "4.0" reads as a whole number — the point is the POINT
+      const right = whole / 10;         // 4.2
+      return examSlate({
+        skill: 'decimals_md', tier: 2, prompt: `0.${d} × ${m} = ?`,
+        steps: [
+          `Ignore the point for a moment: ${d} × ${m} = ${whole}.`,
+          flawed
+            ? `0.${d} has no decimal places to put back, so the answer is ${whole}.`
+            : `0.${d} has 1 decimal place, so the answer needs 1 too: ${right}.`,
+          `So 0.${d} × ${m} = ${flawed ? whole : right}.`,
+        ],
+        badStep: flawed ? 1 : -1,
+        why: `0.${d} has one digit after the point, so the answer needs one too — ${right}, not ${whole}.`,
+      });
+    },
+    // 4. fractions_as — the most famous wrong move in fifth grade: adding the
+    //    denominators straight across.
+    function (flawed) {
+      const dA = R.pick([2, 3, 4]);
+      let dB = R.pick([3, 4, 5, 6]);
+      if (dB === dA) dB = dA + 1;
+      const lcd = dA * dB;
+      const nA = 1, nB = 1;
+      const cA = nA * dB, cB = nB * dA;    // over the common denominator
+      const sum = frac(cA + cB, lcd);
+      return examSlate({
+        skill: 'fractions_as', tier: 2, prompt: `${nA}/${dA} + ${nB}/${dB} = ?`,
+        steps: flawed
+          ? [
+            `The bottoms are different, so add them: ${dA} + ${dB} = ${dA + dB}.`,
+            `Then add the tops: ${nA} + ${nB} = ${nA + nB}.`,
+            `So ${nA}/${dA} + ${nB}/${dB} = ${nA + nB}/${dA + dB}.`,
+          ]
+          : [
+            `The bottoms are different, so find a common one: ${dA} × ${dB} = ${lcd}.`,
+            `Rewrite both: ${nA}/${dA} = ${cA}/${lcd}, and ${nB}/${dB} = ${cB}/${lcd}.`,
+            `Now add the tops: ${cA} + ${cB} = ${cA + cB}, giving ${cA + cB}/${lcd}` +
+              (fstr(sum, { improper: true }) === `${cA + cB}/${lcd}` ? '.' : ` — which is ${fstr(sum, { improper: true })}.`),
+          ],
+        badStep: flawed ? 0 : -1,
+        why: 'Denominators are never added. They have to be made the SAME first — then only the tops add.',
+      });
+    },
+    // 5. THE LAST ONE. A tier-1 addition fact, the same kind the game opened
+    //    with, worked correctly. No trick, no error. The kid marks it right.
+    function () {
+      const a = R.int(6, 9), b = R.int(4, 9);
+      const need = 10 - a, rest = b - need;
+      return examSlate({
+        skill: 'addsub_facts', tier: 1, prompt: `${a} + ${b} = ?`,
+        steps: [
+          `Make ten: ${a} + ${need} = 10, taking ${need} from the ${b}.`,
+          `That leaves ${rest}. And 10 + ${rest} = ${a + b}.`,
+          `So ${a} + ${b} = ${a + b}.`,
+        ],
+        badStep: -1,
+        why: '',
+      });
+    },
+  ];
+
+  // which: 0-4 (the five slates, in order). flawed: force a planted error
+  // (the last slate ignores it — it is always clean, by design).
+  function generateExam(which, flawed) {
+    const build = EXAM_SLATES[which];
+    if (!build) throw new Error('no exam slate ' + which);
+    const wantFlawed = which === EXAM_SLATES.length - 1 ? false : !!flawed;
+    for (let tries = 0; tries < 60; tries++) {
+      const p = build(wantFlawed);
+      if (p) return p;
+    }
+    throw new Error('exam slate ' + which + ' never produced a problem');
+  }
+  generateExam.count = EXAM_SLATES.length;
+
+  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam };
 })();

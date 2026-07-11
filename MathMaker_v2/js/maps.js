@@ -1073,6 +1073,30 @@ var MM = globalThis.MM = globalThis.MM || {};
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
   ];
 
+  // ===== The Open Castle (Wave 7) — the ending's interior =====
+  // Not a dungeon: NO monsters, no combat, ever. Rendered as an overworld
+  // (see OVERWORLD_IDS) so the NPC pass runs and the floor isn't dungeon-grey.
+  // X the great doors (back outside)  P arrival  E gallery plinth (one of the
+  // ten recovered treasures)  Q the MathMaker  J Miscount  V the Hall of
+  // Heroes crest board  O the throne  F a hanging banner (decor, solid)
+  MM.maps.CASTLE = [
+    '##########################',
+    '##########################',
+    '##........##..##.F...F..##',
+    '##.EEEEE..##..##...O....##',
+    '##......................##',
+    '##.EEEEE..#F..F#........##',
+    '##........#....#.F...F..##',
+    '###########....###########',
+    '###########....###########',
+    '##.......##....#...VV...##',
+    '##..Q.J.................##',
+    '##.......##F..F#........##',
+    '##.......##....#........##',
+    '###########..P.###########',
+    '############X#############',
+  ];
+
   // Every dungeon as an array of floors: 1-13 are single-floor.
   MM.maps.dungeonFloors = function (idx) {
     if (idx <= 13) {
@@ -1110,13 +1134,39 @@ var MM = globalThis.MM = globalThis.MM || {};
   // couldn't say "which island", so Horologe/Chime/Gullwrack rendered as
   // dungeons: grey ground, invisible entrances, and NO NPC pass at all
   // (the empty-island bug, three times over).
-  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack'];
+  // 'castle' (Wave 7) is an OVERWORLD, not a dungeon: no monsters, and the
+  // NPC pass must run so the MathMaker and Miscount are actually drawn.
+  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle'];
   MM.maps.isOverworld = mapId => MM.maps.OVERWORLD_IDS.includes(mapId);
+
+  // Gear gates (Clockwork Spire): exactly one of A/B/C is open at a time, and
+  // which one is a saved rotation (s.gearState[mapId] = 0|1|2). Pure lookup so
+  // the headless render audit can call it with no engine loaded — with no
+  // state, gate A reads as the open one, which is the rotation every floor
+  // starts in anyway.
+  MM.maps.GEAR_LETTERS = ['A', 'B', 'C'];
+  MM.maps.gearRotation = function (mapId) {
+    const s = MM.engine && MM.engine.state;
+    return ((s && s.gearState && s.gearState[mapId]) || 0) % 3;
+  };
+  MM.maps.gateOpenNow = (ch, mapId) => MM.maps.GEAR_LETTERS[MM.maps.gearRotation(mapId)] === ch;
 
   MM.maps.tileSprite = function (ch, x, y, mapId, waterFrame) {
     const inDungeon = !MM.maps.isOverworld(mapId);
     // map-specific glyphs first — 'u' is Miscount on the west map but murk
     // fog on the isles; the island landmarks each own their digit
+    if (mapId === 'castle') {
+      // the castle interior owns its whole alphabet — the NPC letters (Q/J)
+      // still need a FLOOR under them, or the NPC pass draws a person
+      // standing on a patch of lawn indoors
+      if (ch === 'E') return 'plinth';
+      if (ch === 'V') return 'crestBoard';
+      if (ch === 'O') return 'throne';
+      if (ch === 'F') return 'banner';
+      if (ch === 'X') return 'castleDoor';
+      if (ch === '#') return 'wall';
+      return 'hallFloor';
+    }
     if (mapId === 'isles' && (ch === 'u' || ch === 'v' || ch === 'w')) return 'murk';
     if (mapId === 'isles' && ch === 'H') return 'lighthouse';
     // the mainland's expansion entrances (A/B = dungeons 11/12, K = 13) —
@@ -1125,6 +1175,18 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (mapId === 'horologe' && ch === '5') return 'spireTower';
     if (mapId === 'chime' && ch === '6') return 'hallTower';
     if (mapId === 'gullwrack' && ch === '7') return 'breakArch';
+    // Wave 7 (gear-plate readability): the Spire's A/B/C gates STAY in the
+    // grid now instead of being rewritten to '#'/'.'. A closed gate must never
+    // look like an ordinary wall, and an open one must never look like bare
+    // floor — that invisibility is what made the puzzle read as a glitch.
+    // Which gate is which (• / •• / •••) is painted on top by drawWorld;
+    // walkability lives in E.gateIsOpen.
+    // This MUST sit above the switch: 'C' already means "castle" down there,
+    // and a duplicate `case` silently loses to the first one — which is
+    // exactly how gate C spent its first five minutes rendering as a castle.
+    if (inDungeon && (ch === 'A' || ch === 'B' || ch === 'C')) {
+      return MM.maps.gateOpenNow(ch, mapId) ? 'gateOpen' : 'gateShut';
+    }
     switch (ch) {
       case '~': return waterFrame ? 'water2' : 'water';
       case 'T': return 'tree';
@@ -1153,8 +1215,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       case '<': return 'stairsUp';
       case 'v': return 'chute';
       // Waves 3/4/6 tiles that shipped handler-only and rendered as bare
-      // ground (Wave 6.5 renderability pass) — A/B/C gear gates never
-      // reach the live grid (applyGearState rewrites them to '#'/'.')
+      // ground (Wave 6.5 renderability pass)
       case 'Z': return 'clockDoor';
       case 'Y': return 'echoDoor';
       case 'R': return 'gearPlate';
@@ -1162,8 +1223,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       case 'U': return 'slab';
       case 'r': return 'brokenFloor';
       case 'i': return 'board';   // blueprint plaque reads as a posted notice
-      case 'l': return 'lever';   // reset lever (bespoke sprite with Wave 7's
-                                  // gear-plate readability pass)
+      case 'l': return 'resetLever';  // Gullwrack's repair-site reset lever
       default:
         if ('1234567890'.includes(ch) && !inDungeon) return 'hole';
         if (inDungeon) return 'floor';

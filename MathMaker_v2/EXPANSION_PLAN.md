@@ -1052,7 +1052,84 @@ Executed by the design session immediately after Wave 6 lands + reviews
    (its order specifies Maren + a town, so it should be fine — CHECK the
    arrival screenshot anyway, all of them this time).
 
-## Wave 7 — The Open Castle (the ending)
+## Wave 7 — The Open Castle (the ending) ✅ CODE COMPLETE (2026-07-11) — ⏸ PROSE AWAITING DESIGN REVIEW
+
+**Status:** every mechanic, test and screenshot in this section is done and
+green (unit suite + all 19 drives, `drive-castle.js` = 53 checks). Per this
+wave's own mandatory stop, the **reveal / coronation / cutscene prose has NOT
+been signed off** — it is written and playable, but the design session must
+read it before this ships to the family copy.
+
+**Deviations from this spec, and why:**
+- **The gear gates stopped being rewritten to `'#'`/`'.'` — they now STAY in
+  the grid as `A`/`B`/`C`.** The carry-over asked for state-readable gate
+  sprites, and that is impossible while the glyph is erased at entry: a closed
+  gate WAS a wall, byte for byte. So `applyGearState` no longer edits the grid
+  (it survives as a no-op hook), walkability moved to `E.gateIsOpen`, and
+  `tileSprite` picks `gateShut`/`gateOpen` from the live rotation. The pips
+  (•/••/•••) are painted by `drawWorld` rather than baked into six sprites, so
+  one sprite pair serves all three gates and the plate. Knock-ons, all done:
+  `FLOOR_OK` in the render audit no longer whitelists A/B/C (they must now
+  draw as real tiles, and the test fails if that regresses), and
+  `drive-spire.js`'s grid assertions became rotation assertions.
+- **A real bug the screenshots caught immediately:** gate `C` rendered as a
+  **castle**. `case 'C': return 'castle'` already existed in the `tileSprite`
+  switch, and a duplicate `case` silently loses to the first one. The gate
+  branch had to move ABOVE the switch, guarded on `inDungeon`. Nothing but
+  looking at the picture would have found this.
+- **`S.validate()` existed and had never once been called.** Wiring it into the
+  unit suite immediately failed on two tiles — `pool` and `keyTile` both had an
+  uncoloured `'d'` punching a transparent hole in them, shipped months ago.
+  Fixed both; the validator now runs every suite.
+- **A pre-existing dead branch, exposed by the castle gate:** `E.castle`'s
+  "Champion of Numeria" greeting (`taskIndex > 13`) had **never been
+  reachable**. At `taskIndex 14` the "current task" is `TASKS[13]` — the
+  Tidepool Grotto — which carries `exp: true`, so the "cross the bridge to
+  Miscount" branch above it swallowed every post-task-13 visit. Reordered. The
+  same ordering bug existed in `miscountArena` and would have eaten the entire
+  Wave 7 epilogue; fixed there too.
+- **The castle is an OVERWORLD (`mapId: 'castle'`), not a dungeon.** It needs
+  the NPC draw pass (or the MathMaker is a patch of floor) and must never touch
+  monster spawning. It is therefore NOT in `TASKS`/`ISLE_DUNGEONS`, so it does
+  not get the door audit for free — it has its own reachability + "no monster
+  markers, ever" unit block instead, and an explicit `checkMap` line in the
+  render audit.
+- **The Fibonacci tiling was derived and asserted, not eyeballed.** The first
+  layout did not abut (squares overlapped and left gaps). The shipped one is
+  computed by attaching each square to a side whose length already equals it
+  (left, top, right, bottom, left) — 1+1+4+9+25+64 = 104 = 13×8 exactly — with
+  one quarter-arc per square, each starting where the last ended.
+- **The exam's slates are authored, not sampled from existing generators.**
+  Every `solution` in `problems.js` is a flat string; there is no step
+  structure to plant an error into, and splitting prose on punctuation would be
+  a lie. `MM.problems.generateExam(which, flawed)` builds its own worked
+  solutions with a curated error per topic (dropped carry · lost zero in the
+  tens · misplaced decimal point · added the denominators) and the LATER STEPS
+  FOLLOW HONESTLY FROM THE BAD ONE — so exactly one step is where it went
+  wrong, which is the only way the question is answerable. Deliberately kept
+  out of `GENERATORS`/`QUICK`: the exam never enters battles, review pools, or
+  the 400-per-tier smoke loop, and it never records against mastery (the kid is
+  the GRADER here, not the graded).
+- **Exactly one of the first four slates is clean**, chosen at random, so
+  "every step is correct" stays a live answer and the kid cannot win by always
+  hunting for an error. The fifth is always clean, as specified.
+- **The Hall of Heroes needed `E.peekProfile`** — `E.load()` replaces
+  `E.state` and would yank the current player out of their own game. It returns
+  null on unreadable saves, so one corrupt profile can't take the room down.
+  Titles are DERIVED from flags (`E.titlesFor`), not stored, so pre-Wave-7
+  saves show their honours without a migration.
+- **Golden Numeria keeps `endingDone` and gates two UI lock-checks on
+  `s.ngPlus`.** Resetting `taskIndex` to 1 would otherwise re-lock the report
+  card's rows and the Monster Book's pages for a player who has finished the
+  game — punishing them for replaying.
+- **NG+ scaling is +25% HP/attack/gold per run**, compounding, applied in
+  `E.monsterStats`. The spec didn't name a number; this keeps it a victory lap
+  with teeth rather than a wall, since the hero keeps every level, gem, and charm.
+- **The castle costs no stamina to walk.** There is nothing to fight and
+  nothing to flee from, and a kid must never be able to strand themselves at
+  home.
+
+## Wave 7 — The Open Castle (the ending) — the original work order
 
 **Carry-over (user playtest, 2026-07-11): gear-plate puzzle readability.**
 The Spire's rotating-gates puzzle works but is ILLEGIBLE — the kid steps
@@ -1247,6 +1324,24 @@ small; all are optional.
 Also: before declaring done, harvest the in-game bug tracker from the
 kid's machine (Parent → bug log → Copy) — it's been recording since
 tracker.js shipped and nobody has ever read it.
+
+## Wave 7.1 — Design-session micro-pass (queued 2026-07-11, live playtest)
+
+1. **Trap tiles sealed + audited.** Three standable tiles that can never
+   reach a dock (a player PLACED there is stuck forever — the user hit
+   Horologe (20,2) live): Horologe row 2's ring gap above the Spire, and
+   Chime's two pockets flanking the hall ((14,2)/(16,2)). Seal all three
+   with 'M'; add a trap-tile audit to the never-stranded block — every
+   standable tile on every overworld must reach its dock (murk modeled
+   cleared, bridge modeled laid). Placement mechanism unidentified; the
+   sealed pockets make it moot, the audit makes recurrence impossible.
+2. **Spells always answer.** Spell buttons never render disabled — every
+   click responds in the log with exactly why nothing else happened
+   ("Spells only work inside dungeons", "Used this visit", "Need 10
+   stamina — eat something!"); and Scout on a floor with no secrets says
+   "You sense no hidden walls on this floor" instead of shimmering at
+   nothing (user playtest: "I have not been able to make the spells do
+   anything" — mechanics verified working; the FEEDBACK was missing).
 
 ## Sizing guidance for the implementing model
 

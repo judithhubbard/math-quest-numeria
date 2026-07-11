@@ -6,7 +6,10 @@
 node tests/test.js
 ```
 
-Validates: every problem generator (full + quick) across all tiers with
+Validates: **every sprite** (Wave 7 — `MM.sprites.validate()` had existed
+since day one and was never called; wiring it in immediately found two tiles,
+`pool` and `keyTile`, with an uncoloured char punching a transparent hole in
+them), every problem generator (full + quick) across all tiers with
 canonical-answer checking (~18k problems, including `time_reading`'s clock
 faces, `music_reading`'s treble-staff choices and rhythm-as-fractions,
 elapsed-time word problems, `geometry`'s rectangle/L-shape/volume SVG
@@ -33,7 +36,19 @@ reachability (mainland, Isles, Horologe, Chime, and Gullwrack Harbor), the
 east bank being unreachable without the bridge and fully reachable with
 it, and every slab-tiling repair site (a real BFS over the push-state
 space proving a solving sequence exists, plus a live reset-lever check
-that it restores the exact start state).
+that it restores the exact start state). Wave 7 adds: the Open Castle's map
+(exactly ten Gallery plinths for the ten mainland tasks, one of every other
+landmark, **no monster markers anywhere**, every bumpable thing reachable
+from the arrival tile, both castle NPCs registered); the castle gate's truth
+table (open only with all 13 tasks + the Lamp + the Spire — and explicitly
+NOT requiring the Resonant Halls); the inverted exam (all five slates, clean
+and flawed: choices = one per step + "correct", the answer index always
+pointing at the planted step, the final slate proven always clean, and the
+whole thing proven absent from `GENERATORS`/`QUICK`); a gear gate proven to
+render as two DISTINCT sprites open vs shut (the readability fix, guarded
+against regression); and Golden Numeria (the kingdom resets, the hero's
+level/badges/book/gear/charms/pet/crown all survive, and monsters come back
+tougher).
 
 ## Browser drives (need Playwright + Chrome)
 
@@ -172,9 +187,33 @@ fail on any page error.
   isle-tier stock; the shipboard bunk rest; the Ctrl+Shift+B manual bug
   capture; and that the blank-modal watchdog stayed silent throughout.
 
+- `drive-castle.js` — Wave 7 (the ending): the castle gate (shut for a new
+  hero; shut with all 13 tasks but no Lamp/Spire — and the shut door SAYS
+  what it's waiting for; open WITHOUT the Resonant Halls, since music is a
+  parent opt-in); the interior as a monster-free overworld; a Gallery plinth
+  replaying the kid's own memory, and the Crown's plinth reading differently
+  before and after it's worn; the Hall of Heroes listing every profile with
+  its derived titles; the Study's three-beat reveal ("Heroes leave. Teachers
+  multiply."); the **inverted final exam** — one choice button per step plus
+  "every step is correct", a planted wrong step caught, a clean slate
+  accepted, a mis-mark answered by SHOWING the real step rather than
+  scolding, the last problem confirmed to be a plain addition fact, and the
+  exam proven never to touch `s.mastery` (the kid is the grader, not the
+  graded); the coronation setting `endingDone` + the title; "The Kingdom,
+  Untangled" (beats skippable, the spiral question asked, a WRONG answer
+  drawing `8 + 13 = 21` and then proceeding, the scene handing the world
+  back); the epilogue pools (Sylvia's telescope, Percy's sequel door,
+  Callie teaching, Maren's apprentices, Barnaby's finished ballad, Miscount
+  teaching, Pip's riddle contest); the post-credits monster in a tiny hat;
+  replay-from-throne; and Golden Numeria (the kingdom resets, the hero keeps
+  everything, and the report card never re-locks).
+
 Testing conventions: the current battle problem is exposed as
 `MM.battle.current` so drives can compute correct answers; engine state is
-reachable via `MM.engine.state` in `page.evaluate`. The unit suite also
+reachable via `MM.engine.state` in `page.evaluate`. Wave 7 adds
+`MM.ui.cinematic()` (true while the ending cutscene owns the canvas, the same
+convention as `MM.ui.sailing()`), and the exam's structure is readable off
+`MM.ui.current` (`.steps`, `.badStep`, `.answer`). The unit suite also
 enforces: the door audit + glyph registry, the renderability audit (every
 glyph draws visibly), the never-stranded audit (every island has supplies,
 a dock, and rest), and the sail-destination registry.

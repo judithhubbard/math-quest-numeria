@@ -14,8 +14,9 @@ function fail(msg) { fails++; console.log('FAIL: ' + msg); }
 // This suite runs headless (no DOM) — stub the browser-only bits any engine
 // function might touch (sound effects, UI logging/refresh) so a call like
 // MM.engine.resetSite doesn't crash just because there's no <audio> tag here.
-MM.sound = { fanfare() {}, thud() {}, coin() {} };
-MM.ui = { log() {}, refresh() {}, modalOpen: () => false };
+MM.sound = { fanfare() {}, thud() {}, coin() {}, correct() {}, wrong() {}, levelup() {}, tone() {}, whoosh() {} };
+MM.ui = { log() {}, refresh() {}, modalOpen: () => false, dialog() {}, dialogChoices() {}, showProblem() {} };
+MM.track = MM.track || function () {};   // tracker.js isn't loaded headlessly
 { // Node 25's built-in `localStorage` global is read-only-ish here; replace it outright
   const store = {};
   globalThis.localStorage = { setItem: (k, v) => { store[k] = v; }, getItem: k => store[k] || null };
@@ -370,7 +371,13 @@ const DUNGEON_GLYPHS = {
   doors: 'DKZY',             // math, locked, clock (Z), echo (Y)
   solid: '#GABCUilr',        // walls, lever-gates, gear gates, slabs,
                              // blueprint plaques, reset levers, broken
-                             // floor (impassable until mended, Wave 6.5)
+                             // floor (impassable until mended, Wave 6.5).
+                             // A/B/C stay SOLID here on purpose: the audit
+                             // asks "does this door gate anything if it were
+                             // shut", and any one gear gate can be shut. Their
+                             // per-rotation reachability has its own test
+                             // (the Spire block) — Wave 7 kept them in the
+                             // live grid but did not change what they gate.
   open: '.mgtbk*%<>Xv^,_osRL ', // floor, spawn markers, pickups, stairs,
                              // chutes, terrain effects, singing stones,
                              // gear plates (walk-on), one-shot levers
@@ -1264,8 +1271,19 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
 //      invisible clock doors.
 {
   require(path.join(ROOT, 'js/sprites.js'));
+
+  // Wave 7: the sprite sheet has a validator (rows equal length, every char
+  // has a color) that NOTHING ever called — so two tiles (pool, keyTile) had
+  // shipped for months with an uncolored 'd' punching a transparent hole in
+  // them. Call it. A sprite that can't render is a tile the kid can't see.
+  for (const p of MM.sprites.validate()) fail(`sprite: ${p}`);
+
   const GRASS_OK = new Set(['.', 'P', '=']);
-  const FLOOR_OK = new Set(['.', 'm', 'g', 't', 'b', 'A', 'B', 'C']); // A/B/C rewritten to #/. at entry
+  // Wave 7: A/B/C are NO LONGER whitelisted here. They used to be rewritten
+  // to '#'/'.' at entry, so they never rendered at all — which is precisely
+  // why the Spire's gates were invisible. They now stay in the grid and must
+  // draw as real gate sprites; if that ever regresses, this fails.
+  const FLOOR_OK = new Set(['.', 'm', 'g', 't', 'b']);
   const checkMap = (rows, mapId, label) => {
     const grid = MM.maps.parse(rows, mapId === 'world' || MM.maps.isOverworld(mapId) ? '~' : '#');
     const seen = new Set();
@@ -1289,8 +1307,19 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   checkMap(MM.maps.HOROLOGE, 'horologe', 'horologe');
   checkMap(MM.maps.CHIME, 'chime', 'chime');
   checkMap(MM.maps.GULLWRACK, 'gullwrack', 'gullwrack');
+  checkMap(MM.maps.CASTLE, 'castle', 'castle');   // Wave 7
   for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
     MM.maps.dungeonFloors(idx).forEach((raw, fi) => checkMap(raw, `d${idx}f${fi}`, `render d${idx} f${fi}`));
+  }
+  // Wave 7: a gear gate must render differently in each rotation — that IS
+  // the fix. Prove both states resolve to real, DISTINCT sprites.
+  {
+    const shut = MM.maps.tileSprite('B', 0, 0, 'd19f1', 0);   // rotation 0 => A open, B shut
+    MM.engine.state = { gearState: { d19f1: 1 } };            // rotation 1 => B open
+    const open = MM.maps.tileSprite('B', 0, 0, 'd19f1', 0);
+    MM.engine.state = null;
+    if (shut === open) fail('gear gate renders identically open and shut — the readability bug is back');
+    if (!MM.sprites.DEFS[shut] || !MM.sprites.DEFS[open]) fail('gear gate sprites missing');
   }
 }
 
@@ -1326,6 +1355,158 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   for (const k of Object.keys(MM.data.DESTINATIONS)) {
     if (!wanted.includes(k)) fail(`DESTINATIONS has unknown continent '${k}' — update this test AND enterWorld's routing`);
   }
+}
+
+// ---------- Wave 7: The Open Castle ----------
+{
+  const rows = MM.maps.CASTLE;
+  rows.forEach((r, i) => { if (r.length !== 26) fail(`castle row ${i} length ${r.length}`); });
+  if (rows.length !== 15) fail(`castle has ${rows.length} rows, want 15`);
+  const g = MM.maps.parse(rows, '#');
+  // exactly ten plinths — one per recovered treasure, and the Gallery's whole
+  // point is that the count matches the ten tasks
+  const plinths = MM.maps.find(g, 'E');
+  const mainlandTasks = MM.data.TASKS.filter(t => !t.exp).length;
+  if (plinths.length !== 10) fail(`castle: want 10 gallery plinths, found ${plinths.length}`);
+  if (mainlandTasks !== 10) fail(`castle: the Gallery of Ten assumes 10 mainland tasks, found ${mainlandTasks}`);
+  for (const ch of ['X', 'P', 'O', 'Q', 'J']) {
+    if (MM.maps.find(g, ch).length !== 1) fail(`castle: want exactly one '${ch}'`);
+  }
+  if (!MM.maps.find(g, 'V').length) fail('castle: no Hall of Heroes board');
+  // NO combat, ever: not a single monster/boss marker may exist here
+  for (const ch of ['m', 'g', 't', 'b']) {
+    if (MM.maps.find(g, ch).length) fail(`castle: monster marker '${ch}' — there is no combat in the castle`);
+  }
+  if (!MM.maps.isOverworld('castle')) fail("castle must be in OVERWORLD_IDS (or it renders as a dungeon: grey floor, no NPC pass)");
+  // every bumpable thing must be reachable from the arrival tile
+  const OPEN = new Set(['.', 'P']);
+  const start = MM.maps.find(g, 'P')[0];
+  const seen = new Set([start.x + ',' + start.y]);
+  const q = [start];
+  while (q.length) {
+    const { x, y } = q.shift();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      const ch = (g[ny] || [])[nx];
+      const k = nx + ',' + ny;
+      if (ch == null || seen.has(k) || !OPEN.has(ch)) continue;
+      seen.add(k); q.push({ x: nx, y: ny });
+    }
+  }
+  const adj = p => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen.has((p.x + dx) + ',' + (p.y + dy)));
+  for (const ch of ['E', 'V', 'O', 'Q', 'J', 'X']) {
+    for (const p of MM.maps.find(g, ch)) {
+      if (!adj(p)) fail(`castle: '${ch}' at ${p.x},${p.y} can never be bumped — nothing walkable beside it`);
+    }
+  }
+  // the castle's two NPCs must actually exist, or they draw as bare floor
+  for (const ch of ['Q', 'J']) {
+    if (!MM.data.NPCS[ch]) fail(`castle: glyph '${ch}' has no NPCS entry`);
+  }
+  // one Gallery memory per mainland task
+  if (!MM.data.GALLERY || MM.data.GALLERY.length !== 10) {
+    fail(`castle: want 10 Gallery memories, found ${(MM.data.GALLERY || []).length}`);
+  }
+}
+
+// ---------- Wave 7: the castle gate ----------
+{
+  const mk = over => ({
+    tasksDone: over.tasks ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] : [1, 2],
+    isles: { lampLit: !!over.lamp, spireDone: !!over.spire, hallsDone: !!over.halls, lenses: {} },
+  });
+  const open = st => { MM.engine.state = st; const r = MM.engine.castleOpen(); MM.engine.state = null; return r; };
+  if (open(mk({ tasks: true, lamp: true, spire: true })) !== true) fail('castle gate: should be OPEN with tasks + lamp + spire');
+  if (open(mk({ tasks: false, lamp: true, spire: true }))) fail('castle gate: must stay shut without all 13 tasks');
+  if (open(mk({ tasks: true, lamp: false, spire: true }))) fail('castle gate: must stay shut without the Great Lamp');
+  if (open(mk({ tasks: true, lamp: true, spire: false }))) fail('castle gate: must stay shut without the Spire');
+  // and the whole point: music is OPT-IN, so the Halls must NEVER be required
+  if (open(mk({ tasks: true, lamp: true, spire: true, halls: false })) !== true) {
+    fail('castle gate: the Resonant Halls must NOT be required — music is a parent opt-in');
+  }
+}
+
+// ---------- Wave 7: the Final Exam (inverted — the kid grades the teacher) ----------
+{
+  const n = MM.problems.generateExam.count;
+  if (n !== 5) fail(`exam: want 5 slates, found ${n}`);
+  for (let w = 0; w < n; w++) {
+    for (const flawed of [false, true]) {
+      for (let i = 0; i < 60; i++) {
+        const p = MM.problems.generateExam(w, flawed);
+        if (p.kind !== 'choice') fail(`exam slate ${w}: must be kind:'choice'`);
+        if (!p.steps || p.steps.length < 2) fail(`exam slate ${w}: needs a real worked solution`);
+        if (!p.prompt || !p.text || !p.solution) fail(`exam slate ${w}: missing prompt/text/solution`);
+        // choices = one per step, plus "every step is correct"
+        if (p.choices.length !== p.steps.length + 1) fail(`exam slate ${w}: choices must be one per step + "correct"`);
+        // the answer index must point AT the bad step, or at the "correct" option
+        const want = p.badStep < 0 ? p.steps.length : p.badStep;
+        if (p.answer !== want) fail(`exam slate ${w}: answer index ${p.answer} does not match badStep ${p.badStep}`);
+        // exactly one thing is wrong, and it's where we said it was
+        if (p.badStep >= p.steps.length) fail(`exam slate ${w}: badStep out of range`);
+        if (!MM.problems.checkAnswer(p, p.answer)) fail(`exam slate ${w}: its own answer is rejected`);
+        if (MM.problems.checkAnswer(p, (p.answer + 1) % p.choices.length)) fail(`exam slate ${w}: a wrong choice is accepted`);
+        // the LAST slate is the game's first kind of problem, worked right —
+        // it must never carry a planted error, even when one is demanded
+        if (w === n - 1 && p.badStep !== -1) fail('exam: the final slate must always be CLEAN (the kid marks it correct)');
+        if (w < n - 1 && flawed && p.badStep < 0) fail(`exam slate ${w}: asked for a flaw, got a clean slate`);
+        if (!flawed && p.badStep >= 0) fail(`exam slate ${w}: asked for a clean slate, got a flaw`);
+      }
+    }
+  }
+  // the exam must NOT leak into ordinary play: no generator, no quick variant
+  if (MM.problems.GENERATORS.exam || MM.problems.QUICK.exam) fail('exam: must stay out of GENERATORS/QUICK');
+}
+
+// ---------- Wave 7: Golden Numeria (NG+) keeps the hero, resets the kingdom ----------
+{
+  const s = {
+    name: 'Ng', level: 22, xp: 40, hp: 5, maxhp: 90, stamina: 1, maxStamina: 120,
+    taskIndex: 14, tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], haveItem: true,
+    opened: { 'd3:1,1': true }, bossesDefeated: { d1: true }, unsealed: { d2: true },
+    defeatedAt: { x: 'today' }, gearState: { d19f1: 2 }, repairSites: { 'gullwrack:pier': { done: true } },
+    isles: { lenses: { tidepool: true }, keys: { d14: 1 }, lampLit: true, spireDone: true, hallsDone: true, breakwaterDone: true, gullwrackRebuilt: true, pet: { name: 'Biscuit' } },
+    mastery: { addsub_facts: { attempts: 9, correct: 9, recent: [1] } },
+    badges: { addsub_facts: 3 }, bestiary: { seen: {}, kills: { Slime: 4 }, gauntlet: {} },
+    totals: { answered: 100, correct: 90 }, items: { charms: ['clover'], gems: ['flame'], treasures: [], food: {} },
+    gear: { weapon: ['star'] }, equipped: { weapon: 'star' }, enchants: { 'weapon:star': 'flame' },
+    charmsOn: ['clover'], parent: { pin: '1234', topics: {} }, difficulty: 'legend', calmMode: true,
+    spellsCelebrated: { scout: true }, metMiscount: true, sparWins: 7, endingDone: true,
+    titles: ['The New MathMaker'], continent: 'gullwrack', enrollSeen: true,
+  };
+  MM.engine.state = s;
+  MM.engine.startGolden();
+  // the KINGDOM resets
+  if (s.ngPlus !== 1) fail('golden: ngPlus not incremented');
+  if (s.taskIndex !== 1 || s.tasksDone.length || s.haveItem) fail('golden: the ten tasks must be reopened');
+  for (const k of ['opened', 'bossesDefeated', 'unsealed', 'defeatedAt', 'gearState', 'repairSites']) {
+    if (Object.keys(s[k]).length) fail(`golden: '${k}' should be wiped so the world is fresh`);
+  }
+  for (const f of ['lampLit', 'spireDone', 'hallsDone', 'breakwaterDone', 'gullwrackRebuilt']) {
+    if (s.isles[f]) fail(`golden: isles.${f} should reset`);
+  }
+  if (Object.keys(s.isles.lenses).length || Object.keys(s.isles.keys).length) fail('golden: lenses/keys should reset');
+  if (s.continent !== 'west') fail('golden: should start back home');
+  // the HERO does not
+  if (s.level !== 22 || s.badges.addsub_facts !== 3) fail('golden: level/badges must survive');
+  if (!s.mastery.addsub_facts || s.totals.correct !== 90) fail('golden: mastery/totals must survive');
+  if (s.bestiary.kills.Slime !== 4) fail('golden: the Monster Book must survive');
+  if (!s.items.charms.includes('clover') || !s.items.gems.includes('flame')) fail('golden: charms/gems must survive');
+  if (s.equipped.weapon !== 'star' || s.enchants['weapon:star'] !== 'flame') fail('golden: gear + enchants must survive');
+  if (!s.isles.pet || s.isles.pet.name !== 'Biscuit') fail('golden: the pet must survive — it is family');
+  if (!s.endingDone || !s.titles.includes('The New MathMaker')) fail('golden: you are still the MathMaker');
+  if (s.parent.pin !== '1234' || s.difficulty !== 'legend' || !s.calmMode) fail('golden: parent/accessibility settings must survive');
+  if (s.hp !== s.maxhp || s.stamina !== s.maxStamina) fail('golden: should start rested');
+  // and the kingdom comes back tougher
+  const base = MM.data.monsterStats(5, false);
+  const golden = MM.engine.monsterStats(5, false);
+  MM.engine.state = null;
+  const plain = { ...s, ngPlus: 0 };
+  MM.engine.state = plain;
+  const normal = MM.engine.monsterStats(5, false);
+  MM.engine.state = null;
+  if (!(golden.hp > normal.hp)) fail('golden: monsters should come back tougher');
+  if (base.hp < 1) fail('golden: sanity');
 }
 
 // ---------- theMon: names that carry their own article ----------

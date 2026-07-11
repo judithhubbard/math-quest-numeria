@@ -147,7 +147,19 @@ async function winBattle(page) {
   check(true, 'floor 1 complete — descending to floor 2');
 
   // ---------- floor 2: the gear plate (re-lockable, unlike every other lever) ----------
-  check(await page.evaluate(() => MM.engine.state.grid[4][7] === '.'), 'gear plate: alcove A starts open (state 0)');
+  // Wave 7 rework: the gates STAY in the grid as 'A'/'B'/'C' (they used to be
+  // rewritten to '#'/'.', which is what made them invisible). Openness is now
+  // read from the rotation, not from the glyph.
+  const gateState = () => page.evaluate(() => {
+    const s = MM.engine.state;
+    return {
+      glyphs: [s.grid[4][7], s.grid[4][17], s.grid[4][27]],
+      open: ['A', 'B', 'C'].map(g => MM.engine.gateIsOpen(g, s.mapId)),
+    };
+  });
+  let gs = await gateState();
+  check(gs.glyphs.join('') === 'ABC', 'gear gates stay in the grid as real tiles (not rewritten to #/.)');
+  check(gs.open.join() === 'true,false,false', 'gear plate: alcove A starts open (rotation 0)');
   await page.evaluate(() => { const s = MM.engine.state; s.px = 8; s.py = 2; });
   await page.keyboard.press('ArrowLeft'); // grab alcove A's chest at (7,2) while it's open
   await page.waitForSelector('#modalBox .prob-text');
@@ -156,18 +168,37 @@ async function winBattle(page) {
   check(await page.evaluate(() => MM.engine.state.grid[2][7] === '.'), 'gear plate: alcove A\'s chest was reachable and opened');
 
   await page.evaluate(() => { const s = MM.engine.state; s.px = 17; s.py = 8; });
-  await page.keyboard.press('ArrowUp'); // pull the gear plate at (17,7): state 0 -> 1
+  await page.keyboard.press('ArrowUp'); // pull the gear plate at (17,7): rotation 0 -> 1
   await page.waitForTimeout(100);
-  check(await page.evaluate(() => MM.engine.state.grid[4][7] === '#' && MM.engine.state.grid[4][17] === '.'),
-    'gear plate: one pull closes A and opens B');
+  gs = await gateState();
+  check(gs.open.join() === 'false,true,false', 'gear plate: one pull closes A and opens B');
+  check(await page.evaluate(() => document.getElementById('log').textContent.includes('••-gate')),
+    'the log NAMES which gate opened (••), instead of "a different gate"');
   await page.screenshot({ path: SHOTS + '/3-gear-plate.png' });
+  // a shut gate is not walkable; an open one is
+  check(await page.evaluate(() => {
+    const s = MM.engine.state;
+    s.px = 7; s.py = 5;               // just below gate A (7,4), now shut
+    MM.engine.tryMove(0, -1);
+    return s.px === 7 && s.py === 5;  // blocked
+  }), 'a shut gear gate blocks the way (and says so)');
+  check(await page.evaluate(() => {
+    const s = MM.engine.state;
+    s.px = 17; s.py = 5;              // just below gate B (17,4), now open
+    MM.engine.tryMove(0, -1);
+    return s.py === 4;                // walked through
+  }), 'the open gear gate can be walked through');
+
   await page.evaluate(() => { const s = MM.engine.state; s.px = 17; s.py = 8; });
-  await page.keyboard.press('ArrowUp'); // state 1 -> 2
-  check(await page.evaluate(() => MM.engine.state.grid[4][17] === '#' && MM.engine.state.grid[4][27] === '.'),
-    'gear plate: a second pull closes B and opens C');
+  await page.keyboard.press('ArrowUp'); // rotation 1 -> 2
+  await page.waitForTimeout(100);
+  gs = await gateState();
+  check(gs.open.join() === 'false,false,true', 'gear plate: a second pull closes B and opens C');
   await page.evaluate(() => { const s = MM.engine.state; s.px = 17; s.py = 8; });
-  await page.keyboard.press('ArrowUp'); // state 2 -> 0 (wraps)
-  check(await page.evaluate(() => MM.engine.state.grid[4][27] === '#' && MM.engine.state.grid[4][7] === '.'),
+  await page.keyboard.press('ArrowUp'); // rotation 2 -> 0 (wraps)
+  await page.waitForTimeout(100);
+  gs = await gateState();
+  check(gs.open.join() === 'true,false,false',
     'gear plate: a third pull wraps back to A — the cycle repeats, nothing is one-shot');
 
   await page.evaluate(() => { const s = MM.engine.state; s.px = 35; s.py = 13; });

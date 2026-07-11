@@ -140,10 +140,15 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.monsterStats = function (i, isBoss) {
     const base = MM.data.monsterStats(i, isBoss);
     const m = E.diffMult();
+    // Golden Numeria (Wave 7 NG+): the kingdom tangles again, harder — but the
+    // hero keeps every level, gem and charm, so this stays a victory lap with
+    // teeth rather than a wall. Compounds gently per run.
+    const g = 1 + 0.25 * ((E.state && E.state.ngPlus) || 0);
     return {
       ...base,
-      hp: Math.max(1, Math.round(base.hp * m.hp)),
-      atk: Math.max(1, Math.round(base.atk * m.atk)),
+      hp: Math.max(1, Math.round(base.hp * m.hp * g)),
+      atk: Math.max(1, Math.round(base.atk * m.atk * g)),
+      gold: base.gold ? Math.round(base.gold * g) : base.gold,
     };
   };
 
@@ -401,6 +406,30 @@ var MM = globalThis.MM = globalThis.MM || {};
     return out.sort();
   };
 
+  // Read another adventurer's save WITHOUT loading it (the Hall of Heroes,
+  // Wave 7). E.load() would replace E.state and yank the current player out
+  // of their own game — this just peeks. Returns null on anything unreadable,
+  // because one corrupt save must never take the whole Hall down with it.
+  E.peekProfile = function (name) {
+    try {
+      const raw = localStorage.getItem(SAVE_PREFIX + name);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  };
+
+  // Every honour an adventurer has actually earned, derived from their flags
+  // rather than stored — so a save from before Wave 7 still shows its titles.
+  E.titlesFor = function (st) {
+    if (!st) return [];
+    const isles = st.isles || {};
+    const out = [];
+    if (st.tasksDone && st.tasksDone.includes(10)) out.push('Crownbearer');
+    if (isles.lampLit) out.push('Keeper of the Light');
+    if (isles.gullwrackRebuilt) out.push('Guildmember of Gullwrack');
+    if (st.endingDone) out.push('The New MathMaker');
+    return out;
+  };
+
   E.deleteProfile = function (name) {
     localStorage.removeItem(SAVE_PREFIX + name);
   };
@@ -493,6 +522,291 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.petPos = { x: s.px, y: s.py };
     MM.ui.log('Salt-worn timbers and gull cries — Gullwrack Harbor.');
     MM.ui.refresh();
+  };
+
+  // ---------- Wave 7: The Open Castle ----------
+  // The castle doors open once the kingdom is whole: all thirteen tasks, the
+  // Great Lamp lit, and the Spire ticking again. Deliberately NOT gated on the
+  // Resonant Halls — music is a parent opt-in, and no kid should be locked out
+  // of the ending by a topic their parent switched off. (If they DID beat the
+  // Discord, the choir turns up in the epilogue.)
+  E.castleOpen = function () {
+    const s = E.state;
+    return !!(s.tasksDone && s.tasksDone.includes(13) && s.isles && s.isles.lampLit && s.isles.spireDone);
+  };
+  // What's still missing, in the castle's own voice — never a bare "no".
+  E.castleGateHint = function () {
+    const s = E.state;
+    const left = [];
+    if (!(s.tasksDone && s.tasksDone.includes(13))) left.push('every task returned');
+    if (!(s.isles && s.isles.lampLit)) left.push('the <b>Great Lamp</b> lit');
+    if (!(s.isles && s.isles.spireDone)) left.push('the <b>Clockwork Spire</b> ticking again');
+    return left;
+  };
+
+  E.enterCastle = function () {
+    const s = E.state;
+    MM.track('enterCastle');
+    if (MM.maps.isOverworld(s.mapId)) s.worldPos = { x: s.px, y: s.py };
+    s.mapId = 'castle';
+    s.grid = MM.maps.parse(MM.maps.CASTLE, '#');
+    s.monsters = [];   // no combat in the castle. Ever.
+    const start = MM.maps.find(s.grid, 'P')[0];
+    s.px = start.x; s.py = start.y;
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.log('🏰 The great doors swing wide. Inside, the castle is <b>warm</b>, and someone has lit every lamp.');
+    E.save();
+    MM.ui.refresh();
+    // the one-time gag, once the story is over: a monster has enrolled
+    if (s.endingDone && !s.enrollSeen) {
+      s.enrollSeen = true;
+      E.save();
+      MM.ui.dialog('🎩 A visitor in the Study',
+        'A <b>Slime</b> is sitting very politely in the Study, wearing a tiny hat.<br><br>' +
+        'It has brought a slate. It has brought a pencil. It has, alarmingly, brought a <i>second</i> pencil, ' +
+        'in case the first one has an accident.<br><br>' +
+        '"It says it\'s here to <b>enroll</b>," Miscount reports. "I checked twice. That is genuinely what it says."<br><br>' +
+        '<i>The MathMaker is already pulling up a chair.</i>');
+    }
+  };
+
+  E.exitCastle = function () {
+    MM.ui.log('You step back out into the daylight.');
+    E.enterWorld();
+    E.save();
+  };
+
+  // ---------- the Gallery of Ten ----------
+  // The ten recovered treasures, on plinths, in the order you found them.
+  // Bumping one replays a single line of the kid's OWN history — this room is
+  // a museum of the player, which is why it costs almost nothing and lands
+  // harder than anything else in the castle.
+  E.galleryPlinth = function (x, y) {
+    const s = E.state;
+    // plinths are laid out in two rows of five; read the index off the map so
+    // the numbering can never drift from the art
+    const all = MM.maps.find(s.grid, 'E').sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    const row = y === all[0].y ? 0 : 1;
+    const col = all.filter(p => p.y === y).findIndex(p => p.x === x);
+    const idx = row * 5 + col;              // 0-9
+    const task = MM.data.TASKS[idx];
+    if (!task) return;
+    if (!s.tasksDone.includes(idx + 1)) {
+      return MM.ui.dialog('🕯 An empty plinth',
+        `A velvet cushion, a little brass plate, and nothing on it yet.<br><br>` +
+        `<i>The plate reads: <b>${task.item}</b> — ${task.dungeon}.</i>`);
+    }
+    const entry = MM.data.GALLERY[idx];
+    const memory = typeof entry === 'string' ? entry : (s.endingDone ? entry.after : entry.before);
+    MM.ui.dialog(`${task.itemEmoji} ${task.item}`,
+      `<i>${task.dungeon}</i><br><br>${memory}`);
+  };
+
+  // ---------- the Study: the reveal ----------
+  // The one scene the whole game has been walking toward. Teacher and former
+  // student, side by side, telling the kid the truth. Sincere throughout —
+  // no jokes land in this room (STORY_BIBLE hard rule 4).
+  E.studyReveal = function () {
+    const s = E.state;
+    if (s.endingDone) return E.studyAfter();
+    const step3 = () => MM.ui.dialogChoices('🧙 The MathMaker',
+      `"So." He folds his hands. "You have put every wrong thing right, and you did it the only way it can be done — ` +
+      `<b>one careful step at a time</b>."<br><br>` +
+      `"Which leaves me one last thing to teach you. And I am afraid I cannot teach it by telling you."<br><br>` +
+      `<i>He crosses to a great slate on the wall, picks up the chalk — and holds it out to you, handle first.</i><br><br>` +
+      `"I never needed a hero, child. Heroes leave." He smiles, and it is the smile of a man laying something down at last. ` +
+      `"I needed a <b>teacher</b>. <b>Teachers multiply.</b>"<br><br>` +
+      `"Sit. I will work, and <b>you</b> will mark me. Five problems. Look at my working, not just my answer — ` +
+      `<i>the answer is only ever the last thing that happens.</i>"`,
+      [
+        { label: '✏️ Take the chalk', primary: true, onClick: () => E.finalExam() },
+        { label: 'Not just yet', onClick: () => {} },
+      ]);
+    const step2 = () => MM.ui.dialog('🧑‍🎓 Miscount',
+      `"I worked it out, eventually. What I actually did." Miscount turns a piece of chalk over in his fingers.<br><br>` +
+      `"I stopped working things out. That's all. I got tired, and I guessed, and then I guessed about the guesses — ` +
+      `and the tangles came in where the working should have been. Not because I was <b>wicked</b>."<br><br>` +
+      `"Because I wasn't <b>tending</b> it."<br><br>` +
+      `<i>He looks up.</i> "Everything you untangled out there? Somebody had stopped tending it. That's the whole secret. ` +
+      `It's a very small, very stupid secret, and it cost the kingdom nine years."`,
+      step3);
+    MM.ui.dialog('🧙 The MathMaker',
+      `The Study is small, and full of chalk dust, and there are two chairs.<br><br>` +
+      `"You asked me once why the monsters come apart when you show your work." The MathMaker does not look up from ` +
+      `the slate. "I have been putting off the answer, because it is not a clever one. It is only <b>true</b>."<br><br>` +
+      `"Numeria is <b>made</b> of number-stuff. Sylvia was not being poetic — the mortar really is arithmetic. ` +
+      `And wherever people stop working things out, the disorder pools, and it <b>tangles</b>."<br><br>` +
+      `"That is all a monster has ever been, child. A tangle, where the working should have been."<br><br>` +
+      `<i>He sets down the chalk.</i> "A worked answer <b>unties</b> it. Not because you are strong. Because you are <b>right</b>, ` +
+      `and you can show why."`,
+      step2);
+  };
+
+  // Post-ending, the Study is just... a study. Two people who like each other,
+  // doing sums.
+  E.studyAfter = function () {
+    MM.ui.dialog('🧙 The MathMaker & 🧑‍🎓 Miscount',
+      `They have the slate between them and they are arguing, with enormous enjoyment, about the <b>tidiest</b> way to ` +
+      `write out a long division.<br><br>` +
+      `"Ah — the <b>MathMaker</b>," says the MathMaker, and stands aside to give you the chalk. He says the title without ` +
+      `a flicker of irony, because it is simply your name now.<br><br>` +
+      `<span class="dim">"Settle this for us, would you?"</span>`);
+  };
+
+  // ---------- The Final Exam, inverted ----------
+  // No boss. No HP bars. The MathMaker works five problems on the slate and
+  // the KID marks them. Getting one wrong costs nothing: the slate simply
+  // shows which step it was. You cannot fail this; you can only finish it.
+  E.finalExam = function () {
+    const s = E.state;
+    const n = MM.problems.generateExam.count;
+    // exactly one of the first four slates is clean, so "it's correct" is a
+    // live answer throughout and the kid can't just always hunt for an error
+    const cleanOne = Math.floor(Math.random() * (n - 1));
+    let i = 0, marked = 0;
+    const step = () => {
+      const prob = MM.problems.generateExam(i, i !== cleanOne);
+      MM.ui.showProblem({
+        header: `📝 <b>The Final Exam — ${i + 1} of ${n}</b><br>` +
+          `<span class="dim">The MathMaker works it on the slate. You mark it. ` +
+          `Which step went wrong — or is every step right?</span>`,
+        problem: prob,
+        leaveLabel: 'Set down the chalk',
+        onAnswer(correct) {
+          // the exam is not practice — it never touches mastery or badges.
+          // The kid is GRADING here, not being graded.
+          if (correct) marked++;
+          i++;
+          const last = i >= n;
+          const msg = correct
+            ? (prob.badStep < 0
+              ? '<i>"Correct — and you checked anyway. That is the habit, right there."</i>'
+              : `<i>"Caught me." He wipes the step away, grinning. "Step ${prob.badStep + 1}, and you can say <b>why</b>."</i>`)
+            : (prob.badStep < 0
+              ? '<i>"Look again — that step really does hold up. Every one of them does, this time."</i>'
+              : `<i>"Not that one — that one's sound." He taps step ${prob.badStep + 1}. "<b>Here.</b> ${prob.why}"</i>`);
+          return { msg, end: last ? 'win' : undefined };
+        },
+        onNext: step,
+        onEnd(kind) {
+          if (kind === 'win') E.coronation(marked, n);
+          else MM.ui.refresh();
+        },
+      });
+    };
+    step();
+  };
+
+  // ---------- Coronation ----------
+  E.coronation = function (marked, total) {
+    const s = E.state;
+    s.endingDone = true;
+    s.titles = s.titles || [];
+    if (!s.titles.includes('The New MathMaker')) s.titles.push('The New MathMaker');
+    E.save();
+    MM.sound.fanfare();
+    if (MM.ui.worldBurst) {
+      for (let i = 0; i < 4; i++) MM.ui.worldBurst(s.px, s.py, ['#ffd94a', '#7ee0e8', '#6ee87e', '#e88ac4'][i], 22);
+    }
+    const scored = marked === total
+      ? `You marked <b>every one</b> of them — the clean slate included.`
+      : `You marked <b>${marked} of ${total}</b> — and the ones you missed, you can now explain.`;
+    MM.ui.dialog('👑 The Crown of Numbers',
+      `${scored}<br><br>` +
+      `<i>The MathMaker takes the Crown of Numbers down off its shelf, where it has been sitting since the day you ` +
+      `brought it home, and where — you realise now — he never once put it on.</i><br><br>` +
+      `"It was never mine to wear. I was only <b>keeping</b> it." He sets it, carefully, on your head. It is not heavy. ` +
+      `Knowledge weighs nothing.<br><br>` +
+      `<i>Miscount is applauding. Miscount is, in fact, crying, and pretending with great dignity that he is not.</i><br><br>` +
+      `"Numeria has a <b>new MathMaker</b>," says the old one. "Which means Numeria has someone to <b>tend</b> it. ` +
+      `Come — you should see what that looks like."`,
+      () => E.playEnding());
+  };
+
+  // ---------- the cutscene ----------
+  E.playEnding = function () {
+    MM.ui.endingScene(() => {
+      const s = E.state;
+      E.save();
+      MM.ui.log('👑 <b>You are the MathMaker now.</b> The kingdom is yours to tend.');
+      MM.ui.refresh();
+    });
+  };
+
+  // ---------- the throne ----------
+  E.throneRoom = function () {
+    const s = E.state;
+    if (!s.endingDone) {
+      return MM.ui.dialog('🪑 The throne',
+        'Nobody is sitting in it. Nobody has sat in it for a long time.<br><br>' +
+        '<i>There is chalk dust on the armrest.</i>');
+    }
+    MM.ui.dialogChoices('🪑 The throne',
+      `It is a good chair. You could sit in it. You mostly don't — the Study has better light.<br><br>` +
+      `<span class="dim">From here you can watch the whole kingdom, and remember it whole.</span>`,
+      [
+        { label: '🌀 Watch "The Kingdom, Untangled" again', primary: true, onClick: () => E.playEnding() },
+        { label: '✨ Golden Numeria (start over, keep everything)', onClick: () => E.goldenPrompt() },
+        { label: 'Just sit a while', onClick: () => {} },
+      ]);
+  };
+
+  // ---------- Golden Numeria (NG+) ----------
+  E.goldenPrompt = function () {
+    const s = E.state;
+    MM.ui.dialogChoices('✨ Golden Numeria',
+      `"The kingdom will tangle again someday. Kingdoms do." The MathMaker does not sound sad about it. ` +
+      `"That is not a <b>failure</b>. That is just what a kingdom is: a thing that needs tending, over and over, ` +
+      `by somebody who knows how."<br><br>` +
+      `<i>Walk it once more, in gold?</i><br><br>` +
+      `<span class="dim">Every dungeon re-seals and every boss returns, <b>tougher</b>. You keep everything you are: ` +
+      `your level, your gear, your gems and charms, your badges, your Monster Book, your pet — and your crown. ` +
+      `Only the kingdom starts again.</span>`,
+      [
+        { label: '✨ Begin Golden Numeria', primary: true, onClick: () => E.startGolden() },
+        { label: 'Not yet', onClick: () => E.throneRoom() },
+      ]);
+  };
+
+  E.startGolden = function () {
+    const s = E.state;
+    MM.track('startGolden');
+    s.ngPlus = (s.ngPlus || 0) + 1;
+    // the KINGDOM resets — the hero does not.
+    s.taskIndex = 1;
+    s.tasksDone = [];
+    s.haveItem = false;
+    s.opened = {};
+    s.bossesDefeated = {};
+    s.defeatedAt = {};
+    s.unsealed = {};
+    s.gearState = {};
+    s.repairSites = {};
+    s.isles.keys = {};
+    s.isles.lenses = {};
+    s.isles.lampLit = false;
+    s.isles.spireDone = false;
+    s.isles.hallsDone = false;
+    s.isles.breakwaterDone = false;
+    s.isles.gullwrackRebuilt = false;
+    s.enrollSeen = false;
+    s.continent = 'west';
+    s.worldPos = null;
+    // KEPT, deliberately: level/xp, gear/equipped/enchants, items (charms,
+    // gems, treasures), charmsOn, mastery, badges, bestiary, totals, the pet,
+    // parent settings, difficulty, calmMode, spellsCelebrated, metMiscount,
+    // sparWins, titles, and endingDone (you are still the MathMaker).
+    s.hp = s.maxhp;
+    s.stamina = s.maxStamina;
+    E.enterWorld();
+    E.save();
+    MM.sound.fanfare();
+    MM.ui.dialog('✨ Golden Numeria',
+      `<i>The kingdom takes a breath, and begins again — every dungeon sealed, every boss back on its feet ` +
+      `and <b>stronger</b> for the rest.</i><br><br>` +
+      `You still have your level, your gear, your charms, your badges, your book, your pet, and your crown. ` +
+      `You have everything you learned. That, it turns out, is the only thing that was ever really yours.<br><br>` +
+      `<span class="dim">Golden Numeria — run ${s.ngPlus}. One careful step at a time.</span>`);
   };
 
   // Sailing between continents (the Compass Rose) — with the voyage scene.
@@ -708,13 +1022,31 @@ var MM = globalThis.MM = globalThis.MM || {};
     const s = E.state;
     if (!s || MM.ui.modalOpen() || MM.battle.active()) return;
     if (MM.ui.sailing && MM.ui.sailing()) return; // no pacing the deck
+    if (MM.ui.cinematic && MM.ui.cinematic()) return; // nor during the ending
     if (dx || dy) E.lastDir = { dx, dy }; // used by the Blink spell
     const nx = s.px + dx, ny = s.py + dy;
     if (ny < 0 || ny >= s.grid.length || nx < 0 || nx >= s.grid[0].length) return;
     const ch = s.grid[ny][nx];
     MM.ui.playerMoved(dx);
 
-    if (s.mapId === 'world' || s.mapId === 'isles' || s.mapId === 'horologe' || s.mapId === 'chime' || s.mapId === 'gullwrack') {
+    if (MM.maps.isOverworld(s.mapId)) {
+      if (s.mapId === 'castle') {
+        // The castle interior (Wave 7). No monsters, no combat — the only
+        // things to bump into are your own history and the people in it.
+        if (ch === 'X') return E.exitCastle();
+        if (ch === 'E') return E.galleryPlinth(nx, ny);
+        if (ch === 'V') return MM.ui.hallOfHeroes();
+        if (ch === 'O') return E.throneRoom();
+        if (ch === 'F') return;   // a banner. It is a very good banner.
+        if (MM.data.NPCS[ch]) return E.talkNpc(ch);
+        if (ch === '.' || ch === 'P') {
+          // no stamina cost indoors — there's nothing to fight and nothing to
+          // flee, and a kid should never be able to strand themselves at home
+          E.petPos = { x: s.px, y: s.py };
+          s.px = nx; s.py = ny;
+        }
+        return;
+      }
       if (s.mapId === 'gullwrack') {
         if (ch === '7') return E.tryEnterDungeon(21);
         if (ch === 'W') return E.gullwrackDock();
@@ -821,14 +1153,28 @@ var MM = globalThis.MM = globalThis.MM || {};
       return;
     }
     if (ch === 'R') { // gear plate: re-lockable, unlike every other lever —
-      // cycles which ONE of the three gates (A/B/C) is open; see applyGearState.
+      // cycles which ONE of the three gates (A/B/C) is open.
       s.gearState = s.gearState || {};
       s.gearState[s.mapId] = ((s.gearState[s.mapId] || 0) + 1) % 3;
       E.applyGearState();
       MM.sound.fanfare();
-      MM.ui.log('⚙️ Gears grind and shift — a different gate swings open now!');
+      // Wave 7 readability: SAY which gate opened, and glint it. "A different
+      // gate swings open" told the kid nothing — which gate? where? (playtest)
+      const letter = E.openGateLetter(s.mapId);
+      const pips = E.GATE_PIPS[letter];
+      E.gateGlintUntil = performance.now() + 1600;
+      MM.ui.log(`⚙️ Gears grind and shift — the <b>${pips}-gate</b> swings open, and the other two grind shut.`);
       E.save();
+      MM.ui.refresh();
       return;
+    }
+    // Wave 7: a gear gate is walkable only in its own rotation. The glyph
+    // stays put either way, so the sprite (and its pips) can say so.
+    if (ch === 'A' || ch === 'B' || ch === 'C') {
+      if (!E.gateIsOpen(ch, s.mapId)) {
+        return MM.ui.log(`⚙️ The <b>${E.GATE_PIPS[ch]}-gate</b> is wound shut. The plate ⚙ decides which one opens.`);
+      }
+      // open — fall through to the ordinary move below
     }
     if (ch === E.SITE_GLYPHS.plaque || ch === E.SITE_GLYPHS.lever || ch === E.SITE_GLYPHS.slab) {
       if (E.trySiteBump(s.mapId, dx, dy, nx, ny)) return;
@@ -853,19 +1199,31 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   // Gear plates (Clockwork Spire): the ONLY re-lockable interaction in the
   // game — every other lever/gate/door is one-shot-and-forever (s.opened).
-  // A gate can't remember its own glyph once turned to '.', so positions are
-  // cached separately (E._gatePositions, set in enterDungeon) and re-applied
-  // here: whichever of A/B/C matches the current rotation opens; the other
-  // two are (re-)closed. Safe to call anytime the grid or state might be stale.
-  E.applyGearState = function () {
-    const s = E.state;
-    const gates = E._gatePositions && E._gatePositions[s.mapId];
-    if (!gates) return;
-    const state = (s.gearState && s.gearState[s.mapId]) || 0;
-    ['A', 'B', 'C'].forEach((letter, i) => {
-      for (const pos of gates[letter]) s.grid[pos.y][pos.x] = (i === state) ? '.' : '#';
-    });
+  //
+  // Wave 7 (readability carry-over): this used to REWRITE each gate cell to
+  // '#' or '.', which is what made the puzzle unreadable — a closed gate was
+  // pixel-identical to a wall, an open one to bare floor, and the kid saw a
+  // distant nothing silently become a different nothing. The A/B/C glyphs now
+  // STAY in the grid; the rotation decides only whether you may walk through
+  // (E.gateIsOpen) and which sprite draws (maps.tileSprite + the pip overlay
+  // in drawWorld). Nothing about the puzzle's logic changed — only whether a
+  // kid can see it.
+  // The three gates are told apart by pips, everywhere they're mentioned:
+  // on the gate sprite, on the plate sprite, and in the log line.
+  E.GATE_PIPS = { A: '•', B: '••', C: '•••' };
+  E.gearRotation = mapId => MM.maps.gearRotation(mapId || (E.state && E.state.mapId));
+  E.gateIsOpen = function (ch, mapId) {
+    return MM.maps.gateOpenNow(ch, mapId || (E.state && E.state.mapId));
   };
+  // The letter of whichever gate is currently open ('A' | 'B' | 'C').
+  E.openGateLetter = mapId => MM.maps.GEAR_LETTERS[E.gearRotation(mapId)];
+  // Kept as a no-op-safe shim: the grid no longer needs rewriting, but
+  // enterDungeon and the plate handler both still call it, and a future
+  // stateful-tile mechanic may want the hook.
+  E.applyGearState = function () {};
+  // The just-opened gate glints for a moment (drawWorld), so the kid sees
+  // WHICH distant thing the plate changed — same idea as the Scout shimmer.
+  E.gateGlinting = () => !!(E.gateGlintUntil && performance.now() < E.gateGlintUntil);
 
   // ---------- slab-tiling repair sites (Wave 6: Gullwrack Harbor) ----------
   // A repair site = broken-floor tiles (r) with pushable stone slabs (U)
@@ -2128,6 +2486,17 @@ var MM = globalThis.MM = globalThis.MM || {};
     const npc = MM.data.NPCS[ch];
     if (npc.arena) return E.miscountArena();
     if (npc.enchant) return MM.ui.enchanterDialog();
+    if (npc.study) return E.studyReveal();   // Wave 7: the MathMaker & Miscount
+    // Wave 7 epilogue: Pip has stopped collecting riddles and started
+    // GIVING them. The kid taught somebody, without ever meaning to.
+    if (npc.riddle && s.endingDone) {
+      return MM.ui.dialog(npc.name,
+        '"I run the riddle contest now!" Little Pip is standing on a crate, so as to be taken seriously. ' +
+        'It is working. There are <b>four</b> other children sitting in front of the crate.<br><br>' +
+        '"I do the hard one at the end and then I show everyone <b>how it works</b>, because—" Pip goes slightly ' +
+        'shy for the first time in recorded history "—because that\'s the bit that\'s actually good. You know?"<br><br>' +
+        '<i>You know.</i>');
+    }
     if (!npc.riddle) return MM.ui.dialog(npc.name, npc.talk(s));
 
     // Little Pip's riddle: one per task, small gold prize, no penalty
@@ -2172,6 +2541,11 @@ var MM = globalThis.MM = globalThis.MM || {};
         "Two things, if you're willing! We can <b>spar</b> — I conjure Homework Golems with quick questions from every topic, tougher each time you win. And..." he hesitates, "...there are some <b>things I need to put right</b>. I'd be honored to have your help."`;
     } else if (curTask) {
       greeting = `"The <b>${curTask.item}</b> is still out there — in the <b>${curTask.dungeon}</b>. No rush. Or we could spar! Golem <b>${L}</b> is ready when you are."`;
+    } else if (s.endingDone) {
+      // Wave 7 epilogue: Miscount teaches now. It is the whole point of him.
+      // Must be tested BEFORE the taskIndex>13 branch — by the time the ending
+      // is done, taskIndex is always past 13, and this would never fire.
+      greeting = MM.data.pick(MM.data.MISCOUNT_EPILOGUE);
     } else if (s.taskIndex > 13) {
       greeting = `"Everything's back where it belongs, thanks to you." Miscount smiles up at the peak, where the Star glitters. "So now we just... practice. Golem <b>${L}</b> awaits, champion."`;
     } else {
@@ -2528,6 +2902,9 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   E.castle = function () {
     const s = E.state;
+    // Wave 7: once the kingdom is whole, 'C' stops being a conversation and
+    // becomes a DOOR. Everything below is the pre-ending castle.
+    if (E.castleOpen()) return E.enterCastle();
     if (s.taskIndex === 0) {
       s.taskIndex = 1;
       const t = MM.data.TASKS[0];
@@ -2541,16 +2918,26 @@ var MM = globalThis.MM = globalThis.MM || {};
         () => MM.ui.refresh());
     }
     const t = MM.data.TASKS[s.taskIndex - 1];
-    // the expansion tasks belong to Miscount, across the bridge
+    // Wave 7 BUGFIX (pre-existing, exposed by the castle gate): this test has
+    // to come FIRST. At taskIndex 14 the "current task" is TASKS[13] — the
+    // Tidepool Grotto, which carries exp:true — so the `t.exp` branch below
+    // swallowed every post-task-13 visit and the "Champion of Numeria"
+    // greeting had never once been reachable.
+    if (s.taskIndex > 13) {
+      // all thirteen done, but the sea isn't finished with you yet — say what
+      // the doors are still waiting on, in his own voice
+      const left = E.castleGateHint();
+      return MM.ui.dialog('🧙 The MathMaker',
+        `"Champion of Numeria, restorer of the Star!" The MathMaker bows deeply.<br><br>` +
+        `<i>Behind him, the great doors of the castle are shut — and, you notice, freshly oiled.</i><br><br>` +
+        `"There is something I mean to show you, in here. Not yet, though." He glances at the sea. ` +
+        `"The kingdom is not whole while ${left.join(' and ')} is still wanting."`);
+    }
+    // the expansion tasks (11-13) belong to Miscount, across the bridge
     if (t && t.exp) {
       return MM.ui.dialog('🧙 The MathMaker',
         `"Helping Miscount return what he took? Nothing could make me prouder." He gazes east. ` +
         `"Cross the bridge — <b>Miscount</b> 🧑‍🎓 will tell you what he needs."`);
-    }
-    if (s.taskIndex > 13) {
-      return MM.ui.dialog('🧙 The MathMaker',
-        `"Champion of Numeria, restorer of the Star!" The MathMaker bows deeply. ` +
-        `"Every dungeon stays open for practice — and I hear Miscount's golems are getting quite tough..."`);
     }
     if (s.haveItem) {
       const reward = MM.data.taskReward(s.taskIndex);

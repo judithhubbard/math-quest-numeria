@@ -95,6 +95,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ev.ctrlKey && ev.shiftKey && ev.key.toLowerCase() === 'b') { ev.preventDefault(); return UI.captureNow(); }
       // never swallow keys the user is typing into a text field (name, answers)
       if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA')) return;
+      // the ending cutscene: ANY key skips the beat you're on (a kid who has
+      // seen it four times should never be held hostage by it)
+      if (endAnim && !UI.modalOpen()) { ev.preventDefault(); return endSkip(); }
       if (UI.modalOpen() || MM.battle.active()) return;
       const k = ev.key.toLowerCase();
       if (k === 'arrowup' || k === 'w') { ev.preventDefault(); MM.engine.tryMove(0, -1); }
@@ -215,14 +218,389 @@ var MM = globalThis.MM = globalThis.MM || {};
     ctx.fillText(msg, W / 2, H * 0.16);
   }
 
+  // ================= "The Kingdom, Untangled" (Wave 7's ending cutscene) ======
+  // The game's one big scripted scene. Structured exactly like drawSail — one
+  // module-level state object, painted by the shared rAF loop — but with real
+  // BEATS, because it has to say something.
+  //
+  // Stage 1 (the untangling): each region's monster was a TANGLE where the
+  // working should have been. So each vignette draws a literal knot — a bezier
+  // with scrambled control points — and LERPS those control points onto an
+  // orderly target. A worked line is a straight line; that's the whole thesis,
+  // animated. One soft chime per beat.
+  // Stage 2 (the pull-back): the kingdom redraws itself as the golden-rectangle
+  // tiling (1,1,2,3,5,8), spiral sweeping through the regions IN THE ORDER THE
+  // KID VISITED THEM. Then the last problem in the game — and it's a discovery,
+  // not a test.
+  //
+  // Every beat is skippable with any key. Replayable forever from the throne.
+  let endAnim = null;
+  UI.cinematic = () => !!endAnim;
+  const ease = p => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
+
+  // A knot: N control points, scrambled -> orderly. p=0 is chaos, p=1 is order.
+  function drawKnot(cx, cy, seedPts, targetPts, p, color, width) {
+    const pts = seedPts.map((sp, i) => {
+      const tp = targetPts[i];
+      return { x: sp.x + (tp.x - sp.x) * p, y: sp.y + (tp.y - sp.y) * p };
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx + pts[0].x, cy + pts[0].y);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const xc = cx + (pts[i].x + pts[i + 1].x) / 2;
+      const yc = cy + (pts[i].y + pts[i + 1].y) / 2;
+      ctx.quadraticCurveTo(cx + pts[i].x, cy + pts[i].y, xc, yc);
+    }
+    const last = pts[pts.length - 1];
+    ctx.lineTo(cx + last.x, cy + last.y);
+    ctx.stroke();
+  }
+
+  // deterministic pseudo-random, so a replay of the ending looks the same
+  function seeded(i) { const x = Math.sin(i * 127.1) * 43758.5453; return x - Math.floor(x); }
+
+  function knotSeed(n, spread) {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      out.push({ x: (seeded(i * 3 + 1) - 0.5) * spread, y: (seeded(i * 3 + 2) - 0.5) * spread });
+    }
+    return out;
+  }
+
+  // Each region's tangle resolves into the shape that region MEANT.
+  function beatTargets(kind, n) {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      if (kind === 'beam') out.push({ x: -170 + 340 * t, y: 0 });                       // the lighthouse beam: straight
+      else if (kind === 'clock') out.push({ x: 0, y: -110 * (1 - t) });                  // hands at midnight: vertical
+      else if (kind === 'pier') out.push({ x: -170 + 340 * t, y: (i % 2) * 26 - 13 });   // rebuilt beams: a level frame
+      else if (kind === 'staff') out.push({ x: -170 + 340 * t, y: Math.round((t * 4 - 2)) * 22 }); // notes on a staff
+      else out.push({ x: -150 + 300 * t, y: (i % 2 ? 34 : -34) });                       // a worked scaffold: a zigzag of steps
+    }
+    return out;
+  }
+
+  UI.endingScene = function (onDone) {
+    const s = MM.engine.state;
+    const beats = [
+      { kind: 'scroll', title: 'Miscount', line: 'The largest tangle of all — a boy who stopped working things out.', tone: 0, color: '#8d88b8' },
+      { kind: 'beam', title: 'The Great Lighthouse', line: 'The Murk grew where the light stopped being tended.', tone: 1, color: '#dce8ec' },
+      { kind: 'clock', title: 'The Clockwork Spire', line: 'The King wound down where nobody was left to wind him.', tone: 2, color: '#e0b84a' },
+      { kind: 'pier', title: 'Gullwrack Harbor', line: 'The Undertow never learned where the edges of things were.', tone: 3, color: '#7ab8b0' },
+    ];
+    // the choir only turns up if the kid actually met them — music is opt-in,
+    // so this beat is a bonus, never a hole
+    if (s.isles && s.isles.hallsDone) {
+      beats.push({ kind: 'staff', title: 'The Resonant Halls', line: 'The Discord only ever wanted to be let into the song.', tone: 4, color: '#e88ac4' });
+    }
+    endAnim = {
+      start: performance.now(), beat: 0, beatStart: performance.now(),
+      beats, onDone, stage: 'untangle', asked: false, wrongShown: false, credits: 0,
+    };
+    MM.sound.tone(0);
+  };
+
+  const BEAT_MS = 4200, PULLBACK_MS = 7000;
+
+  function endSkip() {
+    const a = endAnim;
+    if (!a) return;
+    if (a.stage === 'untangle') {
+      a.beat++;
+      a.beatStart = performance.now();
+      if (a.beat >= a.beats.length) { a.stage = 'pullback'; a.beatStart = performance.now(); }
+      else MM.sound.tone(a.beats[a.beat].tone);
+      return;
+    }
+    if (a.stage === 'pullback') { a.beatStart = performance.now() - PULLBACK_MS; return; }
+    if (a.stage === 'credits') { endFinish(); }
+  }
+
+  function endFinish() {
+    const a = endAnim;
+    if (!a) return;
+    const cb = a.onDone;
+    endAnim = null;      // clear FIRST — onDone reopens the world
+    if (cb) cb();
+  }
+
+  // The last problem in the game. Not a test — a discovery. A wrong answer is
+  // answered by DRAWING the next square, so the kid leaves having seen why.
+  function askTheSpiral() {
+    const a = endAnim;
+    a.asked = true;
+    const prob = {
+      kind: 'number', skill: 'word_problems', tier: 1,
+      text: 'The kingdom writes itself along the spiral:\n\n<b>1  1  2  3  5  8  13  …</b>\n\nWhat comes next?',
+      answer: MM.problems.frac(21, 1),
+      hint: 'Look at any two numbers in a row. What do they make together?',
+      solution: '8 + 13 = 21.',
+    };
+    UI.showProblem({
+      header: '🌀 <b>"The kingdom looks different from far away."</b>',
+      problem: prob,
+      leaveLabel: 'Just look at it',
+      onAnswer(correct) {
+        if (!endAnim) return { end: 'win' };
+        endAnim.solved = true;
+        if (correct) {
+          MM.sound.fanfare();
+          return {
+            msg: '<i>The next square blooms out past the edge of the parchment, and keeps going.</i>',
+            end: 'win',
+          };
+        }
+        // teach, never scold — the spiral shows its own working
+        endAnim.wrongShown = true;
+        return {
+          msg: '<i>The spiral draws it for you: the last two squares, laid side by side.</i><br><br>' +
+            '<b>8 + 13 = 21.</b> Each square is the two before it, added together — that is the whole rule, ' +
+            'and you can see it now.<br><br><i>"Patterns usually do," says the MathMaker. "That is the trick of it: ' +
+            'step back far enough, and the tangle was a shape all along."</i>',
+          end: 'win',
+        };
+      },
+      onNext: () => {},
+      onEnd() {
+        if (!endAnim) return;
+        endAnim.stage = 'credits';
+        endAnim.beatStart = performance.now();
+      },
+    });
+  }
+
+  // The Fibonacci square tiling, laid out so the squares ABUT exactly: each
+  // new square attaches to a side of the growing rectangle whose length
+  // already equals it (left, top, right, bottom, left). 1+1+4+9+25+64 = 104,
+  // and the finished rectangle is 13x8 = 104 — it tiles with no gap, which is
+  // the entire point and worth checking rather than eyeballing.
+  const FIB = [1, 1, 2, 3, 5, 8];
+  const FIB_SQ = [
+    { x: 0, y: 0, s: 1 }, { x: -1, y: 0, s: 1 }, { x: -1, y: -2, s: 2 },
+    { x: 1, y: -2, s: 3 }, { x: -1, y: 1, s: 5 }, { x: -9, y: -2, s: 8 },
+  ];
+  // One continuous quarter-arc per square, each starting exactly where the
+  // last one ended — the golden spiral, sweeping the regions in visit order.
+  const FIB_ARC = [
+    { cx: 0, cy: 0, r: 1, a0: 0, a1: 90 },
+    { cx: 0, cy: 0, r: 1, a0: 90, a1: 180 },
+    { cx: 1, cy: 0, r: 2, a0: 180, a1: 270 },
+    { cx: 1, cy: 1, r: 3, a0: 270, a1: 360 },
+    { cx: -1, cy: 1, r: 5, a0: 0, a1: 90 },
+    { cx: -1, cy: -2, r: 8, a0: 90, a1: 180 },
+  ];
+  const FIB_NEXT = { x: -9, y: -15, s: 13 };  // where 21's square would go
+  const FIB_CENTER = { x: -2.5, y: 2 };
+  const FIB_NAMES = ['the castle grounds', 'the east bank', 'the bridge lands', 'the mainland', 'the Isles', 'the far isles'];
+
+  function drawEnding(now) {
+    const a = endAnim;
+    const W = canvas.width, H = canvas.height;
+    const calm = !!(MM.engine.state && MM.engine.state.calmMode);
+
+    if (a.stage === 'untangle') {
+      const b = a.beats[a.beat];
+      const t = Math.min(1, (now - a.beatStart) / BEAT_MS);
+      // deep night, warming as the knot resolves
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#0d0b1a');
+      g.addColorStop(1, `rgb(${Math.round(20 + 26 * t)}, ${Math.round(18 + 20 * t)}, ${Math.round(40 + 24 * t)})`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+
+      const p = t < 0.25 ? 0 : ease((t - 0.25) / 0.6);
+      const n = 9;
+      drawKnot(W / 2, H / 2 - 10, knotSeed(n, 230), beatTargets(b.kind, n), Math.min(1, p), b.color, 5);
+
+      ctx.textAlign = 'center';
+      ctx.font = '13px "Press Start 2P", monospace';
+      ctx.fillStyle = '#141221';
+      ctx.fillText(b.title, W / 2 + 2, H * 0.22 + 2);
+      ctx.fillStyle = '#ffd94a';
+      ctx.fillText(b.title, W / 2, H * 0.22);
+      if (t > 0.35) {
+        ctx.globalAlpha = Math.min(1, (t - 0.35) * 4);
+        wrapText(b.line, W / 2, H * 0.80, W - 90, 22, '#cfc6e8', '14px sans-serif');
+        ctx.globalAlpha = 1;
+      }
+      if (t >= 1) endSkip();
+      return;
+    }
+
+    if (a.stage === 'pullback' || a.stage === 'credits') {
+      const inCredits = a.stage === 'credits';
+      const t = inCredits ? 1 : Math.min(1, (now - a.beatStart) / PULLBACK_MS);
+      // parchment
+      ctx.fillStyle = '#e8dcbf';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#dbcda8';
+      for (let i = 0; i < 60; i++) {
+        const x = seeded(i * 7) * W, y = seeded(i * 11) * H;
+        ctx.fillRect(x, y, 2 + seeded(i * 13) * 3, 2);
+      }
+
+      // the golden-rectangle tiling, drawn in visit order as the camera rises
+      const zoom = 0.4 + 0.6 * ease(Math.min(1, t / 0.55));
+      const unit = Math.min((W - 70) / 13, (H - 110) / 8) * zoom;
+      const cx = W / 2 - FIB_CENTER.x * unit, cy = H / 2 + 16 - FIB_CENTER.y * unit;
+      const shown = inCredits ? 6 : Math.max(1, Math.min(6, Math.floor(t / 0.5 * 6) + 1));
+      for (let i = 0; i < shown; i++) {
+        const q = FIB_SQ[i];
+        const x = cx + q.x * unit, y = cy + q.y * unit, sz = q.s * unit;
+        ctx.fillStyle = ['#f5ecd4', '#efe2c0', '#e9d9b1', '#f2e6c6', '#ecdcb7', '#f5ecd4'][i];
+        ctx.fillRect(x, y, sz, sz);
+        ctx.strokeStyle = '#b09a63';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x, y, sz, sz);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#8a7038';
+        ctx.font = `${Math.max(8, Math.round(Math.min(20, q.s * unit / 3.4)))}px "Press Start 2P", monospace`;
+        const labelY = y + sz / 2 + (q.s >= 3 ? -2 : 5);
+        ctx.fillText(String(FIB[i]), x + sz / 2, labelY);
+        if (q.s >= 3) {
+          ctx.fillStyle = '#a89468';
+          ctx.font = '11px sans-serif';
+          ctx.fillText(FIB_NAMES[i], x + sz / 2, labelY + 18);
+        }
+      }
+      // the golden spiral itself, arc by arc, sweeping the regions in the
+      // order the kid actually walked them
+      ctx.strokeStyle = '#c0392b';
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < shown; i++) {
+        const c = FIB_ARC[i];
+        ctx.beginPath();
+        ctx.arc(cx + c.cx * unit, cy + c.cy * unit, c.r * unit,
+          c.a0 * Math.PI / 180, c.a1 * Math.PI / 180);
+        ctx.stroke();
+      }
+
+      // the MathMaker's line, then the question
+      if (!inCredits) {
+        if (t > 0.62) {
+          ctx.globalAlpha = Math.min(1, (t - 0.62) * 3);
+          wrapText('"The kingdom looks different from far away. Patterns usually do — that is the whole trick of ' +
+            'mathematics: step back far enough, and the tangle was a shape all along."',
+            W / 2, 30, W - 80, 20, '#6b5836', '14px sans-serif');
+          ctx.globalAlpha = 1;
+        }
+        if (t >= 1 && !a.asked && !UI.modalOpen()) askTheSpiral();
+        return;
+      }
+
+      // ---- credits: they flower out of the spiral ----
+      const ct = (now - a.beatStart) / 1000;
+      // The next square — 21 — blooming out past the parchment's edge. It is
+      // MEANT to run off the page (the kingdom keeps going), so only a sliver
+      // of it is on screen: anchor the labels to that sliver rather than to
+      // the square's true centre, which is far above the canvas.
+      {
+        const q = FIB_NEXT;
+        const midX = cx + (q.x + q.s / 2) * unit;
+        const baseY = cy + (q.y + q.s) * unit;   // its bottom edge = the map's top edge
+        ctx.globalAlpha = calm ? 0.85 : 0.55 + 0.3 * Math.sin(now / 300);
+        ctx.strokeStyle = '#c0392b';
+        ctx.setLineDash([7, 5]);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cx + q.x * unit, cy + q.y * unit, q.s * unit, q.s * unit);
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#c0392b';
+        ctx.font = '15px "Press Start 2P", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('21', midX, baseY - 36);
+        ctx.globalAlpha = 1;
+        // a wrong answer earns the demonstration: the rule, shown, not told
+        if (a.wrongShown) {
+          ctx.fillStyle = '#8a5a2c';
+          ctx.font = '13px sans-serif';
+          ctx.fillText('8 + 13 = 21', midX, baseY - 14);
+        }
+      }
+      // the sequel door: a glimmering '?' just past the parchment's edge
+      const qx = W - 34, qy = 30;
+      ctx.globalAlpha = calm ? 0.9 : 0.55 + 0.4 * Math.sin(now / 260);
+      ctx.font = '18px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#c0392b';
+      ctx.fillText('?', qx, qy);
+      ctx.globalAlpha = 1;
+
+      const lines = [
+        '👑  THE KINGDOM, UNTANGLED  👑',
+        '',
+        `${MM.engine.state.name} — the New MathMaker`,
+        '',
+        'Every problem can be worked out,',
+        'one careful step at a time.',
+        '',
+        'Thank you for tending Numeria.',
+      ];
+      const top = H - ct * 42;
+      ctx.textAlign = 'center';
+      lines.forEach((ln, i) => {
+        const y = top + i * 30;
+        if (y < -20 || y > H + 20) return;
+        ctx.font = i === 0 ? '13px "Press Start 2P", monospace' : '15px sans-serif';
+        ctx.fillStyle = '#8a7038';
+        ctx.fillText(ln, W / 2 + 1, y + 1);
+        ctx.fillStyle = i === 0 ? '#c0392b' : '#4a3d22';
+        ctx.fillText(ln, W / 2, y);
+      });
+      if (top + lines.length * 30 < H * 0.35) endFinish();
+      return;
+    }
+  }
+
+  // centred, wrapped, drop-shadowed text — used by the ending's prose beats
+  function wrapText(text, cx, y, maxW, lh, color, font) {
+    ctx.font = font;
+    ctx.textAlign = 'center';
+    const words = text.split(' ');
+    const rows = [];
+    let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && line) { rows.push(line); line = w; }
+      else line = test;
+    }
+    if (line) rows.push(line);
+    rows.forEach((r, i) => {
+      ctx.fillStyle = color;
+      ctx.fillText(r, cx, y + i * lh);
+    });
+  }
+
   // ---------- world rendering (continuous, for water/idle animation) ----------
   function worldLoop(now) {
     requestAnimationFrame(worldLoop);
     if (MM.battle.active()) return;           // battle has its own loop
+    if (endAnim) { drawEnding(now); return; } // the ending owns the canvas
     if (sailAnim) { drawSail(now); return; }  // mid-voyage
     const s = MM.engine.state;
     if (!s || !s.grid) return;
     drawWorld(s, now);
+  }
+
+  // n pips (1-3) in a row across the top of a tile — the gear-gate ID mark.
+  function drawPips(vx, vy, n, color) {
+    const r = 3, gap = 9;
+    const cx = vx * TILE + TILE / 2, cy = vy * TILE + 7;
+    for (let i = 0; i < n; i++) {
+      const px = cx + (i - (n - 1) / 2) * gap;
+      ctx.beginPath();
+      ctx.arc(px, cy, r + 1, 0, Math.PI * 2);
+      ctx.fillStyle = '#2a2438';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(px, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
   }
 
   function drawWorld(s, now) {
@@ -267,6 +645,24 @@ var MM = globalThis.MM = globalThis.MM || {};
           ctx.fillText(expLabel, vx * TILE + TILE / 2 + 1, vy * TILE + 12);
           ctx.fillStyle = '#7ee0e8';
           ctx.fillText(expLabel, vx * TILE + TILE / 2, vy * TILE + 11);
+        }
+        // Wave 7 (gear-plate readability): pips say WHICH gate. A gate wears
+        // its own • / •• / ••• ; the plate wears the pips of whichever gate is
+        // currently open, so plate state is readable BEFORE you step on it.
+        // Painted here rather than baked into sprites so one sprite pair
+        // serves all three gates (and the plate doesn't need three variants).
+        if (inDungeon && (ch === 'A' || ch === 'B' || ch === 'C' || ch === 'R')) {
+          const letter = ch === 'R' ? MM.engine.openGateLetter(s.mapId) : ch;
+          const open = ch === 'R' || MM.engine.gateIsOpen(ch, s.mapId);
+          drawPips(vx, vy, MM.engine.GATE_PIPS[letter].length, open ? '#ffd94a' : '#8a7a3a');
+          // the gate that just opened glints, so the change is visible even
+          // when it happened across the room (copy of the Scout shimmer)
+          if (ch !== 'R' && open && MM.engine.gateGlinting && MM.engine.gateGlinting()) {
+            ctx.globalAlpha = 0.30 + 0.25 * Math.sin(now / 120);
+            ctx.fillStyle = '#ffd94a';
+            ctx.fillRect(vx * TILE, vy * TILE, TILE, TILE);
+            ctx.globalAlpha = 1;
+          }
         }
         const npc = !inDungeon && MM.data.NPCS[ch];
         if (npc) {
@@ -1109,6 +1505,11 @@ var MM = globalThis.MM = globalThis.MM || {};
        fresh every morning (or as soon as you finish them).<br><br>
        <b>🧠 The big questions</b> live where nothing is attacking you: <b>boss fights</b>,
        <b>🚪 doors</b>, <b>🎁 chests</b>, and the <b>🔮 seal</b> on each new dungeon.<br><br>
+       <b>⚙ Gear plates &amp; gates:</b> in the Clockwork Spire, three brass gates are marked
+       <b>•</b>, <b>••</b> and <b>•••</b> — and only <b>one is open at a time</b>. Bump the ⚙ gear plate
+       to turn the mechanism: the plate always shows the pips of whichever gate is
+       open right now, and the gate that just opened <b>glints</b> so you can see which
+       one changed. Nothing is ever lost — you can cycle it as many times as you like.<br><br>
        <b>🍗 Stamina:</b> walking and fighting make you tired. At zero you're <b>exhausted</b>
        (half damage, no dodging) — eat food from your <b>🎒 bag</b>, or rest at the 🛏 inn.<br><br>
        <b>🎁 Chests</b> can hold gold, food, potions, <b>treasures to sell</b> at the 🏪 shop,
@@ -1412,13 +1813,54 @@ var MM = globalThis.MM = globalThis.MM || {};
   };
 
   // ---------- report card ----------
+  // ---------- the Hall of Heroes (Wave 7) ----------
+  // Every adventurer on this machine, side by side: siblings, parents, the
+  // cousin who played once. Read-only, and deliberately NOT a leaderboard —
+  // there is no ranking and no score, just each hero's own crest and honours.
+  // (Absorbed from Wave 5's cut "Hall of Heroes" item; it belongs in a room.)
+  UI.hallOfHeroes = function () {
+    if (UI.modalOpen() || MM.battle.active()) return;
+    MM.track('hallOfHeroes');
+    const me = MM.engine.state;
+    const allCards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD]);
+    const rows = MM.engine.profiles().map(name => {
+      const st = name === me.name ? me : MM.engine.peekProfile(name);
+      if (!st) return '';
+      const b = st.bestiary || { kills: {} };
+      const found = allCards.filter(t => ((b.kills || {})[t.name] || 0) > 0).length;
+      const pct = Math.round(found / allCards.length * 100);
+      const badges = Object.values(st.badges || {});
+      const medals = [3, 2, 1].map(tier => {
+        const n = badges.filter(t => t === tier).length;
+        return n ? `${MM.data.BADGES[tier].emoji}×${n}` : '';
+      }).filter(Boolean).join(' ') || '<span class="dim">no badges yet</span>';
+      const titles = MM.engine.titlesFor(st);
+      const crest = st.endingDone ? '👑' : st.tasksDone && st.tasksDone.includes(13) ? '⭐' : st.isles && st.isles.lampLit ? '🗼' : '🗡';
+      const gold = (st.ngPlus || 0) ? ` <span class="hero-ng">✨ Golden ×${st.ngPlus}</span>` : '';
+      return `<div class="hero-row${name === me.name ? ' hero-me' : ''}">
+        <span class="hero-crest">${crest}</span>
+        <span class="hero-info">
+          <span class="hero-name">${name}${name === me.name ? ' <span class="dim">(you)</span>' : ''}${gold}</span>
+          <span class="hero-titles">${titles.length ? titles.join(' · ') : '<span class="dim">an adventure in progress</span>'}</span>
+          <span class="hero-stats">Level ${st.level || 1} · ${medals} · 📕 ${pct}% of the book</span>
+        </span>
+      </div>`;
+    }).join('');
+    UI.dialog('🏆 The Hall of Heroes',
+      `<div class="report-total">Every adventurer who has walked Numeria from this castle.</div>` +
+      `${rows}<div class="dim" style="margin-top:10px">No ranks, no scores. Everyone here got here their own way.</div>`);
+  };
+
   UI.reportCard = function () {
     const s = MM.engine.state;
     if (!s || UI.modalOpen() || MM.battle.active()) return;
     const rows = MM.data.TASKS.filter(t => !t.exp).map((t, i) => {
       const m = (s.mastery || {})[t.skill];
       const acc = m && m.attempts ? Math.round(m.correct / m.attempts * 100) : null;
-      const locked = i + 1 > s.taskIndex;
+      // Golden Numeria (Wave 7 NG+) resets taskIndex to 1 — but a hero who
+      // has already finished the game must never see their own report card
+      // re-locked. Same for the Monster Book's pages, below.
+      const locked = !s.ngPlus && !s.endingDone && i + 1 > s.taskIndex;
       const tier = (s.badges || {})[t.skill] || 0;
       return `<div class="report-row${locked ? ' locked' : ''}">
         <span class="report-skill">${locked ? '🔒' : s.tasksDone.includes(i + 1) ? '✅' : '📗'} ${MM.data.SKILL_NAMES[t.skill]}${tier ? ' ' + MM.data.BADGES[tier].emoji : ''}</span>
@@ -1549,7 +1991,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     const found = allCards.filter(t => (b.kills[t.name] || 0) > 0).length;
     // pages exist for every dungeon assigned so far; isle pages open with
     // their pass (taskIndex stops at 14 — lenses gate the later isles)
-    let shownDungeons = Math.max(1, Math.min(14, s.taskIndex || 1));
+    let shownDungeons = (s.ngPlus || s.endingDone) ? 14 : Math.max(1, Math.min(14, s.taskIndex || 1));
     if (s.isles && s.isles.lenses.tidepool) shownDungeons = 15;
     if (s.isles && s.isles.lenses.frostbite) shownDungeons = 16;
     shownDungeons = Math.min(shownDungeons, MM.data.MONSTERS.length);

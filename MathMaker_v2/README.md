@@ -384,6 +384,40 @@ notice board, real townsfolk).
   Bruiser**, and the light-fingered **Tidepocket Filch**. At the bottom:
   **The Undertow** — it never learned where the edges of things are.
 
+### 👑 The Open Castle — the ending
+
+When the kingdom is whole — every task returned, the Great Lamp lit, and the
+Clockwork Spire ticking again — the castle doors finally **open**, and you can
+walk inside. (The Resonant Halls are deliberately *not* required: music is a
+parent opt-in, and no one should be locked out of the ending by a topic that's
+switched off.)
+
+- **The Gallery of Ten** — the ten treasures you recovered, on plinths, each
+  one replaying a memory of the day you found it. It's a museum of *you*.
+- **The Hall of Heroes** — every adventurer who has played on this computer,
+  side by side, with the titles they earned. No ranks and no scores.
+- **The Study — the reveal.** The MathMaker and Miscount, together, finally
+  tell you why math has been defeating monsters all along.
+- **The Final Exam, inverted.** No boss. No health bars. **The MathMaker sits
+  down as the student and you mark his work** — he solves five problems on a
+  slate, and some of them contain exactly one wrong step. Your job is to find
+  it, and say why. (Getting one wrong costs nothing: the slate just shows you
+  which step it really was.) The last problem is a plain addition fact, worked
+  correctly — the same kind the game opened with.
+- **The coronation**, and then **"The Kingdom, Untangled"** — the game's one
+  big cutscene, in which every monster you ever beat unravels back into the
+  straight, worked line it should have been, the kingdom pulls back into a
+  golden spiral, and the **last problem in the game** asks you what comes after
+  1, 1, 2, 3, 5, 8, 13. Get it wrong and the spiral simply *draws* you the
+  answer. Every beat is skippable, and the throne will replay it any time.
+- **Afterwards, the world is better and — more importantly — it is
+  *tended*.** Pip runs a riddle contest for other kids. Miscount teaches
+  ("my students show their work *twice*"). Callie is training two harbour
+  children on the lenses. Maren has apprentices and, thrillingly, a rota.
+- **✨ Golden Numeria** (from the throne): walk the whole kingdom again, with
+  every dungeon re-sealed and every boss back and tougher — while you keep
+  your level, gear, gems, charms, badges, Monster Book, pet, and crown.
+
 ### A few playtest fixes
 
 A real play session turned up some friction, since fixed: every locked door
@@ -400,6 +434,15 @@ compares to what you're already wearing ("⚔️ 12 · you: 10 ▲"), and **bulk
 potions** (×5, ×10) are always on the shelf now — just greyed out if you're
 short on gold, instead of staying hidden until you'd bought enough to
 "unlock" them.
+
+And the Clockwork Spire's **gear-plate puzzle can now be read**. The three
+brass gates are marked **•**, **••** and **•••**, only one is open at a time,
+and the ⚙ plate always shows the pips of whichever gate is currently open —
+so you can tell what it will do *before* you step on it. Pull it and the log
+says which gate opened, and that gate **glints** so you can see what changed
+across the room. (Before, a closed gate was drawn as a plain wall and an open
+one as bare floor, which is exactly why it read as a glitch rather than a
+puzzle.)
 
 The long-term roadmap (bigger dungeons, and much
 more) lives in `EXPANSION_PLAN.md`.

@@ -885,6 +885,63 @@ var MM = globalThis.MM = globalThis.MM || {};
     '"I didn\'t make the dark places, you know," Miscount says quietly, testing a golem\'s arm before it\'s finished forming. "I just stopped tending my corner of them... and tangles grow wherever nobody\'s working things out."',
   ];
 
+  // Wave 7 epilogue: Miscount is a teacher now. He is, predictably and
+  // wonderfully, insufferable about it — which is the healthiest thing that
+  // has ever happened to him.
+  MM.data.MISCOUNT_EPILOGUE = [
+    '"My students show their work <b>twice</b>," says Miscount, with the terrible serenity of a reformed man. "Once for the answer. Once for the person who reads it after them."',
+    '"Three of the valley children come out on Thursdays now." He is trying not to look proud and it is going extremely badly for him. "One of them argued with me about a remainder. She was <b>right</b>. It was the best day of my life."',
+    '"I keep the golems on, you know. Not for you — you don\'t need them." Miscount pats one fondly. "For the next one who turns up not knowing they can do it yet."',
+    '"Spar? Always." He rolls up his sleeves. "And afterwards you can tell me if my <i>explaining</i> is any good. That\'s the part I\'m still learning."',
+  ];
+
+  // ---------- Wave 7: the Gallery of Ten ----------
+  // One line per recovered treasure, on its plinth in the castle. These are
+  // the kid's OWN memories played back — so they are written from the far
+  // side of the adventure, warm and specific, and every one of them is about
+  // what the kid DID, never about the item's stats.
+  MM.data.GALLERY = [
+    // 1 Copper Coin of Counting
+    'The very first thing you ever brought home. It is the least valuable object in this room by a wide margin, ' +
+    'and it is under the best glass.<br><br><i>You were afraid of a slime, once. It seems important to remember that.</i>',
+    // 2 Stone Times Table
+    'Carved with every times fact, and far too heavy for a person your size, which did not stop you.<br><br>' +
+    '<i>The rats have not been back to the cellar. The cellar is, by all accounts, thrilled.</i>',
+    // 3 Miner\'s Golden Ledger
+    'Every column lines up. Somewhere in the Old Mine a crew of ghosts finally closed their books and, presumably, ' +
+    'went to bed.<br><br><i>This was the one where a name first surfaced. You carried it home without knowing what it meant.</i>',
+    // 4 Golden Abacus
+    'Its beads still slide like they are pleased with themselves.<br><br>' +
+    '<i>Farmer Fenwick\'s boars are gentle again. He tells everyone it was the turnips. It was not the turnips.</i>',
+    // 5 Divider\'s Compass
+    'The needle never did point north. It pointed at the trouble, which was more useful.<br><br>' +
+    '<i>You learned to account for what was left over. In more than one sense, it turned out.</i>',
+    // 6 Decimal Crystal
+    'Hold it up and the light splits — whole on one side of the point, parts on the other, and no argument ' +
+    'between them.<br><br><i>You saw a boy in a grey robe in it, weeping over a slate. You did not look away.</i>',
+    // 7 Silver Scale of Truth
+    'It balances. It took a greedy spirit nine years and one determined child to get it to do that.<br><br>' +
+    '<i>Every last cent, counted. He could not bear to see numbers put right. You did it anyway, gently.</i>',
+    // 8 Amulet of Halves
+    'Still humming, faintly, the thing it always hummed.<br><br>' +
+    '<i>"Even what is broken can be made whole." You held onto those words all the way to the tower. ' +
+    'You are holding onto them now.</i>',
+    // 9 Wizard\'s Hourglass
+    'It cannot turn time backward. Nothing can, and the ones who most wish it could were the ones you helped.<br><br>' +
+    '<i>But anyone may begin again. That part was never a spell. That part was just true.</i>',
+    // 10 Crown of Numbers — the only plinth that changes, because the only
+    // treasure that stops being an exhibit. An entry may be a plain string or
+    // {before, after} around the ending (engine.galleryPlinth picks).
+    {
+      before:
+        'It sits under glass, exactly where the MathMaker set it down the day you brought it to him, and it has ' +
+        'not moved since.<br><br><i>You have never seen him wear it. You have never seen anyone wear it.</i>',
+      after:
+        'The plinth is empty. The little brass plate has been polished until it shines, and it still says ' +
+        '<b>CROWN OF NUMBERS</b>.<br><br><i>You are wearing it. That is where it lives now.</i>',
+    },
+  ];
+
   // Rotating small print at the bottom of the notice board.
   MM.data.BOARD_LINES = [
     'The nails holding this board up are very proud of their work.',
@@ -941,6 +998,8 @@ var MM = globalThis.MM = globalThis.MM || {};
     g: {
       name: '🔮 Sage Sylvia', sprite: 'sage', pal: null,
       talk(s) {
+        // Wave 7 epilogue: she finally hands over the telescope.
+        if (s.endingDone) return '"You have earned the view." Sage Sylvia puts the telescope into your hands and does not take it back.<br><br>"Keep it. A MathMaker ought to be able to step back and see the shape of things — that is most of the job, and nobody ever tells you."<br><br><i>She is already looking at something else. She is always already looking at something else.</i>';
         // Wave 6/7 seeds: the mortar line rewards the Breakwater; the
         // telescope line (Wave 7 spiral seed) rewards the whole harbor rebuilt.
         if (s.isles.gullwrackRebuilt) return '"The kingdom looks different from far away. I keep a telescope for the day you\'ve earned the view."';
@@ -978,6 +1037,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       talk(s) {
         s.isles.metCallie = true;
         const L = s.isles.lenses;
+        // Wave 7 epilogue: the bells, and a keeper who no longer keeps watch alone.
+        if (s.endingDone) return '"They ring the bells for you now, you know. Every evening." Keeper Callie says this to her charts, not to you, which is how she says the things she means.<br><br>"Two of the harbour children have asked me to teach them the lenses. I said yes." She finally looks up. "That is <i>your</i> fault, MathMaker. I hope you are pleased."<br><br><i>She is smiling. She does not hide it this time.</i>';
         if (L.cinderforge) return '"Three lenses. THREE." Keeper Callie is quietly crying and not hiding it well. "Nine years I kept one lamp burning in a window, and now the whole sky is stitched with light. The Murk around the <b>Great Lighthouse</b> is thinning by the hour — when the tower opens its doors, hero, it will be because of you."';
         if (L.frostbite) return '"Two beams cross over the water every night now. I leave the curtains open on purpose." She slides the final chart across the table. "The pass to the <b>Cinderforge Depths</b> is drawn — east, past the smoke. Its <b>Cinder Lens</b> is three floors down. Mind the drop chutes: <i>the mine only lets you fall one way.</i>"';
         if (L.tidepool) return '"The Tide Lens shines and the shallows are clear — first light on this coast in nine years, hero." She slides a fresh chart across the table. "The pass to <b>Frostbite Hollow</b> is drawn — northeast, past where the fog was. Its <b>Frost Lens</b> sleeps under the ice. Dress warm, and mind the frozen lake: <i>once you\'re sliding, you don\'t stop until something stops you.</i>"';
@@ -1005,6 +1066,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       name: '⚓ Old Salt Percy', sprite: 'villager', pal: { A: '#4a6b3a', a: '#38522c', H: '#d8d4c4' },
       talk(s) {
         const pet = s.isles.pet;
+        // Wave 7 epilogue: Percy gets the sequel door, because of course he does.
+        if (s.endingDone) return '"So the charts DID know something." Old Salt Percy is enormously pleased with himself, and has clearly been waiting weeks to be.<br><br>"Past the spiral\'s edge, they curl right off the paper. There\'s a sea out there nobody\'s finished drawing."<br><br><i>He taps the blank corner of the map, twice.</i> "Needs someone good at working things out."';
         // Wave 7 spiral seed: the charts themselves start hinting at something.
         if (s.isles.breakwaterDone) return '"Charts of this sea always want to curl at the edges. Like they know something."';
         if (s.isles.lenses.frostbite) return '"Two lenses lit! The fish are practically navigating themselves into my net."<br><br>"That smoky pass east is the last one before the tower. Callie\'s been up three nights charting it. Bring her a kind word, would you?"';
@@ -1016,6 +1079,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       name: '🎵 Bard Barnaby', sprite: 'bard', pal: null,
       talk(s) {
         const n = s.tasksDone.length;
+        // Wave 7 epilogue: the ballad is finished, and it does not rhyme.
+        if (s.endingDone) return '🎵 <i>"Sing of the one who untangled it all — not with a sword, but with chalk on a wall! Not with a blow, but by showing the way — the MathMaker learns, and the MathMaker <b>stays</b>!"</i> 🎵<br><br>"That last line doesn\'t scan and I don\'t care," says Bard Barnaby, with feeling. "It\'s the <b>true</b> one."';
         // gold badges are ballad-worthy
         const golds = Object.values(s.badges || {}).filter(t => t >= 3).length;
         const goldLine = golds
@@ -1035,6 +1100,20 @@ var MM = globalThis.MM = globalThis.MM || {};
       pal: { A: '#8a3d2c', a: '#66352a', H: '#e0a952' },
       enchant: true,
     },
+    // ===== Wave 7: inside the Open Castle =====
+    // The MathMaker, finally standing somewhere the kid can walk up to him.
+    // 'Q' is the Study; bumping him is the reveal (engine.studyReveal).
+    Q: {
+      name: '🧙 The MathMaker', sprite: 'mathmaker', pal: null,
+      study: true,
+    },
+    // Miscount, in the Study beside his old teacher. Not a villain, not a
+    // penitent — a colleague. He gets the last word on what went wrong.
+    J: {
+      name: '🧑‍🎓 Miscount', sprite: 'mage',
+      pal: { H: '#8d88b8', h: '#6e6a94', A: '#4a4660', E: '#7ee0e8', F: '#3a3352' },
+      study: true,
+    },
     // Wave 6: Gullwrack Harbor's Guildmistress — the slab-tiling repair
     // sites' narrator. Checks live repairSites progress, not a stored count.
     y: {
@@ -1046,6 +1125,8 @@ var MM = globalThis.MM = globalThis.MM || {};
           const st = s.repairSites && s.repairSites['gullwrack:' + id];
           return st && st.done;
         }).length;
+        // Wave 7 epilogue: the Guild is taking apprentices again.
+        if (s.endingDone && s.isles.gullwrackRebuilt) return '"Guild\'s taking apprentices again. First time in nine years." Guildmistress Maren says it like a weather report and means it like a hymn.<br><br>"Six of them. Six! I have had to make a <b>rota</b>." She brandishes it. It is a truly magnificent rota. "There is paperwork now, MathMaker. Real paperwork. I have never been happier in my <i>life</i>."';
         if (s.isles.gullwrackRebuilt) return '"Every stone in this town, mended by a hero who shows their work. The Guild\'s never had a member like you." Maren taps the wall fondly. "Go on — the harbor\'s yours as much as anyone\'s now."';
         if (done > 0) return `"${done} of ${townSites.length} sites mended — the pier, the roofs, whatever\'s cracked. Read the blueprint plaque, push the slabs onto the broken patch, and mind you push straight — a stone only moves the way you bump it." She nods at the harbor. "Slow and square. That's the whole trade."`;
         return '"Gullwrack took a beating in the last storm — half the town\'s still broken floor and loose slabs." Maren wipes her hands on her apron. "Find a blueprint plaque, solve what it asks, then push the stone onto the crack. One tile at a time — no rushing masonry. Made a mess? There\'s a lever by every site. Pulls the stones right back to where they started."';
