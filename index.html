@@ -3,33 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MathMaker</title>
+  <title>Math Quest: Numeria</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👑</text></svg>">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header>
-    <h1>⚔️ MathMaker 👑</h1>
-    <div class="subtitle">Ten tasks. Ten treasures. One hero who knows their numbers.</div>
+    <h1>⚔️ Math Quest: Numeria 👑</h1>
+    <div class="subtitle">Every problem can be worked out — one careful step at a time.</div>
   </header>
 
   <div id="game">
-    <canvas id="canvas" width="600" height="440"></canvas>
-    <aside id="sidebar">
-      <div class="stat" id="statHp"></div>
-      <div class="stat" id="statGold"></div>
-      <div class="stat" id="statLevel"></div>
-      <div class="stat" id="statGear"></div>
-      <div class="stat" id="statPotions"></div>
-      <div class="stat" id="statStreak"></div>
-      <div id="taskBox"></div>
-      <div class="buttons">
-        <button id="btnPotion">🧪 Potion (P)</button>
-        <button id="btnReport">📊 Report (R)</button>
+    <div id="playArea">
+      <canvas id="canvas" width="720" height="528"></canvas>
+      <div class="action-bar">
+        <button id="btnPotion" title="or press P">🧪 Potion</button>
+        <button id="btnBag" title="or press B">🎒 Bag</button>
+        <button id="btnReport" title="or press R">📊 Report</button>
+        <button id="btnBook" title="or press M">📕 Monsters</button>
+        <button id="btnHelp">📖 Help</button>
+        <button id="btnDifficulty">⚙️ Difficulty</button>
+        <button id="btnParent" class="secondary">👪 Parent</button>
         <button id="btnSwitch" class="secondary">👤 Switch</button>
       </div>
+    </div>
+    <aside id="sidebar">
+      <div class="stat" id="statHp"></div>
+      <div class="stat" id="statStamina"></div>
+      <div class="stat" id="statGold"></div>
+      <div class="stat" id="statLevel"></div>
+      <div class="stat combat" id="statAtk"></div>
+      <div class="stat combat" id="statDef"></div>
+      <div class="stat" id="statPotions"></div>
+      <div class="stat" id="statStreak"></div>
+      <div class="stat" id="spellRow"></div>
+      <div id="taskBox"></div>
       <div id="log"></div>
-      <div class="keys-hint">Move: arrow keys or WASD · Bump into things to interact</div>
+      <div class="keys-hint">Move: arrow keys or WASD · Bump into things to interact<br>
+        Quick keys: <b>P</b> potion · <b>B</b> bag · <b>R</b> report · <b>M</b> monsters</div>
     </aside>
   </div>
 
@@ -37,10 +48,12 @@
     <div id="modalBox"></div>
   </div>
 
+  <div id="battleOverlay" class="hidden"></div>
+
   <div id="profileScreen" class="hidden">
     <div class="profile-card">
-      <h1>⚔️ MathMaker 👑</h1>
-      <div class="tag">A math adventure in the kingdom of Numeria</div>
+      <h1>⚔️ Math Quest: Numeria 👑</h1>
+      <div class="tag">Every problem can be worked out — one careful step at a time.</div>
       <div id="profileList"></div>
       <div class="new-row">
         <input id="newName" type="text" maxlength="20" placeholder="New adventurer's name" autocomplete="off">
@@ -49,10 +62,13 @@
     </div>
   </div>
 
+  <script src="js/tracker.js"></script>
   <script src="js/problems.js"></script>
   <script src="js/mastery.js"></script>
   <script src="js/data.js"></script>
   <script src="js/maps.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/battle.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>

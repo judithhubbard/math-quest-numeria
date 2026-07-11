@@ -43,6 +43,20 @@ var MM = globalThis.MM = globalThis.MM || {};
     return m.attempts ? m.correct / m.attempts : null;
   }
 
+  // ----- topic badges -----
+  // The highest badge tier the current numbers justify: 0 none, 1 bronze,
+  // 2 silver, 3 gold. Bronze is pure volume; silver and gold also demand hot
+  // recent accuracy (last-10 window). The ENGINE persists the best tier ever
+  // reached (state.badges) — a badge, once earned, is never taken away.
+  function badgeTier(state, skill) {
+    const m = ensure(state, skill);
+    const recent = recentAccuracy(state, skill);
+    if (m.correct >= 50 && recent != null && recent >= 0.90) return 3;
+    if (m.correct >= 25 && recent != null && recent >= 0.75) return 2;
+    if (m.correct >= 10) return 1;
+    return 0;
+  }
+
   // Weakest skills first (lowest recent accuracy, unpracticed counts as weak-ish).
   function weakestFirst(state, skills) {
     return skills.slice().sort((a, b) => {
@@ -51,8 +65,29 @@ var MM = globalThis.MM = globalThis.MM || {};
     });
   }
 
+  // ----- parent topic switches -----
+  // Parents opt each topic in or out (math isn't linear — a kid might know
+  // place value but not long division). Everything below routes its skill
+  // through capSkill(), so any dungeon still plays — it just serves problems
+  // from topics the kid has been allowed.
+  function cappedSkills(state) {
+    const topics = state.parent && state.parent.topics;
+    const base = MM.data.PARENT_TOPICS;
+    let list = topics ? base.filter(sk => topics[sk] !== false) : base;
+    if (!list.length) list = [base[0]]; // never zero topics
+    return list.slice();
+  }
+  function capSkill(state, skill) {
+    const allowed = cappedSkills(state);
+    if (allowed.includes(skill)) return skill;
+    const ranked = weakestFirst(state, allowed);
+    return ranked[Math.floor(Math.random() * Math.min(3, ranked.length))];
+  }
+
   // Combat problem for dungeon i: usually the dungeon's topic,
-  // sometimes review of a weak earlier topic.
+  // sometimes review of a weak earlier topic. QUICK problems only, so battles
+  // keep their pace — the slow, full-depth problems live at the gates
+  // (bosses, doors, chests, and dungeon seals).
   function pickCombatProblem(state, dungeonIndex) {
     const primary = MM.data.TASKS[dungeonIndex - 1].skill;
     let skill = primary;
@@ -61,20 +96,87 @@ var MM = globalThis.MM = globalThis.MM || {};
       const ranked = weakestFirst(state, earlier);
       skill = Math.random() < 0.7 ? ranked[0] : ranked[Math.floor(Math.random() * ranked.length)];
     }
-    return MM.problems.generate(skill, tierFor(state, skill));
+    return MM.problems.generateQuick(capSkill(state, skill));
   }
 
-  // Easy review problems for resting at the inn.
-  function pickReviewProblems(state, upToTask, count) {
-    const skills = MM.data.TASKS.slice(0, Math.max(1, upToTask)).map(t => t.skill);
+  // Boss battles are the dungeon's real test: full-depth problems of its
+  // topic, at a tier that adapts to how the kid has been doing.
+  function pickBossProblem(state, dungeonIndex) {
+    const skill = capSkill(state, MM.data.TASKS[dungeonIndex - 1].skill);
+    return MM.problems.generate(skill, Math.max(2, tierFor(state, skill)));
+  }
+
+  // Quick problems from ALL ten topics, weighted toward whatever the kid is
+  // weakest at. Used by Miscount's sparring golems AND regular monsters in
+  // the expansion dungeons (11+), where every dungeon is mixed review.
+  function pickArenaProblem(state) {
+    const skills = cappedSkills(state);
     const ranked = weakestFirst(state, skills);
+    const skill = Math.random() < 0.5
+      ? ranked[Math.floor(Math.random() * Math.min(3, ranked.length))]
+      : ranked[Math.floor(Math.random() * ranked.length)];
+    return MM.problems.generateQuick(skill);
+  }
+
+  // Full-depth mixed problem for gates in the expansion dungeons
+  // (bosses, doors, chests, seals): weakest topic, adaptive tier.
+  function pickMixedGate(state) {
+    const ranked = weakestFirst(state, cappedSkills(state));
+    const skill = ranked[Math.floor(Math.random() * Math.min(3, ranked.length))];
+    return MM.problems.generate(skill, Math.max(2, tierFor(state, skill)));
+  }
+
+  // ---------- 50/50 own-topic vs. everything else ----------
+  // weakestFirst weighting would let a kid who's aced the dungeon's own
+  // topic stop seeing it at all — a topic dungeon's whole point is practicing
+  // THAT skill, so every non-gate problem in it is a flat coin flip between
+  // ownSkill and review of the rest (itself still weakest-first, so review
+  // time stays useful). If a parent has switched ownSkill off, cappedSkills()
+  // already excludes it and this falls back to 100% review — same
+  // "disabled everywhere" contract as capSkill. Generalized from the
+  // Clockwork Spire's original time_reading-only picker (Wave 3) so the
+  // Sunken Breakwater (Wave 6, geometry) can reuse the exact same logic.
+  function pickHalfMixSkill(state, ownSkill) {
+    const allowed = cappedSkills(state);
+    const others = allowed.filter(sk => sk !== ownSkill);
+    if (!allowed.includes(ownSkill)) return weakestFirst(state, others.length ? others : allowed)[0];
+    if (!others.length || Math.random() < 0.5) return ownSkill;
+    const ranked = weakestFirst(state, others);
+    return ranked[Math.floor(Math.random() * Math.min(3, ranked.length))];
+  }
+  function pickHalfMixProblem(state, ownSkill) {
+    return MM.problems.generateQuick(pickHalfMixSkill(state, ownSkill));
+  }
+  // Full-depth version for a topic dungeon's doors, chests, and boss.
+  function pickHalfMixGate(state, ownSkill) {
+    const skill = pickHalfMixSkill(state, ownSkill);
+    return MM.problems.generate(skill, Math.max(2, tierFor(state, skill)));
+  }
+
+  // Clockwork Spire (Wave 3): time_reading. Kept as named wrappers — tests
+  // and engine.js call these by name for the cap-leak contract.
+  const pickSpireSkill = state => pickHalfMixSkill(state, 'time_reading');
+  const pickSpireProblem = state => pickHalfMixProblem(state, 'time_reading');
+  const pickSpireGate = state => pickHalfMixGate(state, 'time_reading');
+
+  // Sunken Breakwater (Wave 6): geometry.
+  const pickBreakwaterSkill = state => pickHalfMixSkill(state, 'geometry');
+  const pickBreakwaterProblem = state => pickHalfMixProblem(state, 'geometry');
+  const pickBreakwaterGate = state => pickHalfMixGate(state, 'geometry');
+
+  // Easy warm-ups for resting at the inn.
+  function pickReviewProblems(state, upToTask, count) {
+    const allowed = cappedSkills(state);
+    const skills = MM.data.TASKS.slice(0, Math.max(1, upToTask)).map(t => t.skill)
+      .filter(sk => allowed.includes(sk));
+    const ranked = weakestFirst(state, skills.length ? skills : allowed);
     const probs = [];
     for (let i = 0; i < count; i++) {
       const skill = ranked[i % Math.min(3, ranked.length)];
-      probs.push(MM.problems.generate(skill, 1));
+      probs.push(MM.problems.generateQuick(skill));
     }
     return probs;
   }
 
-  MM.mastery = { record, tierFor, accuracy, recentAccuracy, weakestFirst, pickCombatProblem, pickReviewProblems, ensure };
+  MM.mastery = { record, tierFor, accuracy, recentAccuracy, badgeTier, weakestFirst, capSkill, cappedSkills, pickCombatProblem, pickBossProblem, pickArenaProblem, pickMixedGate, pickReviewProblems, pickHalfMixSkill, pickHalfMixProblem, pickHalfMixGate, pickSpireProblem, pickSpireGate, pickBreakwaterProblem, pickBreakwaterGate, ensure };
 })();
