@@ -543,6 +543,8 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
     choices.push({ label: '⛵ Sail to the Isles', primary: !s.isles.spireDone, onClick: () => E.sail('isles') });
     choices.push({ label: '⛵ Sail home to Numeria', onClick: () => E.sail('west') });
+    // Wave 6.5: no inn on this island — the bunk serves instead
+    choices.push({ label: '🛏 Rest in your bunk (3 warm-ups)', onClick: () => E.inn(true) });
     choices.push({ label: 'Stay a while', onClick: () => {} });
     const greeting = s.isles.spireDone
       ? '"Ticking away nicely now, isn\'t it?" the captain says. "A couple of new spots on the charts — a hum you can hear from clear out on the water (<b>Chime Isle</b>), and a storm-battered little harbor further out (<b>Gullwrack</b>). Where to?"'
@@ -561,6 +563,8 @@ var MM = globalThis.MM = globalThis.MM || {};
         { label: '⛵ Sail to Horologe Isle', onClick: () => E.sail('horologe') },
         { label: '⛵ Sail to the Isles', onClick: () => E.sail('isles') },
         { label: '⛵ Sail home to Numeria', onClick: () => E.sail('west') },
+        // Wave 6.5: no inn on this island — the bunk serves instead
+        { label: '🛏 Rest in your bunk (3 warm-ups)', onClick: () => E.inn(true) },
         { label: 'Stay a while', onClick: () => {} },
       ]);
   };
@@ -2570,24 +2574,28 @@ var MM = globalThis.MM = globalThis.MM || {};
       `<i>The ${t.dungeon} is marked with a <b>${s.taskIndex === 10 ? '10' : s.taskIndex}</b> on the map.</i>${aside}`);
   };
 
-  E.inn = function () {
+  // shipboard=true (Wave 6.5): the same three-warmups rest, taken in your
+  // bunk aboard the Compass Rose — for the inn-less islands, so a kid deep
+  // in the Spire or Halls never has to sail two legs just to sleep
+  E.inn = function (shipboard) {
     const s = E.state;
+    const place = shipboard ? '⛵ Your bunk aboard the Compass Rose' : '🛏 The Cozy Compass Inn';
     if (s.hp >= s.maxhp && s.taskIndex === 0) {
-      return MM.ui.dialog('🛏 The Cozy Compass Inn', 'The innkeeper waves. "Come back when you need a rest, dear!"');
+      return MM.ui.dialog(place, 'The innkeeper waves. "Come back when you need a rest, dear!"');
     }
     const probs = MM.mastery.pickReviewProblems(s, Math.max(1, s.taskIndex), 3);
     let i = 0;
     const step = () => {
       const prob = probs[i];
       MM.ui.showProblem({
-        header: `🛏 <b>The Cozy Compass Inn</b> — warm-up ${i + 1} of 3 <i>(a good night's sleep for a good night's thinking)</i>`,
+        header: `${shipboard ? '⛵ <b>Your bunk aboard the Compass Rose</b>' : '🛏 <b>The Cozy Compass Inn</b>'} — warm-up ${i + 1} of 3 <i>(${shipboard ? 'the sea rocks best when the mind is settled' : 'a good night\'s sleep for a good night\'s thinking'})</i>`,
         problem: prob,
         leaveLabel: 'Skip the rest',
         onAnswer(correct) {
           recordAnswer(prob.skill, correct);
           i++;
           const bonus = E.hasAmulet('keeper') ? E.gainGold(5) : 0;
-          const msg = (correct ? '✓ Nice.' : 'The innkeeper smiles: "You\'ll get it next time."') +
+          const msg = (correct ? '✓ Nice.' : (shipboard ? 'The captain calls down: "You\'ll get it next time, sailor."' : 'The innkeeper smiles: "You\'ll get it next time."')) +
             (bonus ? ` <span class="dim">(+${bonus} gold — your amulet hums warmly)</span>` : '');
           if (i >= probs.length) {
             s.hp = s.maxhp;

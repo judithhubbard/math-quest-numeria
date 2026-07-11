@@ -165,6 +165,16 @@ fail on any page error.
   `pickArenaProblem`/`pickBreakwaterProblem` draws confirming geometry never
   leaks when the parent switch is off.
 
+- `drive-shopstress.js` (Wave 6.5) — 15 noisy buy/sell rounds (tabs, bulk,
+  deliberate double-clicks and stray Enters) asserting the modal is never
+  blank or collapsed after any step; the Horologe/Chime dockside carts
+  (supplies-only, no tabs, no sell counter); the Gullwrack Chandlery's
+  isle-tier stock; the shipboard bunk rest; the Ctrl+Shift+B manual bug
+  capture; and that the blank-modal watchdog stayed silent throughout.
+
 Testing conventions: the current battle problem is exposed as
 `MM.battle.current` so drives can compute correct answers; engine state is
-reachable via `MM.engine.state` in `page.evaluate`.
+reachable via `MM.engine.state` in `page.evaluate`. The unit suite also
+enforces: the door audit + glyph registry, the renderability audit (every
+glyph draws visibly), the never-stranded audit (every island has supplies,
+a dock, and rest), and the sail-destination registry.

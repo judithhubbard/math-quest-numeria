@@ -963,7 +963,25 @@ hallways, walk-to-coordinates digging — one embodied mechanic per wave.
   Charm, and all four story-seed lines (Sylvia ×2, the Miscount small-talk
   pool, the first-battle tutorial sentence, Percy).
 
-## Wave 6.5 — Design-session fix pass (NOT for wave implementers)
+## Wave 6.5 — Design-session fix pass (NOT for wave implementers) ✅ SHIPPED (2026-07-11)
+
+**Shipped notes:** the generalized door audit immediately found a SIXTH
+broken door (Breakwater f0 — its rubble wall never split the room; broken
+floor 'r' is now impassable until mended so the repair shortcut means
+something). The renderability root cause was drawWorld's two-map
+`inDungeon` test — one line made all three new islands render as dungeons
+and skip the NPC pass entirely. Nine sprites added; hermits Tobbin and
+Brona shipped per STORY_BIBLE. Two additions beyond the queued list, from
+a user question ("can a player get stuck?"): dockside supply CARTS on
+Horologe/Chime + a shipboard bunk rest at their docks (E.inn(shipboard)),
+plus a never-stranded unit audit — and that question also exposed a Wave 6
+bug: the shop's `mapId === 'isles'` stock check made Gullwrack sell
+MAINLAND goods (now: isle-tier everywhere off the mainland, per-shop
+names, carts supplies-only). Blank-modal defense hardened: body-text-
+excluding-buttons + collapsed-height detection, a 750ms continuous
+watchdog over BOTH overlays, Ctrl+Shift+B manual capture into the bug
+log, and drive-shopstress.js (15 noisy rounds + carts + bunk + capture,
+all green first run).
 
 Executed by the design session immediately after Wave 6 lands + reviews
 (queued 2026-07-11 from live playtest):

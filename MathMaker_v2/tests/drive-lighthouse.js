@@ -336,7 +336,10 @@ async function bumpTile(page, ch) {
     if (info.kind === 'choice') await page.click(`#battleProblem .choice >> nth=${info.idx}`);
     else { await page.fill('#battleProblem #answerInput', info.val); await page.keyboard.press('Enter'); }
   }
-  await page.waitForFunction(() => { const b = MM.engine.state.monsters.find(m => m.boss); return b && b.thickened; });
+  // generous timeout: under full-sweep I/O load (screenshots + Dropbox
+  // indexing) the battle animation chain can crawl — 30s has proven flaky
+  // in sweeps while passing standalone every time
+  await page.waitForFunction(() => { const b = MM.engine.state.monsters.find(m => m.boss); return b && b.thickened; }, null, { timeout: 90000 });
   const atkThick = await page.evaluate(() => MM.engine.state.monsters.find(m => m.boss).atk);
   await page.waitForSelector('#battleProblem #answerInput:not([disabled]), #battleProblem .choice:not([disabled])');
   await page.click('#fleeBtn');

@@ -90,6 +90,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     modalBox = document.getElementById('modalBox');
 
     document.addEventListener('keydown', (ev) => {
+      // manual bug capture works EVERYWHERE — even over a broken modal,
+      // which is exactly when it's needed (Wave 6.5)
+      if (ev.ctrlKey && ev.shiftKey && ev.key.toLowerCase() === 'b') { ev.preventDefault(); return UI.captureNow(); }
       // never swallow keys the user is typing into a text field (name, answers)
       if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA')) return;
       if (UI.modalOpen() || MM.battle.active()) return;
@@ -567,11 +570,29 @@ var MM = globalThis.MM = globalThis.MM || {};
   // AND shortly after (in case something empties it) — and if it's blank,
   // record a full bug entry (breadcrumbs + state, survives reload) and show a
   // friendly recovery message so nobody is ever stuck.
+  // Wave 6.5 hardening: "blank" now means what a KID means by it — no
+  // readable body (buttons don't count: a lone OK button in an empty box
+  // is still blank) or a collapsed box. Checked at open, shortly after,
+  // AND continuously while any overlay is visible (the recurring blank-
+  // shop bug evaded the old two-moment check).
+  function modalBodyText() {
+    let text = '';
+    const walk = (node) => {
+      for (const child of node.childNodes) {
+        if (child.nodeType === 3) text += child.textContent;
+        else if (child.nodeType === 1 && child.tagName !== 'BUTTON'
+                 && !(child.classList && child.classList.contains('btnrow'))) walk(child);
+      }
+    };
+    if (modalBox) walk(modalBox);
+    return text.trim();
+  }
   function checkBlankModal(html, when) {
     if (modalEl.classList.contains('hidden')) return;
-    if (modalBox.childElementCount > 0 && modalBox.textContent.trim().length > 0) return;
+    const collapsed = modalBox.getBoundingClientRect().height < 40;
+    if (modalBox.childElementCount > 0 && modalBodyText().length > 0 && !collapsed) return;
     MM.bugs.record('blank-modal',
-      `modal blank (${when}); intended ${String(html || '').length} chars; showing "${modalBox.innerHTML.slice(0, 150)}"`, '');
+      `modal blank (${when}); intended ${String(html || '').length} chars; height ${Math.round(modalBox.getBoundingClientRect().height)}; showing "${modalBox.innerHTML.slice(0, 150)}"`, '');
     modalBox.innerHTML = `
       <h2>🐛 Oops — empty window!</h2>
       <div class="dialog-body">That window came up blank. The good news: it's been
@@ -580,14 +601,44 @@ var MM = globalThis.MM = globalThis.MM || {};
       <div class="btnrow"><button id="dlgOk" class="primary">Carry on</button></div>`;
     document.getElementById('dlgOk').onclick = () => { closeModal(); UI.refresh(); };
   }
+  let lastModalHtml = '';
   function openModal(html) {
     // breadcrumb the window itself, so a blank-modal report names the culprit
     MM.track('modal: ' + String(html || '').replace(/<[^>]*>/g, ' ').trim().slice(0, 48));
+    lastModalHtml = String(html || '');
     modalBox.innerHTML = html;
     modalEl.classList.remove('hidden');
     checkBlankModal(html, 'at open');
     setTimeout(() => checkBlankModal(html, '300ms later'), 300);
   }
+  // the continuous watchdog — catches blanking that happens OUTSIDE the
+  // two per-open checks (e.g. content emptied mid-flow), plus a visible-
+  // but-empty battle overlay, which looks identical to a blank shop
+  setInterval(() => {
+    try {
+      if (modalEl && !modalEl.classList.contains('hidden')) checkBlankModal(lastModalHtml, 'watchdog');
+      const bo = document.getElementById('battleOverlay');
+      if (bo && !bo.classList.contains('hidden') && bo.innerHTML.trim().length === 0) {
+        MM.bugs.record('blank-battle', 'battle overlay visible but empty', '');
+        bo.classList.add('hidden');
+        UI.log('🐛 A blank battle window was recorded in the bug log — carry on!');
+      }
+    } catch (e) { /* the watchdog must never hurt the game */ }
+  }, 750);
+  // manual capture (Ctrl+Shift+B): when ANYTHING looks wrong, press it —
+  // snapshots exactly what is on screen into the bug log, even mid-modal
+  UI.captureNow = function () {
+    const snap = {
+      overlayVisible: modalEl ? !modalEl.classList.contains('hidden') : null,
+      modalHeight: modalBox ? Math.round(modalBox.getBoundingClientRect().height) : null,
+      bodyTextLen: modalBox ? modalBodyText().length : null,
+      battleVisible: !!(document.getElementById('battleOverlay') && !document.getElementById('battleOverlay').classList.contains('hidden')),
+      activeEl: document.activeElement && (document.activeElement.id || document.activeElement.tagName),
+      modalHtml: modalBox ? modalBox.innerHTML.slice(0, 600) : null,
+    };
+    MM.bugs.record('manual-capture', JSON.stringify(snap), '');
+    UI.log('📸 Captured! It\'s in the bug log (👪 Parent → 🐛 Bug log → Copy).');
+  };
   function closeModal() {
     modalEl.classList.add('hidden');
     modalBox.innerHTML = '';
@@ -1147,9 +1198,19 @@ var MM = globalThis.MM = globalThis.MM || {};
         <span class="shop-price">${item.price} g</span>
         ${owned ? '<span class="shop-buy">✓ owned</span>' : `<button class="shop-buy" data-kind="${kind}" data-id="${item.id || 'potion'}" ${s.gold < item.price ? 'disabled' : ''}>Buy</button>`}
       </div>`;
-    // Port Brightwater's Brass Compass carries the isle-tier stock; the
-    // Numeria General Store carries everything else.
-    const onIsles = s.mapId === 'isles';
+    // Wave 6.5: shops key off "is this the mainland?", not "is this
+    // specifically the Isles" — the old check made Gullwrack's shop sell
+    // MAINLAND stock under the mainland's name. Horologe and Chime get
+    // dockside supply CARTS (buy-only, no gear, no sell counter) so no
+    // island leaves a kid unable to restock potions and food.
+    const isleTier = s.mapId !== 'world';
+    const cart = s.mapId === 'horologe' || s.mapId === 'chime';
+    const SHOP_NAMES = {
+      world: '🏪 Numeria General Store', isles: '🧭 The Brass Compass',
+      gullwrack: '⚓ The Gullwrack Chandlery',
+      horologe: '🛒 The Dockside Cart', chime: '🛒 The Dockside Cart',
+    };
+    const onIsles = isleTier; // legacy name used below
     const gearSection = (slot, blurb) => {
       const items = MM.data.GEAR[slot].filter(it => it.price > 0 && !it.notForSale && !!it.isle === onIsles)
         .map(it => row(it, slot, (s.gear[slot] || []).includes(it.id))).join('');
@@ -1216,14 +1277,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     const sellTab = (treasureSell || gearSell)
       ? `<h3>💰 The shopkeeper buys treasures & used gear</h3>${treasureSell}${gearSell}`
       : `<p class="dim">Nothing to sell right now — treasures and unequipped gear show up here.</p>`;
+    // carts are supplies-only: no gear tab, no sell counter
+    if (cart && shopTab !== 'supplies') shopTab = 'supplies';
     const tabContent = shopTab === 'supplies' ? suppliesTab : shopTab === 'sell' ? sellTab : gearTab;
     const tabBtn = (tab, label) => `<button class="shop-tab-btn${shopTab === tab ? ' active' : ''}" data-tab="${tab}">${label}</button>`;
     openModal(`
-      <h2>${onIsles ? '🧭 The Brass Compass' : '🏪 Numeria General Store'}</h2>
+      <h2>${SHOP_NAMES[s.mapId] || SHOP_NAMES.world}</h2>
       <div class="dialog-body">
-        <div class="shop-gold">You have <b>💰 ${s.gold} gold</b>. Answer the shopkeeper's question for <b>10% off</b> (or a selling bonus)!
-        <br><span class="dim">${onIsles ? 'Gear of the deep sea — nothing finer this side of the horizon.' : 'Bought gear goes to your 🎒 bag — used gear sells back for half price.'}</span></div>
-        <div class="shop-tabs">${tabBtn('gear', '⚔️ Gear')}${tabBtn('supplies', '🧪 Supplies')}${tabBtn('sell', '💰 Sell')}</div>
+        <div class="shop-gold">You have <b>💰 ${s.gold} gold</b>. Answer the shopkeeper's question for <b>10% off</b>${cart ? '' : ' (or a selling bonus)'}!
+        <br><span class="dim">${cart ? 'A biscuit-tin till and the essentials — buying only, the till can\'t count change out.' : onIsles ? 'Gear of the deep sea — nothing finer this side of the horizon.' : 'Bought gear goes to your 🎒 bag — used gear sells back for half price.'}</span></div>
+        <div class="shop-tabs">${cart ? '' : tabBtn('gear', '⚔️ Gear') + tabBtn('supplies', '🧪 Supplies') + tabBtn('sell', '💰 Sell')}</div>
         ${tabContent}
       </div>
       <div class="btnrow"><button id="shopClose" class="secondary">Leave shop</button></div>`);

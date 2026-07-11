@@ -1294,6 +1294,23 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   }
 }
 
+// ---------- never stranded (Wave 6.5, user question) ----------
+// Every island overworld must offer a supplies source ('S' — shop or
+// dockside cart) and a dock ('W') so a kid can always restock potions and
+// food and always leave. Rest comes from an inn ('I') or the dock's
+// bunk option — inn-less islands are listed explicitly so adding one
+// without rest support fails here.
+{
+  const BUNK_ISLANDS = ['HOROLOGE', 'CHIME']; // rest = dock bunk, not inn
+  for (const name of ['ISLES', 'HOROLOGE', 'CHIME', 'GULLWRACK']) {
+    const g = new Set();
+    MM.maps[name].forEach(r => [...r].forEach(c => g.add(c)));
+    if (!g.has('S')) fail(`${name}: no supplies source — a kid can't restock potions/food here`);
+    if (!g.has('W')) fail(`${name}: no dock — a kid can't leave`);
+    if (!g.has('I') && !BUNK_ISLANDS.includes(name)) fail(`${name}: no inn and not a bunk island — no way to rest`);
+  }
+}
+
 // ---------- sail destination registry (Wave 6.5) ----------
 // Every continent the game can sail to needs a name + caption here —
 // the "Sailing home to Numeria on every voyage" bug came from a
