@@ -79,43 +79,8 @@ var MM = globalThis.MM = globalThis.MM || {};
   const TONE_COLORS = ['#e05252', '#e0a952', '#ffd94a', '#68c470', '#52a8e0'];
 
   // ---------- tile → sprite mapping ----------
-  function tileSprite(ch, x, y, inDungeon, waterFrame, onIsles) {
-    // isle-only glyphs first: 'u' is Miscount's tile on the west map!
-    if (onIsles && (ch === 'u' || ch === 'v' || ch === 'w')) return 'murk';
-    if (onIsles && ch === 'H') return 'lighthouse';
-    switch (ch) {
-      case '~': return waterFrame ? 'water2' : 'water';
-      case 'T': return 'tree';
-      case 'M': return 'mountain';
-      case 'C': return 'castle';
-      case 'S': return 'shop';
-      case 'I': return 'inn';
-      case 'n': return 'board';
-      case 'W': return 'pier';
-      case '#': return 'wall';
-      case 'D': return 'doorMagic';
-      case '*': return 'chest';
-      case 'X': return 'ladder';
-      case '=': return 'bridge';
-      // Level 2 isle tiles
-      case '%': return 'wallCrack';
-      case ',': return 'pool';
-      case '^': return 'urchin';
-      case '_': return 'slick';
-      case 'o': return 'pad';
-      case 'k': return 'keyTile';
-      case 'K': return 'lockDoor';
-      case 'L': return 'lever';
-      case 'G': return 'gate';
-      case '>': return 'stairsDown';
-      case '<': return 'stairsUp';
-      case 'v': return 'chute';
-      default:
-        if ('1234567890'.includes(ch) && !inDungeon) return 'hole';
-        if (inDungeon) return 'floor';
-        return (x + y) % 2 ? 'grass2' : 'grass';
-    }
-  }
+  // tileSprite moved to MM.maps.tileSprite (Wave 6.5) — pure glyph logic,
+  // so the unit suite can render-audit every map without a DOM.
 
   UI.init = function () {
     canvas = document.getElementById('canvas');
@@ -260,7 +225,10 @@ var MM = globalThis.MM = globalThis.MM || {};
   function drawWorld(s, now) {
     const grid = s.grid;
     const H = grid.length, W = grid[0].length;
-    const inDungeon = s.mapId !== 'world' && s.mapId !== 'isles';
+    // Wave 6.5: the islands are OVERWORLDS — this single line once made
+    // Horologe/Chime/Gullwrack render as dungeons (grey ground, hidden
+    // entrance digits, and no NPC pass): the empty-island bug, thrice.
+    const inDungeon = !MM.maps.isOverworld(s.mapId);
     const waterFrame = Math.floor(now / 600) % 2;
 
     let camX = Math.max(0, Math.min(W - VIEW_W, s.px - Math.floor(VIEW_W / 2)));
@@ -276,7 +244,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         const x = camX + vx, y = camY + vy;
         if (y >= H || x >= W) continue;
         const ch = grid[y][x];
-        const spr = MM.sprites.get(tileSprite(ch, x, y, inDungeon, waterFrame, s.mapId === 'isles'), { scale: 3 });
+        const spr = MM.sprites.get(MM.maps.tileSprite(ch, x, y, s.mapId, waterFrame), { scale: 3 });
         ctx.drawImage(spr, vx * TILE, vy * TILE);
         if (!inDungeon && '1234567890'.includes(ch)) {
           const label = ch === '0' ? '10' : ch;

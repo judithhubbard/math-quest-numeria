@@ -603,11 +603,16 @@ var MM = globalThis.MM = globalThis.MM || {};
   // ternary that predated the third destination. A new destination means
   // ONE entry here; the sail scene and captain dialogs read from it.
   MM.data.DESTINATIONS = {
-    west: { name: 'Numeria', caption: '⛵ Sailing home to Numeria...' },
-    isles: { name: 'the Uncharted Isles', caption: '⛵ Sailing to the Uncharted Isles...' },
-    horologe: { name: 'Horologe Isle', caption: '⛵ Sailing to Horologe Isle...' },
-    chime: { name: 'Chime Isle', caption: '⛵ Sailing to Chime Isle...' },
-    gullwrack: { name: 'Gullwrack Harbor', caption: '⛵ Sailing to Gullwrack Harbor...' },
+    west: { name: 'Numeria', caption: '⛵ Sailing home to Numeria...',
+      arrival: '"Home again. The old kingdom kept your spot warm."' },
+    isles: { name: 'the Uncharted Isles', caption: '⛵ Sailing to the Uncharted Isles...',
+      arrival: '"The Uncharted Isles — chart them gently, they\'re shy."' },
+    horologe: { name: 'Horologe Isle', caption: '⛵ Sailing to Horologe Isle...',
+      arrival: '"Horologe Isle. Listen — the whole place is holding its breath. Old Tobbin by the path can tell you why."' },
+    chime: { name: 'Chime Isle', caption: '⛵ Sailing to Chime Isle...',
+      arrival: '"Chime Isle. Mind the stones — they sing back. Brona the bell-keeper knows every note."' },
+    gullwrack: { name: 'Gullwrack Harbor', caption: '⛵ Sailing to Gullwrack Harbor...',
+      arrival: '"Gullwrack Harbor — or what the storm left of it. Guildmistress Maren could use a steady pair of hands."' },
   };
 
   MM.data.POTION = { name: 'Healing Potion', emoji: '🧪', heal: 15, price: 10, quip: 'Tastes like raspberries and progress.' };
@@ -977,6 +982,23 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (L.frostbite) return '"Two beams cross over the water every night now. I leave the curtains open on purpose." She slides the final chart across the table. "The pass to the <b>Cinderforge Depths</b> is drawn — east, past the smoke. Its <b>Cinder Lens</b> is three floors down. Mind the drop chutes: <i>the mine only lets you fall one way.</i>"';
         if (L.tidepool) return '"The Tide Lens shines and the shallows are clear — first light on this coast in nine years, hero." She slides a fresh chart across the table. "The pass to <b>Frostbite Hollow</b> is drawn — northeast, past where the fog was. Its <b>Frost Lens</b> sleeps under the ice. Dress warm, and mind the frozen lake: <i>once you\'re sliding, you don\'t stop until something stops you.</i>"';
         return '"So the Compass Rose finally brought help." Keeper Callie sets down her chart pen. "Three lighthouses guard these isles, and all three lenses went dark. In the dark, the <b>Murk</b> grew — that grey wall you see across the island. It isn\'t wicked. Just deep, and dark, and terribly patient.<br><br>Light the <b>Tide Lens</b> in the grotto west of town, and you\'ll see what light does to it. The other two passes are fogged in until then — one lens at a time, hero."';
+      },
+    },
+    // Wave 6.5: the island hermits — every new region ships with at least
+    // one speaking character (arrival-experience rule, FINAL_PASSES G3)
+    z: {
+      name: '🕰 Tobbin the Clocksmith', sprite: 'sage', pal: { R: '#7a6a52', r: '#5e5140', H: '#c8c2b4' },
+      talk(s) {
+        if (s.isles.spireDone) return '"Hear that? <i>Tick. Tock.</i> Nine floors of it, steady as rain on a roof." He wipes an eye with a polishing cloth. "A stopped heart isn\'t a dead one, I always said. It just wants someone patient enough to wind it. That was you, friend. That was you."';
+        if (s.taskIndex) return '"Mind the tower, traveler. The <b>Clockwork Spire</b> stopped, oh... years back. Nobody wound it. Nobody worked at it. Things that stop and stay stopped go <i>strange</i>."<br><br>He measures your shoulders with a string, twice. "Hm. Sturdy. Inside you\'ll find doors that want a clock READ to them — read carefully, the hands don\'t repeat themselves. And plates that turn the gates: step, look, step again."';
+        return '"A visitor! Measure twice, greet once — hello."';
+      },
+    },
+    x: {
+      name: '🔔 Bell-keeper Brona', sprite: 'sage', pal: { R: '#5e4579', r: '#4a3660', H: '#e0d8ec' },
+      talk(s) {
+        if (s.isles.hallsDone) return 'She hums a full, round chord before she speaks — and this time nothing wavers. "The choir is <b>whole</b>. Every voice in it, even the one we... mislaid." A bell answers from the Halls, right on pitch. "Especially that one."';
+        return 'She hums a little tune before she speaks, and the last note wobbles like it misses someone. "The <b>Resonant Halls</b> sang once — a choir of stones, if you can believe it. One voice got left out of the arrangement. Left-out voices don\'t go quiet, dear. They go <i>wrong</i>."<br><br>"If you go in: the echo doors only want you to <b>listen, then repeat</b>. Take all the time you like. Music waits."';
       },
     },
     p: {

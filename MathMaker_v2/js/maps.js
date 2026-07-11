@@ -1004,38 +1004,39 @@ var MM = globalThis.MM = globalThis.MM || {};
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
   ];
 
-  // ===== Horologe Isle overworld (Level 3) — town-less =====
-  // W dock (sail onward/home)  P arrival spot  5 the Clockwork Spire
-  // (=dungeon 19). No shops, no inn, no NPCs — just the tower.
+  // ===== Horologe Isle overworld (Level 3) =====
+  // W dock  P arrival  5 the Clockwork Spire (=dungeon 19)
+  // z Tobbin the Clocksmith (Wave 6.5 — every island gets a greeter)
+  // T scattered wind-bent trees so the isle reads as a place
   MM.maps.HOROLOGE = [
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
     '~~~~~~~~~~~~~~MMMMMM.MMMMMM~~~~~~~~~~~~~',
     '~~~~~~~~~MMM........5........MMM~~~~~~~~',
-    '~~~~~~MMM.......................MMM~~~~~',
+    '~~~~~~MMM......T.........T......MMM~~~~~',
     '~~~~~MM...........................MM~~~~',
-    '~~~~MM.............................MM~~~',
+    '~~~~MM....T....................T....MM~~',
     '~~~~M...............................M~~~',
-    '~~~~MM............P................MM~~~',
-    '~~~~~MM...........................MM~~~~',
+    '~~~~MM............P......z.........MM~~~',
+    '~~~~~MM..............T............MM~~~~',
     '~~~~~~MMM.......................MMM~~~~~',
     '~~~~~~~~~MMM........W........MMM~~~~~~~~',
     '~~~~~~~~~~~~~~MMMMMM.MMMMMM~~~~~~~~~~~~~',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
   ];
 
-  // ===== Chime Isle overworld (Level 4, Wave 4) — town-less =====
-  // W dock (sail onward/home)  P arrival spot  6 the Resonant Halls
-  // (=dungeon 20). No shops, no inn, no NPCs — just the halls.
+  // ===== Chime Isle overworld (Level 4, Wave 4) =====
+  // W dock  P arrival  6 the Resonant Halls (=dungeon 20)
+  // x Bell-keeper Brona (Wave 6.5)  s singing stones by the path
   MM.maps.CHIME = [
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
     '~~~~~~~~~~MMMM.6.MMMM~~~~~~~~~',
-    '~~~~~~MM...............MM~~~~~',
-    '~~~~MM...................MM~~~',
+    '~~~~~~MM......s.s......MM~~~~~',
+    '~~~~MM....T.........T....MM~~~',
     '~~~~M.....................M~~~',
-    '~~~~M........P............M~~~',
-    '~~~~MM...................MM~~~',
+    '~~~~M........P.....x......M~~~',
+    '~~~~MM..........T........MM~~~',
     '~~~~~~MM...............MM~~~~~',
     '~~~~~~~~~~MMMM.W.MMMM~~~~~~~~~',
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
@@ -1101,5 +1102,72 @@ var MM = globalThis.MM = globalThis.MM || {};
       }
     }
     return out;
+  };
+
+  // ---------- tile → sprite (Wave 6.5: moved here from ui.js) ----------
+  // Lives in maps.js because it is PURE glyph logic — which lets the unit
+  // suite render-audit every map without a DOM. The old `onIsles` boolean
+  // couldn't say "which island", so Horologe/Chime/Gullwrack rendered as
+  // dungeons: grey ground, invisible entrances, and NO NPC pass at all
+  // (the empty-island bug, three times over).
+  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack'];
+  MM.maps.isOverworld = mapId => MM.maps.OVERWORLD_IDS.includes(mapId);
+
+  MM.maps.tileSprite = function (ch, x, y, mapId, waterFrame) {
+    const inDungeon = !MM.maps.isOverworld(mapId);
+    // map-specific glyphs first — 'u' is Miscount on the west map but murk
+    // fog on the isles; the island landmarks each own their digit
+    if (mapId === 'isles' && (ch === 'u' || ch === 'v' || ch === 'w')) return 'murk';
+    if (mapId === 'isles' && ch === 'H') return 'lighthouse';
+    // the mainland's expansion entrances (A/B = dungeons 11/12, K = 13) —
+    // drawWorld paints their number labels on top of the hole
+    if (mapId === 'world' && (ch === 'A' || ch === 'B' || ch === 'K')) return 'hole';
+    if (mapId === 'horologe' && ch === '5') return 'spireTower';
+    if (mapId === 'chime' && ch === '6') return 'hallTower';
+    if (mapId === 'gullwrack' && ch === '7') return 'breakArch';
+    switch (ch) {
+      case '~': return waterFrame ? 'water2' : 'water';
+      case 'T': return 'tree';
+      case 'M': return 'mountain';
+      case 'C': return 'castle';
+      case 'S': return 'shop';
+      case 'I': return 'inn';
+      case 'n': return 'board';
+      case 'W': return 'pier';
+      case '#': return 'wall';
+      case 'D': return 'doorMagic';
+      case '*': return 'chest';
+      case 'X': return 'ladder';
+      case '=': return 'bridge';
+      // Level 2 isle tiles
+      case '%': return 'wallCrack';
+      case ',': return 'pool';
+      case '^': return 'urchin';
+      case '_': return 'slick';
+      case 'o': return 'pad';
+      case 'k': return 'keyTile';
+      case 'K': return 'lockDoor';
+      case 'L': return 'lever';
+      case 'G': return 'gate';
+      case '>': return 'stairsDown';
+      case '<': return 'stairsUp';
+      case 'v': return 'chute';
+      // Waves 3/4/6 tiles that shipped handler-only and rendered as bare
+      // ground (Wave 6.5 renderability pass) — A/B/C gear gates never
+      // reach the live grid (applyGearState rewrites them to '#'/'.')
+      case 'Z': return 'clockDoor';
+      case 'Y': return 'echoDoor';
+      case 'R': return 'gearPlate';
+      case 's': return 'singStone';
+      case 'U': return 'slab';
+      case 'r': return 'brokenFloor';
+      case 'i': return 'board';   // blueprint plaque reads as a posted notice
+      case 'l': return 'lever';   // reset lever (bespoke sprite with Wave 7's
+                                  // gear-plate readability pass)
+      default:
+        if ('1234567890'.includes(ch) && !inDungeon) return 'hole';
+        if (inDungeon) return 'floor';
+        return (x + y) % 2 ? 'grass2' : 'grass';
+    }
   };
 })();

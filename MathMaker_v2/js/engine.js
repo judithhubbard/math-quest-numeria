@@ -502,6 +502,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       s.continent = dest;
       s.worldPos = null;
       E.enterWorld();
+      // Wave 6.5: the captain announces every landfall (arrival-experience
+      // rule) — one line per destination, from the registry
+      const d = MM.data.DESTINATIONS[dest];
+      if (d && d.arrival) MM.ui.log(`⛵ ${d.arrival}`);
       E.save();
       // Miscount's egg hatches somewhere out on the open water
       if (dest === 'isles' && s.isles.egg && !s.isles.pet) MM.ui.hatchScene();
@@ -751,6 +755,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ch === 'S') return MM.ui.openShop();
       if (ch === 'I') return E.inn();
       if (MM.data.NPCS[ch]) return E.talkNpc(ch);
+      // Chime Isle's singing stones (Wave 6.5): a bump, a bright note —
+      // pure flavor, and no tile the kid touches stays silent
+      if (ch === 's') { MM.sound.coin(); return MM.ui.log('🔔 The stone hums a round, bright note.'); }
       // Wave 6.5: broken floor is IMPASSABLE until a slab mends it — a gap
       // a kid can stroll across makes repair sites (and the Breakwater
       // shortcut) meaningless. Bumping it explains itself instead.

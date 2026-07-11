@@ -1249,6 +1249,51 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   }
 }
 
+// ---------- renderability audit (Wave 6.5 / FINAL_PASSES Pass G1) ----------
+// Every glyph on every map must draw as SOMETHING the kid can see —
+// Horologe, Chime, and Gullwrack all shipped with invisible entrances,
+// NPCs, and puzzle tiles because nothing enforced this. Rules:
+//  (a) tileSprite must return a sprite name that exists in MM.sprites.DEFS;
+//  (b) on an overworld, 'floor' is never acceptable, and grass is only
+//      acceptable for plain ground / the arrival tile / NPC letters
+//      (NPCs draw in their own pass — but then the letter MUST exist in
+//      MM.data.NPCS, or the "person" is a patch of grass);
+//  (c) on a dungeon floor, 'floor' is only acceptable for actual floor
+//      and spawn markers (replaced at entry) — a mechanic tile that draws
+//      as bare floor is invisible, which is how the Spire shipped
+//      invisible clock doors.
+{
+  require(path.join(ROOT, 'js/sprites.js'));
+  const GRASS_OK = new Set(['.', 'P', '=']);
+  const FLOOR_OK = new Set(['.', 'm', 'g', 't', 'b', 'A', 'B', 'C']); // A/B/C rewritten to #/. at entry
+  const checkMap = (rows, mapId, label) => {
+    const grid = MM.maps.parse(rows, mapId === 'world' || MM.maps.isOverworld(mapId) ? '~' : '#');
+    const seen = new Set();
+    for (const row of grid) for (const ch of row) {
+      if (seen.has(ch)) continue;
+      seen.add(ch);
+      const spr = MM.maps.tileSprite(ch, 0, 0, mapId, 0);
+      if (!MM.sprites.DEFS[spr]) { fail(`${label}: glyph '${ch}' maps to unknown sprite '${spr}'`); continue; }
+      if (MM.maps.isOverworld(mapId)) {
+        if (spr === 'floor') fail(`${label}: glyph '${ch}' draws as dungeon floor on an overworld`);
+        if ((spr === 'grass' || spr === 'grass2') && !GRASS_OK.has(ch) && !MM.data.NPCS[ch]) {
+          fail(`${label}: glyph '${ch}' is INVISIBLE (draws as grass, not ground/NPC) — give it a tileSprite case or an NPCS entry`);
+        }
+      } else if (spr === 'floor' && !FLOOR_OK.has(ch)) {
+        fail(`${label}: glyph '${ch}' is INVISIBLE in a dungeon (draws as bare floor) — give it a tileSprite case`);
+      }
+    }
+  };
+  checkMap(MM.maps.OVERWORLD, 'world', 'overworld');
+  checkMap(MM.maps.ISLES, 'isles', 'isles');
+  checkMap(MM.maps.HOROLOGE, 'horologe', 'horologe');
+  checkMap(MM.maps.CHIME, 'chime', 'chime');
+  checkMap(MM.maps.GULLWRACK, 'gullwrack', 'gullwrack');
+  for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
+    MM.maps.dungeonFloors(idx).forEach((raw, fi) => checkMap(raw, `d${idx}f${fi}`, `render d${idx} f${fi}`));
+  }
+}
+
 // ---------- sail destination registry (Wave 6.5) ----------
 // Every continent the game can sail to needs a name + caption here —
 // the "Sailing home to Numeria on every voyage" bug came from a
