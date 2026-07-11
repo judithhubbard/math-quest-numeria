@@ -217,3 +217,9 @@ convention as `MM.ui.sailing()`), and the exam's structure is readable off
 enforces: the door audit + glyph registry, the renderability audit (every
 glyph draws visibly), the never-stranded audit (every island has supplies,
 a dock, and rest), and the sail-destination registry.
+
+Operational note (2026-07-11): do NOT run drives while Dropbox is
+indexing a big file operation (e.g. right after refreshing the play
+copy) — the I/O contention can starve headless Chrome past even 90s
+timeouts. Every "mystery" drive failure to date has occurred under
+sync load and passed under quiet conditions.

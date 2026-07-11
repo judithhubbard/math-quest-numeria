@@ -435,6 +435,15 @@ var MM = globalThis.MM = globalThis.MM || {};
   };
 
   // ---------- map handling ----------
+  // Wave 7.1: restore a saved overworld position only if it's a tile the
+  // player could STAND on today — rescues any save stranded on a since-
+  // sealed trap tile (a live playtester was stuck on Horologe's (20,2))
+  function safeStart(s) {
+    const p = s.worldPos;
+    if (p && s.grid[p.y] && '.P='.includes(s.grid[p.y][p.x])) return p;
+    return MM.maps.find(s.grid, 'P')[0];
+  }
+
   E.enterWorld = function () {
     const s = E.state;
     if ((s.continent || 'west') === 'isles') return E.enterIsles();
@@ -448,7 +457,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.tasksDone && s.tasksDone.includes(10)) {
       for (const b of MM.maps.BRIDGE) s.grid[b.y][b.x] = '=';
     }
-    const start = s.worldPos || MM.maps.find(s.grid, 'P')[0];
+    const start = safeStart(s);
     s.px = start.x; s.py = start.y;
     E.petPos = { x: s.px, y: s.py };
     MM.ui.log('You stand in the kingdom of Numeria.');
@@ -475,7 +484,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       const [x, y] = xy.split(',').map(Number);
       if (s.grid[y] && s.grid[y][x] === '%') s.grid[y][x] = '4';
     }
-    const start = s.worldPos || MM.maps.find(s.grid, 'P')[0];
+    const start = safeStart(s);
     s.px = start.x; s.py = start.y;
     E.petPos = { x: s.px, y: s.py };
     MM.ui.log('Salt air and gull cries — the Uncharted Isles.');
@@ -488,7 +497,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     s.mapId = 'horologe';
     s.grid = MM.maps.parse(MM.maps.HOROLOGE, '~');
     s.monsters = [];
-    const start = s.worldPos || MM.maps.find(s.grid, 'P')[0];
+    const start = safeStart(s);
     s.px = start.x; s.py = start.y;
     E.petPos = { x: s.px, y: s.py };
     MM.ui.log('Gears click somewhere underfoot — Horologe Isle.');
@@ -501,7 +510,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     s.mapId = 'chime';
     s.grid = MM.maps.parse(MM.maps.CHIME, '~');
     s.monsters = [];
-    const start = s.worldPos || MM.maps.find(s.grid, 'P')[0];
+    const start = safeStart(s);
     s.px = start.x; s.py = start.y;
     E.petPos = { x: s.px, y: s.py };
     MM.ui.log('A faint hum drifts on the wind — Chime Isle.');
@@ -517,7 +526,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     s.grid = MM.maps.parse(MM.maps.GULLWRACK, '~');
     s.monsters = [];
     E.applySiteState('gullwrack');
-    const start = s.worldPos || MM.maps.find(s.grid, 'P')[0];
+    const start = safeStart(s);
     s.px = start.x; s.py = start.y;
     E.petPos = { x: s.px, y: s.py };
     MM.ui.log('Salt-worn timbers and gull cries — Gullwrack Harbor.');
