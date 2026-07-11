@@ -351,24 +351,43 @@ MM.maps.DUNGEONS.forEach((raw, di) => {
   console.log(`dungeon ${di + 1}: ${mons.length} monsters, ${chests.length} chests, ${doors.length} doors — ok so far`);
 });
 
-// ---------- door audit (Wave 1.5 / EXPANSION_PLAN.md §1.5b) ----------
-// Every 'D'/'K' must actually gate something. Flag a door if either:
+// ---------- door audit (Wave 1.5 §1.5b; generalized Wave 6.5) ----------
+// Every door-like tile must actually gate something. Flag a door if either:
 //  (a) it has fewer than 2 open neighbors ('%' counts as open) — a true
 //      dead end that opens onto nothing; or
 //  (b) with the door itself blocked, its open neighbors are STILL mutually
 //      reachable via some other route — under BOTH a sealed-% and an
-//      open-% BFS ('#DKG' solid throughout) — meaning it's decorative.
+//      open-% BFS — meaning it's decorative.
 // Requiring BOTH % states deliberately spares door-then-secret chains and
 // doors with a secret-wall bypass (those are only decorative once the
 // secret is found, which is the intended design, not a bug).
+//
+// THE GLYPH REGISTRY (Wave 6.5): every glyph on any dungeon floor must be
+// classified here or the suite FAILS — dungeons 19/20 shipped five broken
+// doors because Z/Y/A/B/C were never taught to this audit and the floor
+// list below was hardcoded. New glyph => classify it here first.
+const DUNGEON_GLYPHS = {
+  doors: 'DKZY',             // math, locked, clock (Z), echo (Y)
+  solid: '#GABCUilr',        // walls, lever-gates, gear gates, slabs,
+                             // blueprint plaques, reset levers, broken
+                             // floor (impassable until mended, Wave 6.5)
+  open: '.mgtbk*%<>Xv^,_osRL ', // floor, spawn markers, pickups, stairs,
+                             // chutes, terrain effects, singing stones,
+                             // gear plates (walk-on), one-shot levers
+                             // (post-pull = open route)
+};
 function auditDoors(rawGrid, label) {
   const grid = MM.maps.parse(rawGrid, '#');
   const H = grid.length, W = grid[0].length;
-  const solid = new Set(['#', 'D', 'K', 'G']);
+  const known = DUNGEON_GLYPHS.doors + DUNGEON_GLYPHS.solid + DUNGEON_GLYPHS.open;
+  for (const row of grid) for (const ch of row) {
+    if (!known.includes(ch)) fail(`${label}: unclassified glyph '${ch}' — add it to DUNGEON_GLYPHS (tests/test.js) so the door audit understands it`);
+  }
+  const solid = new Set(('#' + DUNGEON_GLYPHS.doors + DUNGEON_GLYPHS.solid).split(''));
   const at = (g, x, y) => (y >= 0 && y < H && x >= 0 && x < W) ? g[y][x] : '#';
   const doors = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (grid[y][x] === 'D' || grid[y][x] === 'K') doors.push({ x, y, ch: grid[y][x] });
+    if (DUNGEON_GLYPHS.doors.includes(grid[y][x])) doors.push({ x, y, ch: grid[y][x] });
   }
   for (const d of doors) {
     const neighbors = [[1, 0], [-1, 0], [0, 1], [0, -1]]
@@ -402,9 +421,11 @@ function auditDoors(rawGrid, label) {
     if (decorative) fail(`${label}: door '${d.ch}' at ${d.x},${d.y} is decorative (a bypass exists with it blocked, both % states)`);
   }
 }
-MM.maps.DUNGEONS.forEach((raw, di) => auditDoors(raw, `dungeon ${di + 1}`));
-[14, 15, 16, 17, 18].forEach(idx => MM.maps.dungeonFloors(idx).forEach((raw, fi) => auditDoors(raw, `dungeon ${idx} f${fi}`)));
-[4, 7, 9].forEach(idx => auditDoors(MM.maps.DEEP_WINGS[idx], `dungeon ${idx} deep wing`));
+// EVERY dungeon, derived — never a hardcoded list again (Wave 6.5): the
+// task table is the single source of truth for how many dungeons exist.
+for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
+  MM.maps.dungeonFloors(idx).forEach((raw, fi) => auditDoors(raw, `dungeon ${idx} f${fi}`));
+}
 
 // ---------- Wave 5 item 1: Deep Wings (dungeons 4, 7, 9) ----------
 {
@@ -1225,6 +1246,23 @@ MM.maps.DUNGEONS.forEach((raw, di) => auditDoors(raw, `dungeon ${di + 1}`));
       fail(`repair site '${site.id}': reset did not restore the exact start slab positions`);
     }
     if (after.filled.some(Boolean) || after.done) fail(`repair site '${site.id}': reset should never touch filled/done`);
+  }
+}
+
+// ---------- sail destination registry (Wave 6.5) ----------
+// Every continent the game can sail to needs a name + caption here —
+// the "Sailing home to Numeria on every voyage" bug came from a
+// hardcoded two-way ternary. New destination => new entry, tested here.
+{
+  const wanted = ['west', 'isles', 'horologe', 'chime', 'gullwrack'];
+  for (const k of wanted) {
+    const d = MM.data.DESTINATIONS[k];
+    if (!d) { fail(`DESTINATIONS: missing entry for continent '${k}'`); continue; }
+    if (!d.name || !d.caption) fail(`DESTINATIONS.${k}: needs both name and caption`);
+    if (!d.caption.includes('⛵')) fail(`DESTINATIONS.${k}: caption should read as a voyage line`);
+  }
+  for (const k of Object.keys(MM.data.DESTINATIONS)) {
+    if (!wanted.includes(k)) fail(`DESTINATIONS has unknown continent '${k}' — update this test AND enterWorld's routing`);
   }
 }
 

@@ -688,10 +688,12 @@ var MM = globalThis.MM = globalThis.MM || {};
   // the key unlocks a locked door; a clock door gates the final stretch to
   // the stairs down.
   const SPIRE_F1 = [
+    // Wave 6.5: the free-floating K and Z now each gate a small vault —
+    // a door that opens onto nothing reads as a glitch (door audit)
     '########################################',
-    '#.........#...............#............#',
-    '#...m.....#.....K.........#............#',
-    '#.........#...............#...Z........#',
+    '#.........#....#*#........#..###.......#',
+    '#...m.....#....#K#........#..#*#.......#',
+    '#.........#...............#..#Z#.......#',
     '#.........#............................#',
     '#####.#####...............#............#',
     '#.........#...............######.#######',
@@ -751,8 +753,10 @@ var MM = globalThis.MM = globalThis.MM || {};
   // every gate (G) barring the way forward — same contract as every other
   // L/G in the game. A side key behind a guard opens a locked pocket chest.
   const SPIRE_F4 = [
+    // Wave 6.5: the side key's "locked pocket chest" is now actually a
+    // pocket — the K stood in open floor with the chest loose beside it
     '########################################',
-    '#....k......*..........................#',
+    '#....k.....#*#.........................#',
     '#.....g.....K........................>.#',
     '#..L..................t................#',
     '#......................................#',
@@ -799,12 +803,14 @@ var MM = globalThis.MM = globalThis.MM || {};
   // Floor 1 — "The Overture": a guard parks on the key; singing stones line
   // a side corridor; an echo door gates the final stretch to the stairs.
   const HALLS_F1 = [
+    // Wave 6.5: the K and echo door Y each now gate a real pocket —
+    // both stood in open floor gating nothing (door audit)
     '##########################',
-    '#...........#............#',
-    '#.....sss...#..K.........#',
+    '#...........#.#*#........#',
+    '#.....sss...#.#K#........#',
     '#...m.......#.......*....#',
-    '#...........#............#',
-    '#...........#............#',
+    '#...........#....#.......#',
+    '#...........#...#*#......#',
     '#..g.k......#....Y.......#',
     '#........................#',
     '#...........#............#',
@@ -875,11 +881,15 @@ var MM = globalThis.MM = globalThis.MM || {};
   // storeroom; floor 1's rubble wall splits the room in two — the long way
   // around costs a math door, the shortcut (the dungeon's one repair site,
   // 2 slabs pushed EAST) is a free bypass once its blueprint is solved.
+  // Wave 6.5: the rubble wall now actually splits the room (its top and
+  // bottom thirds were open, so the D and the repair-site shortcut both
+  // gated nothing — door audit); broken 'r' tiles are also impassable
+  // until mended (engine), so the shortcut is a real shortcut.
   const BREAKWATER_F1 = [
     '##########################',
-    '#X.......................#',
-    '#........................#',
-    '#..m................t....#',
+    '#X...........#...........#',
+    '#............#...........#',
+    '#..m.........#......t....#',
     '#............#...........#',
     '#.....*.....g#...........#',
     '#.........i.Ur...........#',
@@ -887,9 +897,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     '#.........l..#...........#',
     '#............#...........#',
     '#............D......m....#',
-    '#........................#',
-    '#......................>.#',
-    '#........................#',
+    '#............#...........#',
+    '#............#.........>.#',
+    '#............#...........#',
     '##########################',
   ];
   // Floor 2 — the flooded chamber. The Undertow waits at the center.

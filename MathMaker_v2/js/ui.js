@@ -236,7 +236,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       ctx.quadraticCurveTo(gx + 3, gy - 5, gx + 7, gy);
       ctx.stroke();
     }
-    const msg = a.dest === 'isles' ? '⛵ Sailing to the Uncharted Isles...' : '⛵ Sailing home to Numeria...';
+    // Wave 6.5: captions come from the destination registry — the old
+    // two-way ternary said "Sailing home to Numeria" for every new island
+    const msg = (MM.data.DESTINATIONS[a.dest] || {}).caption || '⛵ Sailing...';
     ctx.font = '13px "Press Start 2P", monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#141221';

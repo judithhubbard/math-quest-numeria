@@ -751,9 +751,13 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ch === 'S') return MM.ui.openShop();
       if (ch === 'I') return E.inn();
       if (MM.data.NPCS[ch]) return E.talkNpc(ch);
-      // broken-floor repair tiles (Wave 6) are walkable ground, same as any
-      // dungeon floor — only the plaque/lever/slab objects themselves block
-      if (ch === '.' || ch === 'P' || ch === '=' || ch === E.SITE_GLYPHS.broken) {
+      // Wave 6.5: broken floor is IMPASSABLE until a slab mends it — a gap
+      // a kid can stroll across makes repair sites (and the Breakwater
+      // shortcut) meaningless. Bumping it explains itself instead.
+      if (ch === E.SITE_GLYPHS.broken) {
+        return MM.ui.log('🕳 The floor here is shattered — a stone slab could mend it.');
+      }
+      if (ch === '.' || ch === 'P' || ch === '=') {
         E.petPos = { x: s.px, y: s.py };
         s.px = nx; s.py = ny;
         E.walkStamina();
@@ -816,6 +820,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
     if (ch === E.SITE_GLYPHS.plaque || ch === E.SITE_GLYPHS.lever || ch === E.SITE_GLYPHS.slab) {
       if (E.trySiteBump(s.mapId, dx, dy, nx, ny)) return;
+    }
+    // Wave 6.5: broken floor blocks in dungeons too (see the town branch) —
+    // the Breakwater's mendable wall gap is a shortcut, not an open door
+    if (ch === E.SITE_GLYPHS.broken) {
+      return MM.ui.log('🕳 The floor here is shattered — a stone slab could mend it.');
     }
     if (ch === '#' || ch === 'G') return;
     E.petPos = { x: s.px, y: s.py };

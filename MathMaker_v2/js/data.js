@@ -598,6 +598,18 @@ var MM = globalThis.MM = globalThis.MM || {};
     return gem ? `${gem.emoji} ${gem.prefix} ${item.name}` : `${item.emoji} ${item.name}`;
   };
 
+  // Wave 6.5: every sail destination in one registry — the caption bug
+  // ("Sailing home to Numeria" on every voyage) came from a two-way
+  // ternary that predated the third destination. A new destination means
+  // ONE entry here; the sail scene and captain dialogs read from it.
+  MM.data.DESTINATIONS = {
+    west: { name: 'Numeria', caption: '⛵ Sailing home to Numeria...' },
+    isles: { name: 'the Uncharted Isles', caption: '⛵ Sailing to the Uncharted Isles...' },
+    horologe: { name: 'Horologe Isle', caption: '⛵ Sailing to Horologe Isle...' },
+    chime: { name: 'Chime Isle', caption: '⛵ Sailing to Chime Isle...' },
+    gullwrack: { name: 'Gullwrack Harbor', caption: '⛵ Sailing to Gullwrack Harbor...' },
+  };
+
   MM.data.POTION = { name: 'Healing Potion', emoji: '🧪', heal: 15, price: 10, quip: 'Tastes like raspberries and progress.' };
   // Brass Compass specials (the Isles)
   MM.data.MYSTERY = { name: 'Mystery Potion', emoji: '🫙', price: 12, quip: 'Who knows! (Usually something good. Usually.)' };
