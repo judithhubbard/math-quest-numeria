@@ -183,11 +183,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     el('fleeBtn').onclick = () => { if (!bt.locked) { MM.ui.log(`You flee from ${MM.data.theMon(bt.mon.name)}.`); teardown({ fled: true }); } };
   }
 
-  function onAnswer(correct) {
+  function onAnswer(correct, kidAnswer) {
     if (!bt || bt.locked) return;
     bt.locked = true;
     el('fleeBtn').disabled = true;
-    bt.ctx.hooks.recordAnswer(bt.problem.skill, correct);
+    bt.ctx.hooks.recordAnswer(bt.problem.skill, correct, { text: bt.problem.text, kidAnswer });
     if (correct) {
       MM.sound.correct();
       el('probFeedback').innerHTML = `<div class="right">✓ Correct!</div>`;

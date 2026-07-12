@@ -111,11 +111,25 @@ function canonicalize(p) {
   check(healthFailures === 0, `no blank/collapsed modal in 15 noisy shop rounds (${healthFailures} failures)`);
 
   // ---------- the dockside cart (Horologe): supplies-only ----------
-  await page.evaluate(() => { const s = MM.engine.state; s.continent = 'horologe'; s.worldPos = null; MM.engine.enterWorld(); MM.ui.openShop(); });
+  await page.evaluate(() => { const s = MM.engine.state; s.items.treasures.push('pearl'); s.continent = 'horologe'; s.worldPos = null; MM.engine.enterWorld(); MM.ui.openShop(); });
   await step('open horologe cart');
   check(/Dockside Cart/.test(await page.textContent('#modalBox h2')), 'the Horologe cart has its own name');
-  check(!(await page.$('.shop-tab-btn')), 'the cart shows no tabs (supplies only)');
-  check(!(await page.$('button.shop-sell')), 'the cart has no sell counter');
+  // carts sell supplies AND buy (user decision 2026-07-11) — two tabs, no gear
+  const cartTabs = await page.evaluate(() => [...document.querySelectorAll('.shop-tab-btn')].map(b => b.dataset.tab).join(','));
+  check(cartTabs === 'supplies,sell', `the cart shows Supplies + Sell tabs, no gear (got: ${cartTabs})`);
+  await page.click('.shop-tab-btn[data-tab="sell"]');
+  const sellBtn = await page.$('button.shop-sell');
+  check(!!sellBtn, 'the cart buys treasures (sell counter present)');
+  if (sellBtn) {
+    const goldBefore = await page.evaluate(() => MM.engine.state.gold);
+    await sellBtn.click();
+    if (await page.$('#modalBox .prob-text')) await solveModal();
+    check(await page.evaluate((g) => MM.engine.state.gold > g, goldBefore), 'a treasure sold at the cart pays out (word problem included)');
+  }
+  await page.evaluate(() => MM.ui.openShop());
+  await page.waitForTimeout(150);
+  await page.click('.shop-tab-btn[data-tab="supplies"]'); // back off the sell tab for the buy checks
+  await page.waitForTimeout(150);
   check(!!(await page.$('button.shop-buy[data-kind="potion"]')), 'the cart sells potions');
   check(!!(await page.$('button.shop-buy[data-kind="food"]')), 'the cart sells food');
   await page.evaluate(() => MM.ui.closeModal());

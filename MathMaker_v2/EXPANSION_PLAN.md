@@ -1416,14 +1416,100 @@ dialog gets design-session review.
    FLAVOR sprite family + bespoke lines for the personality monsters;
    bosses reuse their existing sincere endings (they were always
    soothed). The lore already believes this — the mechanic catches up.
-2. **Brave Problems** (P3): a ⚡ Brave toggle in the battle button row:
-   the next problem draws one tier higher (cap tier 3; AT tier 3, draw a
-   full-depth problem into the quick slot); correct = double strike
-   damage with a bigger flourish; wrong = exactly a normal miss (never
-   extra punishment — bravery is not a trap). Sub-label shows the
-   stakes. Mastery records the true tier. Balance note: with the sim's
-   numbers, double damage at 85% accuracy ≈ 1.7× effective DPS — fine
-   for regulars, and bosses stay ≥3 answers (assert it in the drive).
+   **The visual spec (this is where the delight budget goes — a soothed
+   monster should be the cutest thing in the game):** soft teal "+N
+   calm" floaters with music-note/Zzz motes, never damage bursts; the
+   monster VISIBLY becalms as its bar fills (sways slower, eyes
+   half-close — same sprite, menace draining). Victory = a per-family
+   reaction from 4–5 reusable gestures (contented bounce-wiggle,
+   curl-up-and-nap with a Zzz, wave goodbye, slow easeful drift,
+   sit-down-at-last) + a line from a new soothe-victory FLAVOR pool per
+   family (Slime bounces; Frost Pup rolls over; gulls preen; ghosts
+   sigh upward; golems finally sit down). Gold is OFFERED — the monster
+   nudges a pouch over before wandering off — not exploded from a body.
+   A soothed tiny-hat monster TIPS THE HAT (non-negotiable). Bestiary:
+   🕊 + a warm-tinted card frame. The pet's happiest hop is reserved
+   for soothe victories. Screenshot at least three family reactions
+   and LOOK at them.
+   **Gentle instruments (user idea, 2026-07-11):** 3–4 instruments IN
+   the existing weapon catalog at matched atk tiers (atk = calm power;
+   same slot, no parallel line, no doubled economy), tagged
+   `gentle: true` with stance-fitting strike verbs + quips: a ribbon
+   streamer (early), the **cat-fishing wand** (mid, `ranged: true` — a
+   dangled teaser is a reach weapon, so it inherits the crossbow's
+   first-counterattack-misses rule for free; the pet finds it DEEPLY
+   fascinating and must be discouraged), a bubble pipe (isle tier),
+   chime bells (late). Any stance may wield any weapon — identity is
+   offered, never enforced.
+   **The Ceremony (user's class idea, kept as a question not a lock,
+   2026-07-11):** the first-battle tutorial ASKS — "How will you face
+   the tangles: bravely, or gently?" The answer sets the profile's
+   starting default stance + a matching equal-stats starter (wooden
+   stick / ribbon streamer), with the sealing line: "You can always
+   change your way. Most heroes do, eventually." NO classes, NO locked
+   content — a first answer, not a life sentence (FINAL_REVIEW §5:
+   never auto-detect or enforce which kid is which).
+   **Shops organize by stance, never filter:** the kid's kind of gear
+   lists first under a warm header ("🕊 For gentle hands" / "⚔️ For
+   bold arms"), everything else below, all always visible and buyable;
+   the shopkeeper greets the stance ("A tamer, eh? The wand came in
+   Tuesday."). Drive: ceremony choice sets default stance + starter;
+   both gear groups render in either stance; nothing is hidden.
+   **One soothe-native gem — Lullaby 🎐:** while soothing, the
+   monster's first counterattack is skipped ("it's already yawning") —
+   the soothe twin of the ranged rule, same battle hook. All existing
+   gems work unchanged in either stance (damage IS calm).
+   **Befriending changes the world:** wanderers/chasers of a befriended
+   species never initiate — they wave as the kid passes (a small 🕊 bob;
+   bump to engage voluntarily). Guards still guard their posts,
+   thieves still steal (comedy preserved), bosses unaffected. For the
+   anxious kid this converts every soothed species from ambush-anxiety
+   into visible friendliness — her collection pays out in CONTROL of
+   her encounters.
+   **At-a-glance distinction (user requirement, 2026-07-11) — three
+   redundant signals, per the never-color-alone rule:** (a) befriended
+   monsters render in a SOFTENED palette — one programmatic transform
+   (blend each palette color toward warm white) applied at sprite-get
+   time, so all ~70 types get their calmed look for free; (b) a
+   CONSTANT 🕊 pip floats above them (like the pet's ❗ — always on,
+   readable across the room, survives color-blindness); (c) becalmed
+   idle motion (slow sway) vs the hostile jitter. A kid must be able to
+   read a whole floor in one glance from the doorway. Screenshot a
+   mixed room (befriended + hostile of the same species side by side)
+   and LOOK at it. Drive: befriend a species, verify its wanderers no
+   longer chase, verify the pip + palette render, verify bump still
+   fights.
+   **Friends celebrate the boss falling (user idea, 2026-07-11):** when
+   a floor's boss is defeated OR soothed, every living befriended
+   monster on that floor celebrates — the contented bounce-wiggle from
+   the reaction set, a brief shower of calm motes, and one collective
+   log line ("All around the room, your friends are bouncing."). If the
+   boss was SOOTHED, it visibly joins them for a beat before wandering
+   off. Hostile monsters stay unmoved — still tangled, and the contrast
+   IS the story, told in one glance. One-shot, ~2s, never blocks input;
+   under Calm Mode the hop stays but the particles don't (a ceremony,
+   but a quiet one). Drive: befriend two monsters, beat the boss,
+   assert the celebration fires exactly once and hostiles don't join;
+   screenshot the mixed room mid-celebration.
+2. **Brave Problems** (P3): a ⚡ Brave STANCE, exactly like Soothe — a
+   sticky toggle in the battle row, remembered per profile as the
+   default, NEVER a per-strike press (SACRED RULE, user 2026-07-11: the
+   combat loop is type-answer-press-Enter and stays that way; stances
+   are set once and lived in, so the steady-state loop gains ZERO
+   button presses). While brave, every problem draws one tier higher
+   (cap tier 3; AT tier 3, draw a full-depth problem into the quick
+   slot); correct = double strike damage with a bigger flourish; wrong
+   = exactly a normal miss (never extra punishment — bravery is not a
+   trap). Sub-label shows the stakes while active. Mastery records the
+   true tier. Balance note: with the sim's numbers, double damage at
+   85% accuracy ≈ 1.7× effective DPS — fine for regulars, and bosses
+   stay ≥3 answers (assert it in the drive). Stances compose: a kid can
+   be brave AND soothing at once. **The get, precisely:** 2× damage with
+   a CHOSEN-looking flourish (gold lightning — visually distinct from a
+   lucky crit), plus a lifetime "brave problems solved" counter on the
+   report card and the Hall of Heroes plaque (pride that outlives the
+   fight). Deliberately NO extra gold — the economy runs a surplus and
+   bravery must stay self-chosen, never a grind incentive.
 3. **Miscount's Academy, early** (P4): generalize Wave 7's slate
    machinery (`castleExam` internals) into a reusable
    `spotTheError(skill, tier)` in problems/mastery; after task 10,
