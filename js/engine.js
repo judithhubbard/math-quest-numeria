@@ -27,10 +27,12 @@ var MM = globalThis.MM = globalThis.MM || {};
       difficulty: 'hero',                    // story | hero | legend (kid-settable)
       calmMode: false,                       // Wave 5: no shakes/particles/ambient motion
       // parent-only, PIN-protected. topics = all-on until set, EXCEPT
-      // music_reading (Wave 4: opt-in, not core 5th-grade) — explicitly off
+      // Every topic defaults ON (user decision 2026-07-11): missing from
+      // parent.topics means enabled; only an explicit parent choice in
+      // the panel ever writes false. Nothing seeds or force-writes OFF.
       // from the very first session, since newGame never goes through
       // E.load()'s migration until the NEXT time this profile loads.
-      parent: { pin: null, topics: { music_reading: false } },
+      parent: { pin: null, topics: {} },
       taskIndex: 0,        // 0 = has not met the MathMaker yet; 1-10 = current task
       haveItem: false,
       tasksDone: [],
@@ -112,10 +114,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       MM.data.TASKS.filter(t => !t.exp).forEach((t, i) => { s.parent.topics[t.skill] = i < cap; });
       delete s.parent.topicCap;
     }
-    // Wave 4: music_reading is the first topic that must default OFF (every
-    // existing default reads "missing from the map" as enabled) — force it
-    // false exactly once, for saves that predate this topic entirely.
-    if (s.parent.topics.music_reading === undefined) s.parent.topics.music_reading = false;
+    // (Wave 4 force-wrote music_reading:false here. Removed 2026-07-11 by
+    // user decision: every topic defaults ON — missing means enabled, and
+    // only an explicit parent-panel choice writes false. Saves that were
+    // seeded false keep their stored value; the panel flips it back on.)
     // Wave 4 carry-over: spell celebrations are new. A returning player who
     // already earned the gold badges for a spell shouldn't get a surprise
     // "you unlocked X!" popup for something they've had for ages — only
@@ -432,6 +434,26 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   E.deleteProfile = function (name) {
     localStorage.removeItem(SAVE_PREFIX + name);
+  };
+
+  // ---------- the Adventurer's Passport (Pass F) ----------
+  // Saves live in the browser; the passport is how they TRAVEL — a small
+  // JSON file a family can back up, move to grandma's laptop, or email to
+  // a cousin. No accounts, no server: the file IS the account.
+  E.exportSave = function () {
+    E.save();
+    return localStorage.getItem(SAVE_PREFIX + E.state.name);
+  };
+  E.importSave = function (json) {
+    let save;
+    try { save = JSON.parse(json); } catch (e) { return { error: 'That file isn\'t a Math Quest passport.' }; }
+    if (!save || typeof save.name !== 'string' || !save.name.trim() || typeof save.taskIndex !== 'number') {
+      return { error: 'That file isn\'t a Math Quest passport.' };
+    }
+    const name = save.name.trim().slice(0, 24);
+    const existed = !!localStorage.getItem(SAVE_PREFIX + name);
+    localStorage.setItem(SAVE_PREFIX + name, JSON.stringify(save));
+    return { name, existed }; // E.load(name) runs it through every migration
   };
 
   // ---------- map handling ----------
@@ -992,6 +1014,17 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.petPos = { x: s.px, y: s.py };
     if (floor === 0) {
       MM.ui.log(`You enter the ${task.dungeon}. (${task.mixed ? 'Everything you\'ve learned!' : MM.data.SKILL_NAMES[task.skill]})`);
+      // Wave 8-preview (user playtest): a bounty that applies HERE announces
+      // itself — dungeon-scoped jobs were progressing invisibly (or not at
+      // all) and read as broken
+      for (const board of [s.bounties, s.isleBounties]) {
+        if (!board || !board.items) continue;
+        for (const it of board.items) {
+          if (!it.done && it.dungeon === idx && (it.type === 'hunt' || it.type === 'solve')) {
+            MM.ui.log(`📌 <b>Bounty active here:</b> ${it.have}/${it.need} ${it.type === 'hunt' ? 'monsters defeated' : 'problems answered'} — reward ${it.reward} gold!`);
+          }
+        }
+      }
     }
     MM.ui.refresh();
   };
@@ -1647,6 +1680,21 @@ var MM = globalThis.MM = globalThis.MM || {};
   // an eager kid never finds an empty board. Targets are picked weakest-topic-
   // first: the board quietly steers practice where it helps, while reading as
   // errands rather than homework. Rewards pay out the instant a job finishes.
+
+  // Wave 8-preview (user playtest, 2026-07-11): a dungeon whose monsters
+  // were all defeated today can't progress a hunt job until tomorrow
+  // (defeatedAt, 1.5c) — the generator must avoid such targets, and the
+  // board UI says so on any older job that still points at one.
+  E.dungeonClearedToday = function (d) {
+    const s = E.state;
+    const today = E.todayStr();
+    const floors = MM.maps.dungeonFloors(d);
+    const grid = MM.maps.parse(floors[0], '#');
+    const markers = ['m', 'g', 't'].flatMap(ch => MM.maps.find(grid, ch));
+    const id = floors.length > 1 ? `d${d}f0` : `d${d}`;
+    return markers.length > 0 && markers.every(p => s.defeatedAt[`${id}:${p.x},${p.y}`] === today);
+  };
+
   E.refreshBounties = function () {
     const s = E.state;
     if (!s.taskIndex) { s.bounties = null; return; } // no jobs before the MathMaker
@@ -1656,7 +1704,8 @@ var MM = globalThis.MM = globalThis.MM || {};
     const ranked = MM.mastery.weakestFirst(s, MM.data.TASKS.filter(t => !t.exp).map(t => t.skill));
     const dgOf = sk => MM.data.TASKS.findIndex(t => t.skill === sk) + 1;
     const unlocked = ranked.map(dgOf).filter(d => d <= maxD);
-    const d1 = unlocked[0] || 1;
+    const huntable = unlocked.filter(d => !E.dungeonClearedToday(d));
+    const d1 = huntable[0] || unlocked[0] || 1;
     const d2 = unlocked.find(d => d !== d1) || d1;
     const dgName = d => MM.data.TASKS[d - 1].dungeon;
     const huntNeed = Math.min(5, 2 + Math.ceil(d1 / 3));

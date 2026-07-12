@@ -1,0 +1,13 @@
+{
+  "name": "Math Quest: Numeria",
+  "short_name": "Math Quest",
+  "description": "A gentle math-practice RPG for kids. Every problem can be worked out — one careful step at a time.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#141221",
+  "theme_color": "#141221",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
