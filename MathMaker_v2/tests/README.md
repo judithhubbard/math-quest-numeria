@@ -311,6 +311,13 @@ a dock, and rest), and the sail-destination registry.
   "Wandering Chests" book page and the 77-kind count, and Calm Mode's
   static grin standing in for the breathing bob).
 
+- `drive-touch.js` — Pass D ergonomics (15 checks): tap/click-to-move
+  (plain-floor BFS + synthesized tryMove steps; a real coordinate click
+  through the camera; NPC and monster taps end in a bump that opens the
+  dialog/battle; taps ignored under modals), spell number keys 1/2/3,
+  and the parent-panel all-sound-off toggle (persists, round-trips,
+  every sound call a safe no-op while muted).
+
 Operational note (2026-07-11): do NOT run drives while Dropbox is
 indexing a big file operation (e.g. right after refreshing the play
 copy) — the I/O contention can starve headless Chrome past even 90s

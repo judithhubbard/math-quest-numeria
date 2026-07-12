@@ -20,6 +20,13 @@ internet needed. Each kid types their name to get their own saved adventure
 (progress auto-saves in the browser).
 
 - **Move** with the arrow keys or WASD. Bump into things to interact.
+  On a **touchscreen or with the mouse, tap/click a tile** and your hero
+  walks there — tap a door, chest, monster, or villager and they'll walk
+  over and knock. (Tap routes stick to plain ground; the hero stops the
+  moment anything interesting happens.)
+- **Quick keys:** P potion · F food · B bag · R report · M monsters ·
+  1/2/3 cast spells. A **sound on/off** switch lives in Parent Settings,
+  next to Calm Mode.
 - **Visit the castle** to meet the MathMaker and receive your task.
 
 ### ⚔ How battles work (new in v2)

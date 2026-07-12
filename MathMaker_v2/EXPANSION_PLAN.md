@@ -1757,6 +1757,65 @@ Four live-playtest reports, applied right after the Wave 8b review:
    Knight's soothe line "dead in the middle" → "exactly in the middle".
    Audit confirmed no player-facing "die/death" anywhere else.
 
+## Wave 9 — The Tending (post-game practice; SONNET, prose stop on new dialog)
+
+FUTURE_LEVELS.md §5 is the design source — read it in full first. The kid
+is the New MathMaker now; tending the kingdom IS the job. Everything below
+gates on `s.endingDone`. Design rules that may not bend: no timers, NO
+streak-loss of any kind (a kid who missed a week is welcomed back, never
+penalized), weakest-first adaptive problems everywhere, rewards are
+cosmetic-not-power, and every mechanism reachable in under a minute from
+profile load. Miscount's Academy (5b) already SHIPPED with Wave 8b — this
+wave adds its growth visuals only.
+
+1. **Daily Tangles (P1, the heartbeat).** Each real-world day, 1–3
+   scribble-knot monsters (the cutscene's tangle visual — reuse/adapt that
+   sprite) appear on overworld/dungeon tiles. Generation mirrors
+   refreshBounties exactly (date-keyed `s.tangles`, regenerate on day
+   flip); the notice boards SAY where ("A tangle was spotted near the Old
+   Mine") — bounty-board recipe, self-narrating from day one. Untangling =
+   a normal battle drawing pickArenaProblem (weakest-first mixed). Soothe
+   works (a tangle relaxes beautifully). Reward: small gold + the counter:
+   **"days tended" counts only UP** — never resets, never shames.
+   Milestones 10/50/100 celebrated via the pendingBadges queue and shown
+   on the Hall of Heroes plaque.
+2. **The Spiral Stair (P2, volume).** Post-credits tower off the castle
+   (new tile on the mainland overworld + DESTINATIONS entry if it sails —
+   prefer a castle-adjacent entrance; the spiral made walkable). Floor N =
+   a small map chunk (author 6–8 reusable 12×10 chunk templates, rotate
+   through them) with 2–3 mixed problems and 1–2 monsters at a gentle
+   difficulty curve (statIdx ramps slowly past 21). Every 5th floor is a
+   landing: chest + checkpoint. Beacon home ALWAYS works; return to your
+   highest landing freely — explicitly not a roguelike, nothing is ever
+   lost. "Highest step" on the Hall plaque. Cap nothing; test to floor 25.
+3. **Cosmetic gold sinks (P3).** Furnish the open castle room by room
+   (rugs, banners, garden, library — a purchase menu at the castle, each
+   piece visibly rendered once bought, `s.castleFurnish`), boss statues,
+   and **tiny hats for the pet** (purchasable at last; pet renders its
+   hat). All cosmetic, permanent, and priced to matter (hundreds of gold —
+   this is where the post-game economy goes).
+4. **Hall of Heroes + Academy growth (P4).** Plaque adds days tended,
+   spiral height, students helped (Academy attendance counter — count
+   slates checked). Academy room visibly grows with attendance: more
+   desks at 10/25/50 slates, a class photo on the wall at 100. No
+   rankings between profiles, ever — personal stats side by side, same
+   bar as Wave 8a's Hall audit.
+
+Acceptance — tests/drive-tending.js: day-flip regenerates tangles (fake
+todayStr like the bounty tests); tangle battle draws mixed problems and
+increments days-tended exactly once per real day (two tangles same day =
+still one day tended); milestone fires once; spiral: climb to floor 6,
+verify landing checkpoint + return-to-landing + Beacon exit; buy one
+furnishing + one pet hat and verify both RENDER (screenshot, and LOOK);
+Hall plaque shows all three counters. Unit: tangle placement never lands
+on solid/story tiles (derive from the walkability audit, don't hand-list);
+chunk templates all pass the reachability BFS. All existing drives +
+marathon green (marathon is pre-ending — add one post-ending leg to
+drive-castle or the new drive, do NOT lengthen the marathon). Evidence
+discipline applies (tests/logs/, foreground marathon, paste final lines).
+**Stop for design review of all new player-facing prose before tagging**
+(tangle notices, furnishing names, milestone lines).
+
 ## Sizing guidance for the implementing model
 
 - One wave = one focused session (Wave 5 items are each ≤ half a session).

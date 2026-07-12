@@ -25,7 +25,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (audioCtx.state === 'suspended') audioCtx.resume();
     return audioCtx;
   }
+  // Pass D: one mute gate for every sound in the game — beep and noise are
+  // the only two paths to the speakers, so s.soundOff silences everything.
+  const soundOff = () => !!(MM.engine && MM.engine.state && MM.engine.state.soundOff);
   function beep(freq, dur, type, delay, vol) {
+    if (soundOff()) return;
     try {
       const a = actx();
       const t = a.currentTime + (delay || 0);
@@ -39,6 +43,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     } catch (e) { /* sound is optional */ }
   }
   function noise(dur, freq, delay, vol) {
+    if (soundOff()) return;
     try {
       const a = actx();
       const t = a.currentTime + (delay || 0);
@@ -82,12 +87,75 @@ var MM = globalThis.MM = globalThis.MM || {};
   // tileSprite moved to MM.maps.tileSprite (Wave 6.5) — pure glyph logic,
   // so the unit suite can render-audit every map without a DOM.
 
+  // ---------- Pass D: tap/click-to-move (touch support) ----------
+  // One rule keeps this honest: the tap handler ONLY synthesizes tryMove()
+  // steps, so a tapped route behaves exactly like walking it — battles,
+  // doors, chests, NPCs, ice, pools, stamina, everything. BFS paths across
+  // plain, predictable floor only; any other tile may be the FINAL target,
+  // reached as a bump (which is how everything opens/talks/fights anyway).
+  let tapTimer = null, tapPath = null;
+  const TAP_PLAIN = '.P=,s'; // floor, path, bridge, tide pools, singing stones
+  function stopTapWalk() { tapPath = null; if (tapTimer) { clearInterval(tapTimer); tapTimer = null; } }
+  UI.tapTo = function (tx, ty) {
+    const s = MM.engine.state;
+    if (!s || UI.modalOpen() || MM.battle.active() || (UI.sailing && UI.sailing())) return;
+    const grid = s.grid, H = grid.length, W = grid[0].length;
+    if (ty < 0 || ty >= H || tx < 0 || tx >= W) return;
+    if (tx === s.px && ty === s.py) return;
+    const key = (x, y) => y * W + x;
+    const prev = new Int32Array(W * H).fill(-1);
+    const seen = new Uint8Array(W * H);
+    const start = key(s.px, s.py);
+    seen[start] = 1;
+    const q = [start];
+    let found = -1;
+    while (q.length && found < 0) {
+      const k = q.shift(), x = k % W, y = (k / W) | 0;
+      for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        const nx = x + dx, ny = y + dy, nk = key(nx, ny);
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H || seen[nk]) continue;
+        if (nx === tx && ny === ty) { prev[nk] = k; found = nk; break; }
+        if ((s.monsters || []).some(m => m.hp > 0 && m.x === nx && m.y === ny)) continue;
+        if (!TAP_PLAIN.includes(grid[ny][nx])) continue;
+        seen[nk] = 1; prev[nk] = k; q.push(nk);
+      }
+    }
+    if (found < 0) return; // no plain-floor route — tap something nearer
+    const steps = [];
+    for (let k = found; prev[k] !== -1; k = prev[k]) {
+      const pk = prev[k];
+      steps.unshift([(k % W) - (pk % W), ((k / W) | 0) - ((pk / W) | 0)]);
+    }
+    stopTapWalk();
+    tapPath = steps;
+    let expect = { x: s.px, y: s.py };
+    tapTimer = setInterval(() => {
+      const st = MM.engine.state;
+      // stop the moment anything unexpected happens: a battle or dialog
+      // opened, or a slide/teleport/keyboard step moved us off the plan
+      if (!tapPath || !tapPath.length || UI.modalOpen() || MM.battle.active()
+          || st.px !== expect.x || st.py !== expect.y) { stopTapWalk(); return; }
+      const [dx, dy] = tapPath.shift();
+      expect = { x: st.px + dx, y: st.py + dy };
+      MM.engine.tryMove(dx, dy);
+      if (tapPath && !tapPath.length) stopTapWalk();
+    }, 120);
+  };
+
   UI.init = function () {
     canvas = document.getElementById('canvas');
     ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     modalEl = document.getElementById('overlay');
     modalBox = document.getElementById('modalBox');
+
+    canvas.addEventListener('click', (ev) => {
+      const r = canvas.getBoundingClientRect();
+      const sx = (ev.clientX - r.left) * (canvas.width / r.width);
+      const sy = (ev.clientY - r.top) * (canvas.height / r.height);
+      const cam = UI._cam || { x: 0, y: 0 };
+      UI.tapTo(cam.x + Math.floor(sx / TILE), cam.y + Math.floor(sy / TILE));
+    });
 
     document.addEventListener('keydown', (ev) => {
       // manual bug capture works EVERYWHERE — even over a broken modal,
@@ -109,6 +177,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       else if (k === 'b') UI.openBag();
       else if (k === 'r') UI.reportCard();
       else if (k === 'm') UI.monsterBook();
+      // Pass D: number keys cast the spellbook slots (silent no-ops until
+      // each spell is unlocked — the sidebar row is where they're taught)
+      else if (k === '1') MM.engine.castScout();
+      else if (k === '2') MM.engine.castBlink();
+      else if (k === '3') MM.engine.castBeacon();
     });
 
     document.getElementById('btnPotion').onclick = () => MM.engine.usePotion();
@@ -618,6 +691,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     let camY = Math.max(0, Math.min(H - VIEW_H, s.py - Math.floor(VIEW_H / 2)));
     if (W <= VIEW_W) camX = 0;
     if (H <= VIEW_H) camY = 0;
+    UI._cam = { x: camX, y: camY }; // Pass D: tap-to-move maps clicks through this
 
     ctx.fillStyle = '#141221';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1601,6 +1675,10 @@ var MM = globalThis.MM = globalThis.MM || {};
           <input type="checkbox" id="calmModeCheck" ${s.calmMode ? 'checked' : ''}>
           Turn off screen shake and particle bursts (battles stay just as playable — no motion, that's all)
         </label>
+        <label class="topic-check">
+          <input type="checkbox" id="soundOffCheck" ${s.soundOff ? 'checked' : ''}>
+          Turn off all sound (every beep, chime, and fanfare — the game plays silently)
+        </label>
         <h3>Current progress</h3>
         <p style="font-size:14px">📗 On task <b>${Math.min(s.taskIndex, 13)}</b> ·
           answered <b>${s.totals.correct}/${s.totals.answered}</b> correctly overall.
@@ -1634,6 +1712,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (!anyOn) map.addsub_facts = true; // never zero topics
       s.parent.topics = map;
       s.calmMode = document.getElementById('calmModeCheck').checked;
+      s.soundOff = document.getElementById('soundOffCheck').checked;
       MM.engine.save();
       closeModal();
       const n = Object.values(map).filter(Boolean).length;

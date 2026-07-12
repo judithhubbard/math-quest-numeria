@@ -104,19 +104,27 @@ Healthy across the board — no tuning changes shipped:
    the exam lines, the coronation, Callie's and the captain's epilogue
    lines. The user signs off on these words before they ship.
 
-## Pass D — Ergonomics (needs user decisions, then ≤half session)
+## Pass D — Ergonomics ✅ DONE (2026-07-12, user said "go ahead")
 
-OPEN QUESTIONS for the user:
-- **Touch support?** The game is keyboard-only. If tablets/Chromebooks
-  matter, the minimum viable version is tap-a-tile-to-pathfind (BFS walk
-  to tapped floor tile, bump if adjacent interactable) + the existing
-  buttons — a real but bounded feature (~one implementer wave, NOT a
-  final pass; would become Wave 8).
-- If touch is out of scope, say so and it's dropped deliberately.
-
-Do regardless (mine, small): number keys 1/2/3 cast spellbook slots;
-verify a sound on/off toggle exists (add one next to Calm Mode if not);
-eyeball `.dim`/`.quip` contrast in screenshots at 100% zoom.
+- **Touch support SHIPPED** (design session, not a wave): tap/click a
+  canvas tile → BFS across plain predictable floor only ('.', P, =, ',',
+  s) → the walk is synthesized tryMove() steps, so a tapped route behaves
+  exactly like walking it (battles, doors, ice, stamina). Any non-plain
+  tile may be the FINAL target, reached as a bump — which is how
+  everything opens/talks/fights anyway. The walk stops the instant
+  anything unexpected happens (modal, battle, slide/teleport/keyboard
+  divergence). Taps ignored during modals/battles/sailing. A monster that
+  wanders off its tile mid-walk is simply missed — tap again.
+  tests/drive-touch.js (15 checks incl. a real coordinate click).
+- **Number keys 1/2/3** cast Scout/Blink/Beacon (silent no-ops until
+  unlocked — the sidebar row is where spells are taught); keys-hint line
+  teaches it.
+- **Sound toggle SHIPPED**: parent panel, next to Calm Mode
+  (`s.soundOff`, migrated) — gates beep()/noise(), the only two paths to
+  the speakers, so it silences everything at once.
+- **Contrast eyeballed** across this session's dozens of full-size
+  screenshots: `.dim` (#9d92c9) and `.quip` text legible on every surface
+  reviewed (shop, sidebar, keys-hint, bag). No change needed.
 
 ## Pass E — Parent trend view (mine, small)
 

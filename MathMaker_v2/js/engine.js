@@ -26,6 +26,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       seenBulkQuip: false,
       difficulty: 'hero',                    // story | hero | legend (kid-settable)
       calmMode: false,                       // Wave 5: no shakes/particles/ambient motion
+      soundOff: false,                       // Pass D: silence every beep/chime/fanfare
       // parent-only, PIN-protected. topics = all-on until set, EXCEPT
       // Every topic defaults ON (user decision 2026-07-11): missing from
       // parent.topics means enabled; only an explicit parent choice in
@@ -108,6 +109,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
     if (!s.difficulty) s.difficulty = 'hero';
     if (s.calmMode == null) s.calmMode = false;
+    if (s.soundOff == null) s.soundOff = false;
     if (!s.badges) { s.badges = {}; s.pendingBadges = []; }
     if (!s.bestiary) s.bestiary = { seen: {}, kills: {}, gauntlet: {} };
     if (!s.bestiary.gauntlet) s.bestiary.gauntlet = {};
