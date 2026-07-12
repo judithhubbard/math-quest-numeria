@@ -1414,6 +1414,15 @@ var MM = globalThis.MM = globalThis.MM || {};
         <p style="font-size:14px">📗 On task <b>${Math.min(s.taskIndex, 13)}</b> ·
           answered <b>${s.totals.correct}/${s.totals.answered}</b> correctly overall.
           Press <b>R</b> in-game for the full per-topic report card.</p>
+        <h3>🛂 Adventurer's Passport</h3>
+        <p style="font-size:13px" class="dim">Saves live in this browser. The passport is how they travel —
+        download a file to back this adventurer up, move them to another computer, or send them to a cousin.
+        Loading a passport on another machine brings them back exactly as they are.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px">
+          <button id="passportExport" class="secondary">💾 Download ${s.name}'s passport</button>
+          <button id="passportImport" class="secondary">📂 Load a passport file</button>
+          <input id="passportFile" type="file" accept=".json,application/json" style="display:none">
+        </div>
         <h3>🐛 Bug log (${bugs.length})</h3>
         ${bugRows}
       </div>
@@ -1439,6 +1448,33 @@ var MM = globalThis.MM = globalThis.MM || {};
       const n = Object.values(map).filter(Boolean).length;
       UI.log(`👪 Parent settings saved (${n}/${MM.data.PARENT_TOPICS.length} math topics enabled${anyOn ? '' : ' — kept Addition & Subtraction Facts on'}).`);
     };
+    // passport buttons wire unconditionally — they must never depend on
+    // the bug log having entries (they were briefly inside that guard)
+    {
+      document.getElementById('passportExport').onclick = () => {
+        const json = MM.engine.exportSave();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+        a.download = `MathQuest-${MM.engine.state.name}.json`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        UI.log(`🛂 ${MM.engine.state.name}'s passport downloaded — keep it somewhere safe!`);
+      };
+      document.getElementById('passportImport').onclick = () => document.getElementById('passportFile').click();
+      document.getElementById('passportFile').onchange = (ev) => {
+        const f = ev.target.files && ev.target.files[0];
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = () => {
+          const res = MM.engine.importSave(String(r.result));
+          if (res.error) return UI.dialog('🛂 Passport', res.error);
+          UI.dialog('🛂 Passport accepted!',
+            `<b>${res.name}</b> has arrived${res.existed ? ' (replacing the adventurer of the same name here)' : ''}.<br><br>` +
+            `Switch adventurers from the title screen (👥 Switch) to play as them.`);
+        };
+        r.readAsText(f);
+      };
+    }
     if (bugs.length) {
       document.getElementById('bugCopy').onclick = () => {
         const report = MM.bugs.report();

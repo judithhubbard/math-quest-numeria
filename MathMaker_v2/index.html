@@ -6,6 +6,16 @@
   <title>Math Quest: Numeria</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👑</text></svg>">
   <link rel="stylesheet" href="css/style.css">
+  <!-- PWA (Pass F): installable icon + offline play when served over
+       https; harmless no-ops from file:// (the family play copy) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#141221">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <script>
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+      addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+  </script>
 </head>
 <body>
   <header>

@@ -71,6 +71,23 @@ trivializes bosses (>3 answers still required). Deliverable: the report
 in this file + proposed stat edits (shipped only after user sees the
 summary — balance changes affect a live player).
 
+### ✅ Pass B RESULTS (2026-07-11, real engine formulas via headless page)
+
+Healthy across the board — no tuning changes shipped:
+- Regulars: 2.4–4.7 correct answers to kill (85% accuracy, story) across
+  all 21 dungeons — inside the 2–8 target band everywhere; legend runs
+  4.7–7.1. No dungeon flags FAST or SLOW.
+- Bosses: 4.7–7.1 (story), 8–13 (legend) — no boss trivial, none a slog.
+- Survivability: worst expected damage-per-fight is ~36% of max HP (d21,
+  story) — potion/inn territory, never lethal. Zero red flags.
+- Stacked-gem extreme (6× Guard): ≈+6 block on ~13–18 gear def vs legend
+  endgame atk — a reward, not a trivializer (measurement approximate;
+  directionally safe).
+- Empirical cross-check: the marathon (real playthrough, story, ~100%
+  accuracy) finished level 18 with 1,793 unspent gold — late-game gold
+  outruns sinks, confirming FUTURE_LEVELS §5's cosmetic-sink plan
+  (castle furnishing, pet hats) as the right absorber. No action now.
+
 ## Pass C — Editorial voice pass (one session, after Wave 7)
 
 1. Write a small extraction script dumping EVERY player-facing string

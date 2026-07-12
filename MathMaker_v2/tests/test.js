@@ -195,13 +195,21 @@ if (revs.length !== 3) fail('pickReviewProblems count');
     const breakwaterGate = MM.mastery.pickBreakwaterGate(capSt);
     if (breakwaterGate.skill === 'geometry') fail('cap-leak: pickBreakwaterGate served geometry when off');
   }
-  // and the reverse: a fresh, fully-migrated state (E.load's path) must
-  // default music_reading OFF on its own, with no test fixture spoon-feeding it
-  const freshSt = { parent: { pin: null, topics: { music_reading: false } } };
-  for (let i = 0; i < 500; i++) {
-    const p = MM.mastery.pickArenaProblem(freshSt);
-    if (p.skill === 'music_reading' || p.kind === 'staff') fail('cap-leak: music_reading leaked into a fresh default-migrated state');
+  // and the reverse (REVISED 2026-07-11, user decision): a fresh profile
+  // has EVERY topic enabled — missing from parent.topics means ON, and
+  // only an explicit parent choice writes false. A fresh state must be
+  // able to serve every registered topic, music included.
+  const freshSt = { parent: { pin: null, topics: {} } };
+  const freshEnabled = MM.mastery.cappedSkills(freshSt);
+  for (const skill of MM.data.PARENT_TOPICS) {
+    if (!freshEnabled.includes(skill)) fail(`default-ON: fresh profile is missing '${skill}' — nothing may seed or force a topic off`);
   }
+  let sawMusic = false;
+  for (let i = 0; i < 800 && !sawMusic; i++) {
+    const p = MM.mastery.pickArenaProblem(freshSt);
+    if (p.skill === 'music_reading') sawMusic = true;
+  }
+  if (!sawMusic) fail('default-ON: music_reading never appeared for a fresh profile in 800 draws');
 }
 
 // ---------- Wave 5: fractions_m coverage gaps (conversion, unlike-denom

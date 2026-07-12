@@ -33,9 +33,13 @@ Target after all waves: **50+ hours**.
    story beats stay sincere; pools + rare gags, not repeated jokes.
 5. **No frameworks, no build step.** Plain JS, double-click index.html,
    works offline from file://.
-6. **New math topics are OFF by default** unless they're core 5th-grade —
-   the parent panel decides. The user has explicitly deferred harder math;
-   time-reading and music are approved additions (waves 3 and 4).
+6. **Every topic defaults ON; the parent panel is the OFF-switch.**
+   (Revised by the user 2026-07-11 — the original rule made new topics
+   like music opt-in; the user wants everything available from the start
+   and parents can disable per kid. "Missing from `parent.topics` means
+   enabled" is the single semantic everywhere; nothing force-writes
+   `false`. Harder-than-5th-grade math remains deferred as CONTENT —
+   this rule is about switches for topics that exist.)
 
 ### The testing discipline (mandatory for every wave)
 
@@ -1342,6 +1346,99 @@ tracker.js shipped and nobody has ever read it.
    "You sense no hidden walls on this floor" instead of shimmering at
    nothing (user playtest: "I have not been able to make the spells do
    anything" — mechanics verified working; the FEEDBACK was missing).
+
+## Wave 8a — The Two Kids Update, mechanical half (SONNET; after v1.0.0)
+
+From FINAL_REVIEW.md (read §1 first — the two-kids framing is the spec's
+soul). One session. Every item obeys §0's ground rules.
+
+1. **Monster topic telegraphs** (P2): a small topic icon above each
+   monster (⚔️-sprite overlay in drawWorld, like the pet's ❗). Add
+   `MM.data.SKILL_ICONS` (skill → emoji; registry-complete: unit test
+   cross-checks against PARENT_TOPICS). Single-topic dungeons show the
+   dungeon topic on every monster. In MIXED dungeons, bind each roster
+   TYPE to a topic: optional `skill` field per roster entry (assign
+   sensible ones across isle rosters); `pickProblem` honors
+   `monster.skill` when set and the parent has it enabled (else falls
+   back to the mixed pool — the cap-leak test extends to this path).
+   Bestiary cards show the icon. Drive: telegraph renders (screenshot);
+   a bound monster asks its topic ≥9/10 battles; parent-off falls back.
+2. **Overwhelm rule** (P7): in `startCombat`, if the kid's level exceeds
+   the dungeon tier's expected level by ≥6 (derive expected level from
+   the monsterStats tier — document the formula) and the monster is NOT
+   a boss/gauntlet/arena foe: one QUICK problem instead of a battle —
+   correct = instant victory (normal rewards), wrong = the normal battle
+   begins (never a penalty). Line: "It takes one look at your worked
+   answer and unties itself on the spot." Drive: level-20 kid in d1
+   one-shots; same kid vs a boss gets a real fight.
+3. **Rust** (P5): `s.lastPracticed[skill] = todayStr()` in recordAnswer
+   (migrate {}); `weakestFirst` adds a staleness bonus for skills
+   unpracticed ≥5 real days; one new bounty flavor line for rusty-topic
+   targets ("The Old Mine misses you — its ghosts are miscounting
+   again"). Unit: a stale skill outranks a slightly-weaker fresh one.
+4. **Growth tracking** (P6): `s.history[dateStr][skill] = {a, c}` in
+   recordAnswer, pruned >30 days (migrate {}); `s.recentMisses[skill]` =
+   ring buffer of last 10 {text, kidAnswer} (capture the submitted
+   string in showProblem/battle answer paths). Parent panel: per-topic
+   "last 7 days vs lifetime" with ▲/▼, plus an expandable recent-misses
+   list. Kid report card: ONE growth-story line per topic with real
+   data ("Long division: 9 of your last 10"). NEVER show the kid a
+   percentage comparison to a sibling. Hall of Heroes: audit that every
+   plaque line is a personal best, none a cross-kid ranking.
+5. **"Almost!" surfacing** (DQ lesson): when a badge is within 3 correct
+   of its next tier, the sidebar bag button gains a small ✨ and one
+   log nudge per session ("🥈 Fractions is THIS close to silver!").
+6. **Delight completion** (P8): the remaining FUTURE_LEVELS §4 catalog —
+   innkeeper's cat, pet tricks by stage, shopkeeper's shelf, monster
+   idle life, bestiary hat counter — under the §4 anti-annoyance rules
+   (≤1 ambient gag/few minutes; nothing during problems; Calm Mode
+   silences all of it).
+
+Acceptance — drive-twokids-a.js + unit blocks; ALL existing drives green;
+run the MARATHON after (it should still complete; overwhelm will speed
+its early dungeons). Update README/this file/tests/README.
+
+## Wave 8b — The Two Kids Update, the heart (OPUS 4.8; after 8a)
+
+Tone-critical. STORY_BIBLE.md open the whole session. Like Wave 7:
+**mandatory stop before shipping prose** — every soothe line and Academy
+dialog gets design-session review.
+
+1. **The Soothe verb** (P1): at battle start, a stance choice beside
+   Flee: ⚔️ Strike / 🕊 Soothe (switchable between rounds; remembered
+   per profile as the default). Identical math, identical progress bar,
+   identical rewards (gold arrives as "a grateful gift"). Different
+   everything-else: floaters show "+N calm", the monster's reactions
+   soften, victory = the tangle loosens and the monster relaxes, waves,
+   wanders off — never a splat. Bestiary: a 🕊 befriended mark per type
+   (a SECOND collection axis with its own counter; Soothe a boss and its
+   card notes it was "helped, not beaten"). Writing: a `soothe` pool per
+   FLAVOR sprite family + bespoke lines for the personality monsters;
+   bosses reuse their existing sincere endings (they were always
+   soothed). The lore already believes this — the mechanic catches up.
+2. **Brave Problems** (P3): a ⚡ Brave toggle in the battle button row:
+   the next problem draws one tier higher (cap tier 3; AT tier 3, draw a
+   full-depth problem into the quick slot); correct = double strike
+   damage with a bigger flourish; wrong = exactly a normal miss (never
+   extra punishment — bravery is not a trap). Sub-label shows the
+   stakes. Mastery records the true tier. Balance note: with the sim's
+   numbers, double damage at 85% accuracy ≈ 1.7× effective DPS — fine
+   for regulars, and bosses stay ≥3 answers (assert it in the drive).
+3. **Miscount's Academy, early** (P4): generalize Wave 7's slate
+   machinery (`castleExam` internals) into a reusable
+   `spotTheError(skill, tier)` in problems/mastery; after task 10,
+   Miscount's arena menu adds "📝 Check my students' homework" — 2–3
+   slates per real day (daily like bounties), small gold, warm line
+   pool ("She almost had it — you saw exactly where it slipped").
+   Parent-cap aware. This is Kid B's no-fail practice room a full act
+   before the ending; write Miscount proud of his students, per bible.
+
+Acceptance — drive-twokids-b.js: full Soothe battle (screenshot the
+befriended bestiary card), stance persistence, brave double-damage
+verified numerically, brave-miss costs nothing extra, Academy slate flow
++ daily rotation + cap-leak; extend drive-marathon: Soothe at least two
+battles en route (prove the alternate verb end-to-end); ALL drives +
+marathon green. **Then stop for prose review before tagging.**
 
 ## Sizing guidance for the implementing model
 

@@ -429,9 +429,21 @@ function canonicalize(p) {
   await page.fill('#pinInput', '1234'); // first visit: creates the PIN
   await page.click('#pinOk');
   await page.waitForSelector('input[data-skill="music_reading"]');
-  const wasOff = await page.evaluate(() => !document.querySelector('input[data-skill="music_reading"]').checked);
-  check(wasOff, 'music_reading arrives OFF in the parent panel (default respected)');
-  await page.click('input[data-skill="music_reading"]');
+  // REVISED 2026-07-11 (user decision): every topic arrives ON — the
+  // panel is the OFF-switch. Exercise it both ways: toggle music off,
+  // save, reopen, toggle back on — proving a parent's choice sticks.
+  const wasOn = await page.evaluate(() => document.querySelector('input[data-skill="music_reading"]').checked);
+  check(wasOn, 'music_reading arrives ON in the parent panel (default-ON respected)');
+  await page.click('input[data-skill="music_reading"]'); // off
+  await page.click('#parentDone');
+  await clearModals();
+  check(await ev(() => MM.engine.state.parent.topics.music_reading === false), 'the parent OFF-switch persists');
+  await ev(() => MM.ui.parentPanel());
+  await page.waitForSelector('#pinInput');
+  await page.fill('#pinInput', '1234');
+  await page.click('#pinOk');
+  await page.waitForSelector('input[data-skill="music_reading"]');
+  await page.click('input[data-skill="music_reading"]'); // back on
   await page.click('#parentDone');
   await clearModals();
   check(await ev(() => MM.engine.state.parent.topics.music_reading === true), 'music_reading enabled through the real parent panel and persisted');
