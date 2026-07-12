@@ -628,7 +628,20 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (y >= H || x >= W) continue;
         const ch = grid[y][x];
         const spr = MM.sprites.get(MM.maps.tileSprite(ch, x, y, s.mapId, waterFrame), { scale: 3 });
-        ctx.drawImage(spr, vx * TILE, vy * TILE);
+        // Playtest round 4: a mimic chest BREATHES — a slow 1-pixel bob (the
+        // telegraph rule: a surprise you could have spotted, never a gotcha).
+        // Calm Mode swaps motion for a static tell: a dark grin at the seam.
+        const isMimic = ch === '*' && MM.engine._mimics && MM.engine._mimics.has(`${x},${y}`);
+        if (isMimic && !s.calmMode) {
+          const bob = Math.floor(performance.now() / 550) % 2 ? 3 : 0;
+          ctx.drawImage(spr, vx * TILE, vy * TILE + bob);
+        } else {
+          ctx.drawImage(spr, vx * TILE, vy * TILE);
+          if (isMimic) { // calm mode: the lid sits ajar, ever so slightly
+            ctx.fillStyle = '#2a1626';
+            ctx.fillRect(vx * TILE + 12, vy * TILE + 19, TILE - 24, 2);
+          }
+        }
         if (!inDungeon && '1234567890'.includes(ch)) {
           const label = ch === '0' ? '10' : ch;
           ctx.font = '9px "Press Start 2P", monospace';
@@ -694,16 +707,47 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
 
     // monsters (pixel sprites, bobbing)
+    const cheering = MM.engine.friendCheerActive && MM.engine.friendCheerActive();
     for (const m of (s.monsters || [])) {
       if (m.hp <= 0) continue;
       const vx = m.x - camX, vy = m.y - camY;
       if (vx < 0 || vy < 0 || vx >= VIEW_W || vy >= VIEW_H) continue;
-      const bob = Math.sin(now / 400 + m.x * 2 + m.y) * 2;
-      const spr = MM.sprites.get(m.sprite, { palette: m.pal || {}, scale: 3 });
-      ctx.drawImage(spr, vx * TILE, vy * TILE + bob);
+      // ---------- Wave 8b: reading a whole floor in one glance ----------
+      // A befriended monster is marked THREE redundant ways, per the
+      // never-colour-alone rule: (a) a softened palette, (b) a CONSTANT 🕊 pip
+      // above it, and (c) a slower, becalmed sway. Any one of the three is
+      // enough — so it survives colour-blindness, and it reads from the doorway.
+      const friend = MM.engine.isBefriended && MM.engine.isBefriended(m);
+      const bob = friend
+        ? Math.sin(now / 900 + m.x * 2 + m.y) * 1.2          // (c) slow, easy sway
+        : Math.sin(now / 400 + m.x * 2 + m.y) * 2;
+      // when the boss goes down, every living friend in the room bounces
+      const hop = (cheering && friend) ? -Math.abs(Math.sin(now / 140 + m.x)) * 9 : 0;
+      const spr = MM.sprites.get(m.sprite, {                   // (a) calmed colours
+        palette: friend ? MM.sprites.softPalette(m.sprite, m.pal || {}, 0.45) : (m.pal || {}),
+        scale: 3,
+      });
+      ctx.drawImage(spr, vx * TILE, vy * TILE + bob + hop);
+      if (cheering && friend && !s.calmMode) worldBurst(m.x, m.y, '#7ee0e8', 1);
       if (m.boss) {
         const crown = MM.sprites.get('crown', { scale: 2 });
         ctx.drawImage(crown, vx * TILE + TILE / 2 - crown.width / 2, vy * TILE + bob - 8);
+      }
+      // (b) the constant 🕊 pip. Emoji ignore fillStyle, so — exactly like the
+      // topic icon — a dark disc behind it does the contrast work. Deliberately
+      // NOT inside the Calm Mode block below: this is STATE, not decoration, and
+      // it must never be switched off.
+      if (friend) {
+        const px = vx * TILE + 7, py = vy * TILE + bob + hop - 3;
+        ctx.beginPath();
+        ctx.arc(px, py, 9, 0, Math.PI * 2);
+        ctx.fillStyle = '#141221';
+        ctx.fill();
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🕊', px, py + 1);
+        ctx.textBaseline = 'alphabetic';
       }
       // Wave 8a (P2, monster telegraphs): a small topic icon over its head —
       // agency for the kid who wants to pick her fights, a target list for
@@ -712,7 +756,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       // it does the contrast work instead — same idea as the gear-gate pips.
       const topicIcon = MM.engine.monsterTopicIcon && MM.engine.monsterTopicIcon(m);
       if (topicIcon) {
-        const ix = vx * TILE + TILE / 2, iy = vy * TILE + bob - 2;
+        // A befriended monster already wears a 🕊 pip on its left shoulder —
+        // shove the topic disc right so the two sit SIDE BY SIDE instead of
+        // stacked on top of each other (they collided; caught by screenshot).
+        const ix = vx * TILE + TILE / 2 + (friend ? 12 : 0), iy = vy * TILE + bob + hop - 2;
         ctx.beginPath();
         ctx.arc(ix, iy, 10, 0, Math.PI * 2);
         ctx.fillStyle = '#141221';
@@ -738,6 +785,25 @@ var MM = globalThis.MM = globalThis.MM || {};
           ctx.textAlign = 'center';
           ctx.fillText('🪙', vx * TILE + 6, vy * TILE + bob - 6);
         }
+      }
+    }
+
+    // Wave 8b: a boss that was SOOTHED does not simply vanish. It lingers a beat
+    // in its calmed colours, bouncing along with the friends it used to guard,
+    // and only then wanders off. Hostiles in the room stay exactly as they were.
+    const cheer = MM.engine.friendCheer;
+    if (cheering && cheer && cheer.boss) {
+      const b = cheer.boss;
+      const bvx = b.x - camX, bvy = b.y - camY;
+      if (bvx >= 0 && bvy >= 0 && bvx < VIEW_W && bvy < VIEW_H) {
+        const left = Math.max(0, cheer.until - Date.now()) / 2200;
+        const bspr = MM.sprites.get(b.sprite, {
+          palette: MM.sprites.softPalette(b.sprite, b.pal || {}, 0.5), scale: 3,
+        });
+        const bhop = -Math.abs(Math.sin(now / 160)) * 8;
+        ctx.globalAlpha = Math.min(1, left * 1.6);
+        ctx.drawImage(bspr, bvx * TILE, bvy * TILE + bhop);
+        ctx.globalAlpha = 1;
       }
     }
 
@@ -803,6 +869,19 @@ var MM = globalThis.MM = globalThis.MM || {};
          <p style="text-align:center;font-size:16px">You've unlocked <b>${info.name}</b>!</p>
          <p style="text-align:center">${info.howto}</p>
          <p style="text-align:center" class="dim">It only works <b>inside a dungeon</b> — look for it in the spellbook row in your sidebar.</p>`);
+      MM.sound.fanfare();
+      return;
+    }
+    if (entry.befriend) { // Wave 8b: the first of a kind, calmed
+      const img = MM.sprites.get(entry.sprite, {
+        palette: MM.sprites.softPalette(entry.sprite, entry.pal || {}, 0.45), scale: 6,
+      }).toDataURL();
+      UI.dialog('🕊 A friend!',
+        `<div style="text-align:center"><img src="${img}" style="image-rendering:pixelated"></div>
+         <p style="text-align:center;font-size:16px">The <b>${entry.befriend}</b> is calm — and it isn't going anywhere.</p>
+         <p style="text-align:center" class="dim">Its kind will not start fights with you any more. They'll wave as you pass.
+         (You can still spar with one whenever you like — just walk into it.)</p>
+         <p style="text-align:center" class="dim">🕊 marked in your 📕 Monster Book, for good.</p>`);
       MM.sound.fanfare();
       return;
     }
@@ -1248,7 +1327,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       }).join('');
       return `<div class="slot-label">${MM.data.SLOT_NAMES[slot]}${owned.length ? '' : ' <span class="dim">— nothing yet</span>'}</div>${rows}`;
     }).join('');
-    // Wave 2: loose (unfused) gems — Emberlyn in Port Brightwater fuses them
+    // Wave 2: loose (unfused) gems — Emberlyn in Port Brightwater fuses them.
+    // Before the pier opens (task 13), don't name a place the kid can't
+    // reach and has never heard of — promise the future instead.
+    const pierOpen = (s.tasksDone || []).includes(13);
+    const gemNote = pierOpen ? 'fuse at Emberlyn\'s' : 'for the enchanter across the sea ⛵';
     const gemCounts = {};
     (s.items.gems || []).forEach(id => gemCounts[id] = (gemCounts[id] || 0) + 1);
     const gemRows = Object.keys(gemCounts).length
@@ -1256,7 +1339,7 @@ var MM = globalThis.MM = globalThis.MM || {};
           const g = MM.data.gemById(id);
           return `<div class="shop-row">
             <span class="shop-item">${g.emoji} ${g.name} Gem${n > 1 ? ' × ' + n : ''}<span class="quip">${g.desc}</span></span>
-            <span class="bag-note">fuse at Emberlyn's</span>
+            <span class="bag-note">${gemNote}</span>
           </div>`;
         }).join('')
       : '<div class="bag-empty">No gems yet — glimmering chests sometimes hold them. ✨</div>';
@@ -1831,6 +1914,27 @@ var MM = globalThis.MM = globalThis.MM || {};
         .map(it => row(it, slot, (s.gear[slot] || []).includes(it.id))).join('');
       return items ? `<h3>${MM.data.SLOT_NAMES[slot]} — ${blurb}</h3>${items}` : '';
     };
+    // ---------- Wave 8b: the weapon rack, organized by stance ----------
+    // ORGANIZED, never FILTERED. The kid's own kind of instrument is listed
+    // first under a warm header; everything else sits right below it, fully
+    // visible and fully buyable. Any stance may wield any weapon — a gentle kid
+    // who wants the battle axe gets the battle axe, and it works exactly as
+    // well. Identity is offered here, never enforced.
+    const weaponRack = () => {
+      const all = MM.data.GEAR.weapon.filter(it => it.price > 0 && !it.notForSale && !!it.isle === onIsles);
+      if (!all.length) return '';
+      const owned = it => (s.gear.weapon || []).includes(it.id);
+      const gentle = all.filter(it => it.gentle);
+      const bold = all.filter(it => !it.gentle);
+      if (!gentle.length || !bold.length) return gearSection('weapon', 'hit harder with every correct answer');
+      const softFirst = MM.engine.isSoothing();
+      const groups = [
+        { on: softFirst, head: '🕊 For gentle hands', items: gentle },
+        { on: !softFirst, head: '⚔️ For bold arms', items: bold },
+      ].sort((a, b) => (b.on ? 1 : 0) - (a.on ? 1 : 0));   // the kid's kind, first
+      return groups.map(g =>
+        `<h3>${g.head}</h3>${g.items.map(it => row(it, 'weapon', owned(it))).join('')}`).join('');
+    };
     const food = MM.data.FOODS.map(f => row(f, 'food', false)).join('');
     // Bulk potion buying: ×5 / ×10 always shown now (carry-over rework —
     // previously gated on lifetime-purchase thresholds), disabled only when
@@ -1882,7 +1986,7 @@ var MM = globalThis.MM = globalThis.MM || {};
           </div>`;
         })).join('');
     const gearTab = `
-        ${gearSection('weapon', 'hit harder with every correct answer')}
+        ${weaponRack()}
         ${gearSection('body', 'block more of every monster hit')}
         ${gearSection('helmet', 'a bit more block, up top')}
         ${gearSection('boots', 'block — and some help your dodging')}
@@ -1910,7 +2014,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       <h2>${SHOP_NAMES[s.mapId] || SHOP_NAMES.world}</h2>
       <div class="dialog-body">
         <div class="shop-gold">You have <b>💰 ${s.gold} gold</b>. Answer the shopkeeper's question for <b>10% off</b> (or a selling bonus)!
-        <br><span class="dim">${cart ? 'A biscuit-tin till and the essentials. The till has learned to count — treasures welcome.' : onIsles ? 'Gear of the deep sea — nothing finer this side of the horizon.' : 'Bought gear goes to your 🎒 bag — used gear sells back for half price.'}</span></div>
+        <br><span class="dim">${cart ? 'A biscuit-tin till and the essentials. The till has learned to count — treasures welcome.' : onIsles ? 'Gear of the deep sea — nothing finer this side of the horizon.' : 'Bought gear goes to your 🎒 bag — used gear sells back for half price.'}</span>
+        ${!cart && MM.engine.isSoothing() ? '<br><span class="dim">🕊 "A tamer, are you?" The shopkeeper nods at the rack. "The wand came in Tuesday. Nobody else has looked at it."</span>' : ''}</div>
         ${shelf}
         <div class="shop-tabs">${cart ? tabBtn('supplies', '🧪 Supplies') + tabBtn('sell', '💰 Sell') : tabBtn('gear', '⚔️ Gear') + tabBtn('supplies', '🧪 Supplies') + tabBtn('sell', '💰 Sell')}</div>
         ${tabContent}
@@ -2047,12 +2152,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (UI.modalOpen() || MM.battle.active()) return;
     MM.track('hallOfHeroes');
     const me = MM.engine.state;
-    const allCards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD]);
+    const allCards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD, MM.data.MIMIC_CARD]);
     const rows = MM.engine.profiles().map(name => {
       const st = name === me.name ? me : MM.engine.peekProfile(name);
       if (!st) return '';
-      const b = st.bestiary || { kills: {} };
-      const found = allCards.filter(t => ((b.kills || {})[t.name] || 0) > 0).length;
+      const b = st.bestiary || { kills: {}, befriended: {} };
+      const bf = b.befriended || {};
+      const found = allCards.filter(t => ((b.kills || {})[t.name] || 0) > 0 || (bf[t.name] || 0) > 0).length;
       const pct = Math.round(found / allCards.length * 100);
       const badges = Object.values(st.badges || {});
       const medals = [3, 2, 1].map(tier => {
@@ -2062,18 +2168,28 @@ var MM = globalThis.MM = globalThis.MM || {};
       const titles = MM.engine.titlesFor(st);
       const crest = st.endingDone ? '👑' : st.tasksDone && st.tasksDone.includes(13) ? '⭐' : st.isles && st.isles.lampLit ? '🗼' : '🗡';
       const gold = (st.ngPlus || 0) ? ` <span class="hero-ng">✨ Golden ×${st.ngPlus}</span>` : '';
+      // Wave 8b (FINAL_REVIEW P6 guardrail): celebrate DIFFERENT bests, so two
+      // very different kids both have a full-looking plaque and there is no
+      // single number to line up side by side. Each honour appears only for the
+      // hero who has it — never as a "0" that reads like a deficit.
+      const honours = [
+        (st.braveSolved || 0) > 0 ? `⚡ ${st.braveSolved} brave` : '',
+        Object.keys(bf).length ? `🕊 ${Object.keys(bf).length} befriended` : '',
+        (st.hatsRetired || 0) > 0 ? `🎩 ${st.hatsRetired} hats` : '',
+      ].filter(Boolean).join(' · ');
       return `<div class="hero-row${name === me.name ? ' hero-me' : ''}">
         <span class="hero-crest">${crest}</span>
         <span class="hero-info">
           <span class="hero-name">${name}${name === me.name ? ' <span class="dim">(you)</span>' : ''}${gold}</span>
           <span class="hero-titles">${titles.length ? titles.join(' · ') : '<span class="dim">an adventure in progress</span>'}</span>
           <span class="hero-stats">Level ${st.level || 1} · ${medals} · 📕 ${pct}% of the book</span>
+          ${honours ? `<span class="hero-honours">${honours}</span>` : ''}
         </span>
       </div>`;
     }).join('');
     UI.dialog('🏆 The Hall of Heroes',
       `<div class="report-total">Every adventurer who has walked Numeria from this castle.</div>` +
-      `${rows}<div class="dim" style="margin-top:10px">No ranks, no scores. Everyone here got here their own way.</div>`);
+      `${rows}<div class="dim" style="margin-top:10px">No ranks, no scores. Everyone here got here their own way — and there is more than one way.</div>`);
   };
 
   UI.reportCard = function () {
@@ -2103,9 +2219,16 @@ var MM = globalThis.MM = globalThis.MM || {};
       </div>`;
     }).join('');
     const total = s.totals || { answered: 0, correct: 0 };
+    // Wave 8b: pride that outlives the fight. Shown only once it exists — a kid
+    // who has never taken a brave problem is not told she has zero of them.
+    const brave = (s.braveSolved || 0) > 0
+      ? `<div class="report-total">⚡ Brave problems solved: <b>${s.braveSolved}</b>
+         <span class="dim">— harder than you had to. Every one of them.</span></div>` : '';
+    const friends = MM.engine.befriendedCount(s) > 0
+      ? `<div class="report-total">🕊 Kinds befriended: <b>${MM.engine.befriendedCount(s)}</b></div>` : '';
     UI.dialog('📊 Report Card — ' + s.name,
       `<div class="report-total">Problems solved: <b>${total.correct}</b> of <b>${total.answered}</b>` +
-      (total.answered ? ` (${Math.round(total.correct / total.answered * 100)}%)` : '') + `</div>${rows}`);
+      (total.answered ? ` (${Math.round(total.correct / total.answered * 100)}%)` : '') + `</div>${brave}${friends}${rows}`);
   };
 
   // ---------- the hatching (first voyage to the Isles) ----------
@@ -2185,8 +2308,14 @@ var MM = globalThis.MM = globalThis.MM || {};
   // Cards fill in as you play: never-encountered monsters are dark silhouettes
   // marked ???, encountered-but-unbeaten ones show their portrait, and a
   // defeated monster reveals its card (flavor text + defeat count) forever.
-  function beastPortrait(type, revealed) {
-    const cv = MM.sprites.get(type.sprite, { palette: type.pal || {}, scale: 3 });
+  function beastPortrait(type, revealed, befriended) {
+    // Wave 8b: a befriended species sits for its portrait in its CALMED colours —
+    // the same warm-white blend it wears out in the corridors, so the card and
+    // the creature you pass plainly look like the same friend.
+    const pal = befriended
+      ? MM.sprites.softPalette(type.sprite, type.pal || {}, 0.45)
+      : (type.pal || {});
+    const cv = MM.sprites.get(type.sprite, { palette: pal, scale: 3 });
     if (revealed) return cv.toDataURL();
     const s = document.createElement('canvas');
     s.width = cv.width; s.height = cv.height;
@@ -2199,20 +2328,30 @@ var MM = globalThis.MM = globalThis.MM || {};
   }
 
   function beastRow(type, isBoss) {
-    const b = MM.engine.state.bestiary || { seen: {}, kills: {}, gauntlet: {} };
+    const b = MM.engine.state.bestiary || { seen: {}, kills: {}, gauntlet: {}, befriended: {} };
     const kills = b.kills[type.name] || 0;
     const seen = !!b.seen[type.name];
+    // Wave 8b: the SECOND collection axis. A species can be on both — struck
+    // some days, soothed others — and the card says both, without ranking them.
+    const friends = (b.befriended && b.befriended[type.name]) || 0;
     // Wave 5 item 4: a Champion's Gauntlet win marks the boss's card for good
     const gauntletWon = !!(isBoss && b.gauntlet && b.gauntlet[type.name]);
-    const img = `<img class="beast-img" src="${beastPortrait(type, kills > 0)}" alt="">`;
+    const img = `<img class="beast-img" src="${beastPortrait(type, kills > 0 || friends > 0, friends > 0)}" alt="">`;
     // Wave 8a (P2, monster telegraphs): the same icon that floats over its
     // head in the dungeon, so the book doubles as a "who asks what" index.
     const topicIcon = type.skill && MM.data.SKILL_ICONS[type.skill] ? ` ${MM.data.SKILL_ICONS[type.skill]}` : '';
-    if (kills > 0) {
-      return `<div class="beast-row">${img}<div class="beast-info">
-        <div class="beast-name">${isBoss ? '👑 ' : ''}${type.name}${gauntletWon ? ' 👑✨' : ''}${topicIcon}</div>
-        <div class="beast-desc">${type.desc || ''}</div>
-      </div><span class="beast-count">⚔ × ${kills}</span></div>`;
+    const counts = [
+      kills > 0 ? `<span class="beast-count">⚔ × ${kills}</span>` : '',
+      friends > 0 ? `<span class="beast-friend">🕊 × ${friends}</span>` : '',
+    ].join('');
+    if (kills > 0 || friends > 0) {
+      // A boss you SOOTHED was helped, not beaten — and its card should say so.
+      const note = (isBoss && friends > 0 && kills === 0)
+        ? `<div class="beast-helped">🕊 Helped, not beaten.</div>` : '';
+      return `<div class="beast-row${friends > 0 ? ' beast-befriended' : ''}">${img}<div class="beast-info">
+        <div class="beast-name">${isBoss ? '👑 ' : ''}${friends > 0 ? '🕊 ' : ''}${type.name}${gauntletWon ? ' 👑✨' : ''}${topicIcon}</div>
+        <div class="beast-desc">${type.desc || ''}</div>${note}
+      </div>${counts}</div>`;
     }
     if (seen) {
       return `<div class="beast-row">${img}<div class="beast-info">
@@ -2230,10 +2369,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     MM.track('monsterBook');
     const s = MM.engine.state;
     if (!s || UI.modalOpen() || MM.battle.active()) return;
-    const b = s.bestiary || { seen: {}, kills: {} };
+    const b = s.bestiary || { seen: {}, kills: {}, befriended: {} };
     // every card in the book (regulars + bosses per dungeon, + the golem)
-    const allCards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD]);
-    const found = allCards.filter(t => (b.kills[t.name] || 0) > 0).length;
+    const allCards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD, MM.data.MIMIC_CARD]);
+    // Wave 8b: a card is FILLED IN by either verb. A kid who soothes her way
+    // through the whole game must be able to complete the book — soothing is a
+    // real way to finish a monster, not a way to skip one.
+    const bf = b.befriended || {};
+    const found = allCards.filter(t => (b.kills[t.name] || 0) > 0 || (bf[t.name] || 0) > 0).length;
     // pages exist for every dungeon assigned so far; isle pages open with
     // their pass (taskIndex stops at 14 — lenses gate the later isles)
     let shownDungeons = (s.ngPlus || s.endingDone) ? 14 : Math.max(1, Math.min(14, s.taskIndex || 1));
@@ -2247,18 +2390,32 @@ var MM = globalThis.MM = globalThis.MM || {};
     const golemSection = s.metMiscount
       ? `<h3>Miscount's Sparring Ground</h3>${beastRow(MM.data.GOLEM_CARD, false)}`
       : '';
+    // Playtest round 4: the Mimic's page appears only once a kid has MET one
+    // (seen/beaten/befriended) — a secret the book keeps until then.
+    const b8 = s.bestiary || { seen: {}, kills: {}, befriended: {} };
+    const metMimic = b8.seen[MM.data.MIMIC_CARD.name] || (b8.kills || {})[MM.data.MIMIC_CARD.name] > 0
+      || ((b8.befriended || {})[MM.data.MIMIC_CARD.name] || 0) > 0;
+    const mimicSection = metMimic
+      ? `<h3>Wandering Chests</h3>${beastRow(MM.data.MIMIC_CARD, false)}`
+      : '';
     const blankNote = shownDungeons < 13
       ? `<p class="dim" style="font-size:13px;font-style:italic">...the rest of the pages are still blank. New places, new monsters!</p>`
       : '';
     // Wave 8a (P8, delight catalog): "hats respectfully retired: N." No
     // mechanics — pure cuteness, tracked in E.grantVictory / the arena hook.
     const hatFooter = `<p class="dim" style="font-size:12.5px;margin-top:8px">🎩 Hats respectfully retired: <b>${s.hatsRetired || 0}</b></p>`;
+    // Wave 8b: the second collection axis, counted in its own right and never
+    // ranked against the first. Two ways to fill a book; neither is the score.
+    const friendCount = MM.engine.befriendedCount(s);
+    const friendLine = `<div class="shop-gold">🕊 Befriended: <b>${friendCount}</b> of <b>${allCards.length}</b> kinds
+      <span class="dim">(soothe a monster to make a friend of its kind)</span></div>`;
     openModal(`
       <h2>📕 Monster Book — ${s.name}</h2>
       <div class="dialog-body">
         <div class="shop-gold">Discovered: <b>${found}</b> of <b>${allCards.length}</b> monsters
           <span class="dim">(defeat a monster to fill in its card)</span></div>
-        ${sections}${golemSection}${blankNote}${hatFooter}
+        ${friendLine}
+        ${sections}${golemSection}${mimicSection}${blankNote}${hatFooter}
       </div>
       <div class="btnrow"><button id="dlgOk" class="primary">Close the book</button></div>`);
     document.getElementById('dlgOk').onclick = () => { closeModal(); UI.refresh(); };
