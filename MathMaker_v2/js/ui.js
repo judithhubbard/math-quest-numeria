@@ -1931,12 +1931,18 @@ var MM = globalThis.MM = globalThis.MM || {};
         'Visit the 🏰 <b>castle</b> and get your first task from the MathMaker!');
     }
     const icon = { hunt: '⚔️', solve: '✏️', streak: '🔥', spar: '🥊', gemchest: '✨', thief: '🪶', spire: '⏰' };
-    const rows = board.items.map(it => `
+    const rows = board.items.map(it => {
+      // an old hunt job can point at a dungeon cleared today — say so
+      // instead of leaving the kid to discover an empty dungeon (Wave 8-
+      // preview; new boards avoid such targets at generation time)
+      const napping = !it.done && it.type === 'hunt' && it.dungeon && MM.engine.dungeonClearedToday(it.dungeon);
+      return `
       <div class="shop-row${it.done ? ' owned' : ''}">
-        <span class="shop-item">${it.done ? '✅' : icon[it.type]} ${it.label}</span>
+        <span class="shop-item">${it.done ? '✅' : icon[it.type]} ${it.label}${napping ? '<span class="quip">cleared for today — the monsters creep back tomorrow</span>' : ''}</span>
         <span class="shop-stat">${it.done ? 'done!' : `${it.have}/${it.need}`}</span>
         <span class="shop-price">${it.reward} g</span>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     UI.dialog(onIsle ? '🪧 Harbor Notice Board' : '🪧 Notice Board',
       `<div class="shop-gold">${onIsle ? 'The harbor needs help too!' : 'The kingdom needs help!'} Finish a job and the reward is paid <b>on the spot</b>.</div>
        ${rows}

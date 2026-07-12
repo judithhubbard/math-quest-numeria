@@ -637,7 +637,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       `and the tangles came in where the working should have been. Not because I was <b>wicked</b>."<br><br>` +
       `"Because I wasn't <b>tending</b> it."<br><br>` +
       `<i>He looks up.</i> "Everything you untangled out there? Somebody had stopped tending it. That's the whole secret. ` +
-      `It's a very small, very stupid secret, and it cost the kingdom nine years."`,
+      `It's a very small, very ordinary secret, and it cost the kingdom nine years."`,
       step3);
     MM.ui.dialog('🧙 The MathMaker',
       `The Study is small, and full of chalk dust, and there are two chairs.<br><br>` +
@@ -992,6 +992,17 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.petPos = { x: s.px, y: s.py };
     if (floor === 0) {
       MM.ui.log(`You enter the ${task.dungeon}. (${task.mixed ? 'Everything you\'ve learned!' : MM.data.SKILL_NAMES[task.skill]})`);
+      // Wave 8-preview (user playtest): a bounty that applies HERE announces
+      // itself — dungeon-scoped jobs were progressing invisibly (or not at
+      // all) and read as broken
+      for (const board of [s.bounties, s.isleBounties]) {
+        if (!board || !board.items) continue;
+        for (const it of board.items) {
+          if (!it.done && it.dungeon === idx && (it.type === 'hunt' || it.type === 'solve')) {
+            MM.ui.log(`📌 <b>Bounty active here:</b> ${it.have}/${it.need} ${it.type === 'hunt' ? 'monsters defeated' : 'problems answered'} — reward ${it.reward} gold!`);
+          }
+        }
+      }
     }
     MM.ui.refresh();
   };
@@ -1647,6 +1658,21 @@ var MM = globalThis.MM = globalThis.MM || {};
   // an eager kid never finds an empty board. Targets are picked weakest-topic-
   // first: the board quietly steers practice where it helps, while reading as
   // errands rather than homework. Rewards pay out the instant a job finishes.
+
+  // Wave 8-preview (user playtest, 2026-07-11): a dungeon whose monsters
+  // were all defeated today can't progress a hunt job until tomorrow
+  // (defeatedAt, 1.5c) — the generator must avoid such targets, and the
+  // board UI says so on any older job that still points at one.
+  E.dungeonClearedToday = function (d) {
+    const s = E.state;
+    const today = E.todayStr();
+    const floors = MM.maps.dungeonFloors(d);
+    const grid = MM.maps.parse(floors[0], '#');
+    const markers = ['m', 'g', 't'].flatMap(ch => MM.maps.find(grid, ch));
+    const id = floors.length > 1 ? `d${d}f0` : `d${d}`;
+    return markers.length > 0 && markers.every(p => s.defeatedAt[`${id}:${p.x},${p.y}`] === today);
+  };
+
   E.refreshBounties = function () {
     const s = E.state;
     if (!s.taskIndex) { s.bounties = null; return; } // no jobs before the MathMaker
@@ -1656,7 +1682,8 @@ var MM = globalThis.MM = globalThis.MM || {};
     const ranked = MM.mastery.weakestFirst(s, MM.data.TASKS.filter(t => !t.exp).map(t => t.skill));
     const dgOf = sk => MM.data.TASKS.findIndex(t => t.skill === sk) + 1;
     const unlocked = ranked.map(dgOf).filter(d => d <= maxD);
-    const d1 = unlocked[0] || 1;
+    const huntable = unlocked.filter(d => !E.dungeonClearedToday(d));
+    const d1 = huntable[0] || unlocked[0] || 1;
     const d2 = unlocked.find(d => d !== d1) || d1;
     const dgName = d => MM.data.TASKS[d - 1].dungeon;
     const huntNeed = Math.min(5, 2 + Math.ceil(d1 / 3));
