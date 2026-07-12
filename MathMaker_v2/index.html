@@ -19,8 +19,15 @@
 </head>
 <body>
   <header>
-    <h1>⚔️ Math Quest: Numeria 👑</h1>
-    <div class="subtitle">Every problem can be worked out — one careful step at a time.</div>
+    <div class="header-corner">
+      <button id="btnParent" class="secondary">👪 Parent</button>
+      <button id="btnSwitch" class="secondary">👤 Switch</button>
+    </div>
+    <div class="header-title">
+      <h1>⚔️ Math Quest: Numeria 👑</h1>
+      <div class="subtitle">Every problem can be worked out — one careful step at a time.</div>
+    </div>
+    <div class="header-spacer"></div>
   </header>
 
   <div id="game">
@@ -28,13 +35,12 @@
       <canvas id="canvas" width="720" height="528"></canvas>
       <div class="action-bar">
         <button id="btnPotion" title="or press P">🧪 Potion</button>
+        <button id="btnFood" title="or press F">🍗 Food</button>
         <button id="btnBag" title="or press B">🎒 Bag</button>
         <button id="btnReport" title="or press R">📊 Report</button>
         <button id="btnBook" title="or press M">📕 Monsters</button>
         <button id="btnHelp">📖 Help</button>
         <button id="btnDifficulty">⚙️ Difficulty</button>
-        <button id="btnParent" class="secondary">👪 Parent</button>
-        <button id="btnSwitch" class="secondary">👤 Switch</button>
       </div>
     </div>
     <aside id="sidebar">
@@ -44,13 +50,12 @@
       <div class="stat" id="statLevel"></div>
       <div class="stat combat" id="statAtk"></div>
       <div class="stat combat" id="statDef"></div>
-      <div class="stat" id="statPotions"></div>
       <div class="stat" id="statStreak"></div>
       <div class="stat" id="spellRow"></div>
       <div id="taskBox"></div>
       <div id="log"></div>
       <div class="keys-hint">Move: arrow keys or WASD · Bump into things to interact<br>
-        Quick keys: <b>P</b> potion · <b>B</b> bag · <b>R</b> report · <b>M</b> monsters</div>
+        Quick keys: <b>P</b> potion · <b>F</b> food · <b>B</b> bag · <b>R</b> report · <b>M</b> monsters</div>
     </aside>
   </div>
 

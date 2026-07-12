@@ -50,9 +50,17 @@ Definition of done (all mandatory):
 5. Update docs: README.md (player-facing description), EXPANSION_PLAN.md
    (mark Wave N "✅ SHIPPED <date>" with any deviations), tests/README.md
    (one bullet for the new drive).
+6. Evidence survives your session: redirect every drive run's output to
+   `tests/logs/<drive>-<n>.log` (create the dir; it's gitignored) — never
+   only to your session scratchpad, which the reviewer cannot see. Run the
+   marathon in the FOREGROUND (this environment kills background tasks
+   after ~20–25 minutes). A run the environment killed does not count,
+   whatever it printed before dying — re-run until the log file itself
+   ends with the final checks / `MARATHON COMPLETE` lines.
 
 When you're done, summarize: what shipped, what you deviated from and why,
-test results (all drives listed PASS/FAIL), and anything you deferred.
+test results (all drives listed PASS/FAIL) with the `tests/logs/` paths,
+and the marathon's final lines pasted verbatim, plus anything you deferred.
 
 If you get stuck on the same failure three times, stop and report the
 failure clearly instead of thrashing.

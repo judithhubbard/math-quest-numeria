@@ -86,10 +86,11 @@ is rewarded — over-armor and hits shrink to 1s.
 
 Walking (1 per 2 steps) and battle rounds (1 each) drain a **stamina bar**.
 At zero you're **exhausted** — half damage and no dodging — but never dying
-from hunger. Eat food from your **🎒 bag** (B key) to recover: bread +30,
-cheese +50, roast chicken +100. Food comes from the shop and chests; the inn
-restores stamina fully. The **Boots of Wandering** charm removes the walking
-cost entirely.
+from hunger, and never too tired to walk: home is always in reach. Eat from
+the **🍗 Food button** (F key) — two bars, two buttons: 🧪 Potion refills
+health, 🍗 Food refills stamina — bread +30, cheese +50, roast chicken +100.
+Food comes from the shop and chests; the inn restores stamina fully. The
+**Boots of Wandering** charm removes the walking cost entirely.
 
 ### 🎁 Chest loot & selling
 
@@ -417,6 +418,36 @@ switched off.)
 - **✨ Golden Numeria** (from the throne): walk the whole kingdom again, with
   every dungeon re-sealed and every boss back and tougher — while you keep
   your level, gear, gems, charms, badges, Monster Book, pet, and crown.
+
+### 🐣🗡 The Two Kids Update
+
+Some kids want the fight. Some kids want it gentle. Numeria now leans a
+little further toward both, at once:
+
+- **Monster telegraphs** — in the mixed-review dungeons (11+), many monsters
+  carry a small topic icon over their head. It's a promise, not decoration:
+  that monster asks about that topic. (Switch the topic off in Parent
+  Settings and the icon disappears — it never lies about what's coming.)
+- **Overwhelm** — outlevel a dungeon badly enough (the game notices) and its
+  regular monsters give you a break: one quick problem, answered correctly,
+  is an instant win — full rewards, no fight. Miss it and the battle just
+  starts normally, no penalty either way. Bosses never skip.
+- **Rust** — a topic you haven't touched in a while quietly moves back
+  toward the front of the practice queue, and the notice board says so
+  ("the Old Mine misses you"). Spaced practice, framed as the world needing
+  a little tending rather than a nag.
+- **Growth, not grades** — the report card now shows a plain-English line
+  per topic ("9 of your last 10"), never a percentage. The parent panel adds
+  a quiet weekly trend (▲/▼) per topic and an expandable peek at the last
+  few actual wrong answers — the fastest way to spot a real pattern (like a
+  regrouping slip) without a single scary number.
+- **"Almost!"** — get within a few correct answers of your next badge and
+  the bag icon gets a little sparkle, with one gentle nudge in the log.
+- **A little more life in the world** — the shopkeeper keeps whatever you
+  just sold on the shelf behind her, the inn cat sleeps somewhere new every
+  day (give it a pat for +1 stamina), guards snooze until you get close,
+  thieves admire their loot, and the Monster Book now keeps count of every
+  tiny hat respectfully retired.
 
 ### A few playtest fixes
 

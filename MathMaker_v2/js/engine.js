@@ -57,6 +57,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       history: {},         // Wave 8a (P6): date string -> {skill: {a,c}}, pruned >30 days
       recentMisses: {},    // Wave 8a (P6): skill -> last 10 {text, kidAnswer}
       hatsRetired: 0,      // Wave 8a (P8): lifetime tiny-hat monsters defeated
+      shopShelf: [],       // Wave 8a (P8): last few sold items, on display
+      catPettedDate: null, // Wave 8a (P8): the inn cat's daily pat, once/day
+      seenGearHint: false, // one-time "the shop sells sharper blades" nudge
     };
     E.enterWorld();
     E.save();
@@ -136,10 +139,38 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!s.history) s.history = {};
     if (!s.recentMisses) s.recentMisses = {};
     if (s.hatsRetired == null) s.hatsRetired = 0;
+    if (!s.shopShelf) s.shopShelf = [];
+    if (s.catPettedDate === undefined) s.catPettedDate = null;
+    // gear-shop nudge: an old save past the stick has nothing to learn —
+    // mark it seen so the hint can never fire as a non-sequitur late-game
+    if (s.seenGearHint == null) s.seenGearHint = (s.equipped && s.equipped.weapon !== 'stick');
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     E.enterWorld();  // always resume on the overworld
     return true;
+  };
+
+  // Wave 8a (P2, monster telegraphs): which topic icon (if any) this monster
+  // should wear. Single-topic dungeons/floors show the dungeon's own topic on
+  // every monster; mixed dungeons show it only on monster TYPES bound to one
+  // (mon.skill) — an unbound type (including every boss) shows none, since
+  // its problem really can draw from anywhere.
+  E.monsterTopicIcon = function (mon) {
+    const s = E.state;
+    if (!s || !s.dungeonIndex || mon.boss) return null;
+    const task = MM.data.TASKS[s.dungeonIndex - 1];
+    if (!task) return null;
+    const mixed = task.mixed || E.isDeepWingFloor(s);
+    const skill = mixed ? mon.skill : task.skill;
+    if (!skill || !MM.data.SKILL_ICONS[skill]) return null;
+    // Telegraph honesty: never promise a topic pickProblem wouldn't actually
+    // serve — a mixed dungeon's bound icon must vanish the instant a parent
+    // switches that topic off (same fallback pickRegularMonsterProblem
+    // takes). Single-topic dungeons don't need the check: capSkill still
+    // redirects a disabled OWN topic, but the icon there just names the
+    // dungeon's subject, not a specific-monster promise.
+    if (mixed && !MM.mastery.cappedSkills(s).includes(skill)) return null;
+    return MM.data.SKILL_ICONS[skill];
   };
 
   // ---------- difficulty (kid-settable): scales monster health & damage ----------
@@ -234,29 +265,45 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!s.gear[slot].includes(id)) s.gear[slot].push(id);
   };
 
+  // Wave 8a (P8, delight catalog): "the shopkeeper puts whatever you just
+  // sold on the shelf behind her" — persistent, purely decorative, capped at
+  // the 3 most recent so the shop modal never grows unbounded.
+  E.shelveItem = function (item) {
+    const s = E.state;
+    s.shopShelf = s.shopShelf || [];
+    s.shopShelf.unshift({ emoji: item.emoji, name: item.name });
+    if (s.shopShelf.length > 3) s.shopShelf.length = 3;
+  };
+
   // Sell unequipped gear back to the shop at half price.
   E.sellGear = function (slot, id) {
     MM.track('sellGear ' + slot + ' ' + id);
     const s = E.state;
     const item = MM.data.gearById(slot, id);
     if (!item || s.equipped[slot] === id || !s.gear[slot].includes(id)) return;
-    const v = Math.floor(item.price / 2);
+    // starter gear (price 0) sells for a sentimental 1 gold — otherwise the
+    // stick and clothes clutter the bag forever with no way out (playtest)
+    const v = Math.max(1, Math.floor(item.price / 2));
     if (!E.moneyQuizOn()) { // money-math topic disabled: no quiz
       s.gear[slot] = s.gear[slot].filter(x => x !== id);
       const paid = E.gainGold(v);
+      E.shelveItem(item);
       MM.sound.coin();
       E.save();
       return MM.ui.dialog('🏪 Shop', `You sell the ${item.emoji} <b>${item.name}</b> for <b>${paid} gold</b>!`, () => MM.ui.openShop());
     }
     const g = s.gold;
+    const keepsake = item.price <= 0; // "half of 0" would read as nonsense
     const prob = {
       kind: 'number', skill: 'word_problems', tier: 2,
-      text: `The shopkeeper inspects the ${item.name}. "Half of what you paid — that's ${v} gold. You have ${g} now, so how much will you walk out with?"`,
+      text: keepsake
+        ? `The shopkeeper turns the ${item.name} over fondly. "Every hero starts somewhere. One gold, for the memories. You have ${g} now, so how much will you walk out with?"`
+        : `The shopkeeper inspects the ${item.name}. "Half of what you paid — that's ${v} gold. You have ${g} now, so how much will you walk out with?"`,
       answer: MM.problems.frac(g + v, 1),
       solution: `${g} + ${v} = ${g + v} gold.`,
     };
     MM.ui.showProblem({
-      header: `🏪 Selling: ${item.emoji} <b>${item.name}</b> — ${v} gold (half of ${item.price})`,
+      header: `🏪 Selling: ${item.emoji} <b>${item.name}</b> — ${v} gold ${keepsake ? '(for the memories)' : `(half of ${item.price})`}`,
       problem: prob,
       leaveLabel: 'Keep it',
       onAnswer(correct, kidAnswer) {
@@ -264,6 +311,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         const bonus = correct ? Math.ceil(v * 0.1) : 0;
         s.gear[slot] = s.gear[slot].filter(x => x !== id);
         const paid = E.gainGold(v + bonus);
+        E.shelveItem(item);
         MM.sound.coin();
         E.save();
         return {
@@ -332,9 +380,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     const before = s.stamina;
     s.stamina = Math.max(0, s.stamina - n);
     if (before > 25 && s.stamina <= 25 && s.stamina > 0) {
-      MM.ui.log('🍞 Your stomach growls... you\'re getting tired. Eat something from your bag!');
+      MM.ui.log('🍞 Your stomach growls... you\'re getting tired. Eat something — the 🍗 Food button!');
     } else if (before > 0 && s.stamina === 0) {
-      MM.ui.log('😫 <b>You are exhausted!</b> Half damage and no dodging until you eat or rest.');
+      MM.ui.log('😫 <b>You are exhausted!</b> Half damage and no dodging until you eat or rest — but you can always still walk.');
     }
   };
 
@@ -1001,6 +1049,7 @@ var MM = globalThis.MM = globalThis.MM || {};
           x: pos.x, y: pos.y, hp: st.hp, maxhp: st.hp, atk: st.atk, xp: st.xp,
           boss: false, stun: 0, behavior: type.behavior || 'chase',
           shouts: !!type.shouts, alerted: 0,
+          skill: type.skill || null, // Wave 8a (P2): the telegraph icon's topic
           home: { x: pos.x, y: pos.y },
         });
       }
@@ -1164,7 +1213,7 @@ var MM = globalThis.MM = globalThis.MM || {};
 
     // dungeon
     const mon = s.monsters.find(m => m.x === nx && m.y === ny && m.hp > 0);
-    if (mon) return E.startCombat(mon);
+    if (mon) return E.isOverwhelming(mon) ? E.tryOverwhelm(mon) : E.startCombat(mon);
     if (ch === 'D') return E.mathDoor(nx, ny);
     if (ch === 'Z') return E.clockDoor(nx, ny);
     if (ch === 'Y') return E.echoDoor(nx, ny);
@@ -1562,6 +1611,11 @@ var MM = globalThis.MM = globalThis.MM || {};
   //            Catch it to win the gold back with interest. Broke? It bites.
   //   (Wave 3) a thief with shouts:true wakes every OTHER monster on the
   //   floor into a few turns of forced chase — m.alerted counts it down.
+  // Wave 8a (P8, delight catalog): "a wanderer rarely bumps a wall and
+  // shows a reaction (≤1 per few minutes)" — a log line stands in for a
+  // world-canvas floater (this engine has no floating-text system outside
+  // the battle screen); throttled module-wide so it can never spam.
+  let lastBumpFlavorAt = 0;
   E.monsterTurn = function () {
     const s = E.state;
     let attacker = null;
@@ -1610,6 +1664,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (m.y < s.py) opts.push([0, 1]);
         if (m.y > s.py) opts.push([0, -1]);
       }
+      const startX = m.x, startY = m.y;
       for (const [dx, dy] of opts) {
         const nx = m.x + dx, ny = m.y + dy;
         const ch = s.grid[ny] && s.grid[ny][nx];
@@ -1618,6 +1673,11 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (s.monsters.some(o => o !== m && o.hp > 0 && o.x === nx && o.y === ny)) continue;
         m.x = nx; m.y = ny;
         break;
+      }
+      if (beh === 'wander' && opts.length && m.x === startX && m.y === startY
+          && !s.calmMode && Date.now() - lastBumpFlavorAt > 180000) {
+        lastBumpFlavorAt = Date.now();
+        MM.ui.log(`❓ ${MM.data.theMon(m.name, true)} bumps into the wall and looks briefly baffled.`);
       }
       if (fleeing) continue; // a laden thief never attacks
       if (Math.abs(m.x - s.px) + Math.abs(m.y - s.py) === 1) attacker = attacker || m;
@@ -1745,11 +1805,18 @@ var MM = globalThis.MM = globalThis.MM || {};
     const d2 = unlocked.find(d => d !== d1) || d1;
     const dgName = d => MM.data.TASKS[d - 1].dungeon;
     const huntNeed = Math.min(5, 2 + Math.ceil(d1 / 3));
+    // Wave 8a (P5, rust): if a job's target topic has gone stale, the board
+    // says so — the spacing model made visible, framed as the world (not
+    // the kid) needing tending.
+    const rustLine = d => {
+      const sk = MM.data.TASKS[d - 1].skill;
+      return MM.mastery.isRusty(s, sk) ? MM.data.RUST_LINES[sk] : null;
+    };
     const items = [
       { type: 'hunt', dungeon: d1, need: huntNeed, have: 0, done: false, reward: 15 + 8 * d1,
-        label: `Defeat ${huntNeed} monsters in the ${dgName(d1)}` },
+        label: `Defeat ${huntNeed} monsters in the ${dgName(d1)}`, flavor: rustLine(d1) },
       { type: 'solve', dungeon: d2, need: 4, have: 0, done: false, reward: 12 + 6 * d2,
-        label: `Answer 4 problems correctly inside the ${dgName(d2)}` },
+        label: `Answer 4 problems correctly inside the ${dgName(d2)}`, flavor: rustLine(d2) },
     ];
     if (s.metMiscount) {
       items.push({ type: 'spar', need: 1, have: 0, done: false, reward: 30,
@@ -2121,6 +2188,169 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
   };
 
+  // Shared victory payout (Wave 8a, P7): identical for a real battle win and
+  // an Overwhelm instant-win (E.tryOverwhelm, below) — the reward should
+  // never depend on HOW the monster went down, only on which monster it was.
+  // Extracted verbatim from the old inline victory(m) hook.
+  E.grantVictory = function (m) {
+    const s = E.state;
+    const task = MM.data.TASKS[s.dungeonIndex - 1];
+    E.recordKill(m);
+    E.bountyEvent('kill');
+    if (m.behavior === 'thief') E.bountyEvent('thief'); // Wave 5: "catch 2 thieves"
+    const baseGold = m.boss ? m.gold : Math.floor(Math.random() * (2 * s.dungeonIndex)) + s.dungeonIndex;
+    const gold = E.gainGold(baseGold);
+    const levelsBefore = s.level;
+    E.gainXp(m.xp);
+    const lines = [
+      `⭐ +${m.xp} XP`,
+      `💰 +${gold} gold${gold > baseGold ? ' 🧲' : ''}`,
+    ];
+    if (m.hat) { s.gold += 1; s.hatsRetired = (s.hatsRetired || 0) + 1; lines.push('🎩 +1 gold — for the tiny hat.'); }
+    if (m.stolen) {
+      const back = E.gainGold(Math.ceil(m.stolen * 1.5));
+      lines.push(`🪶 Caught the thief! Your <b>${m.stolen} gold</b> back — with interest: <b>+${back}</b>!`);
+    }
+    if (s.level > levelsBefore) lines.push(`🎺 <b>LEVEL UP!</b> You are now level ${s.level} (max HP ${s.maxhp})`);
+    if (m.boss && task.finale) {
+      // the Great Lighthouse: sincere, no jokes — the ending dialog
+      // (Keeper of the Light) fires from onEnd, below
+      s.bossesDefeated[s.mapId] = true;
+      s.isles.lampLit = true;
+      lines.push('🌫 <i>The Murk does not die. It thins into ordinary morning mist.</i>');
+      lines.push('🗼 <b>The Great Lamp is lit!</b>');
+    } else if (m.boss && task.vault) {
+      // the Smugglers' Vault: Captain Brine's hoard yields the unique
+      // charm (the ranged crossbow is a guaranteed CHEST find instead —
+      // see the guard standing over it in E.chest)
+      s.bossesDefeated[s.mapId] = true;
+      if (!s.items.charms.includes('wayfinder')) {
+        s.items.charms.push('wayfinder');
+        if (s.charmsOn.length < E.CHARM_SLOTS) s.charmsOn.push('wayfinder');
+        lines.push(`🗺 <b>The hoard yields a charm:</b> the Wayfinder's Locket!`);
+      } else {
+        lines.push(`💰 Captain Brine's hoard, fair and square.`);
+      }
+    } else if (m.boss && task.spire) {
+      // the Clockwork Spire: Horologe Isle's own finale. spireDone is
+      // the flag a later wave can gate a fourth sail destination on.
+      s.bossesDefeated[s.mapId] = true;
+      s.isles.spireDone = true;
+      lines.push('⚙️ <i>Somewhere deep in the tower, a long-stopped gear shudders — and turns.</i>');
+      lines.push('⏰ <b>The Clockwork Spire ticks again!</b>');
+    } else if (m.boss && task.chime) {
+      // the Resonant Halls: Chime Isle's own finale. hallsDone is the
+      // flag a later wave can gate a fifth sail destination on.
+      s.bossesDefeated[s.mapId] = true;
+      s.isles.hallsDone = true;
+      lines.push('🎵 <i>A single clear note rings out — and every hall answers it in tune.</i>');
+      lines.push('🔔 <b>The Resonant Halls sing again!</b>');
+    } else if (m.boss && task.breakwater) {
+      // the Sunken Breakwater: Gullwrack Harbor's own finale.
+      // breakwaterDone is the flag Wave 6's repair sites (and any
+      // later wave) can check.
+      s.bossesDefeated[s.mapId] = true;
+      s.isles.breakwaterDone = true;
+      lines.push('🧱 <i>Somewhere above, the last loose stone in the breakwater grinds back into place.</i>');
+      lines.push('🌊 <b>The Sunken Breakwater holds again!</b>');
+    } else if (m.boss && task.isle) {
+      // isle bosses guard lighthouse lenses, not quest items
+      s.bossesDefeated[s.mapId] = true;
+      s.isles.lenses[task.lens] = true;
+      lines.push(`🔆 <b>The ${task.item} blazes back to life!</b>`);
+      lines.push('<i>Far above, a beam of light sweeps across the waves for the first time in years.</i>');
+      lines.push('⛵ <i>The captain will want to hear about this!</i>');
+    } else if (m.boss) {
+      s.bossesDefeated[s.mapId] = true;
+      s.haveItem = true;
+      if (s.dungeonIndex === 10) {
+        lines.push(`🌫 <i>The shadows drain away like ink in water...</i>`);
+        lines.push(`<i>Where the Lord of Confusion stood, a tired student in a grey robe blinks in the light.</i>`);
+        lines.push(`💬 <i>"I... I remember now. You showed your work. Every single step."</i>`);
+      }
+      lines.push(`${task.itemEmoji} <b>You found the ${task.item}!</b>`);
+      lines.push(task.exp ? `Bring it to Miscount 🧑‍🎓 across the bridge!` : `Bring it to the MathMaker at the castle! 🏰`);
+    }
+    // Wave 8a (P8, delight catalog): "post-boss high-five hop" — one small
+    // pet cheer on any boss win, zero design weight, no state to track.
+    if (m.boss && s.isles && s.isles.pet) {
+      lines.push(`🐾 ${s.isles.pet.name} hops up for a high-five. You oblige.`);
+    }
+    // 2026-07-12 playtest: a kid reached mid-game never realizing gear
+    // upgrades exist — the sidebar NAMES the stick, but nothing SAYS the
+    // shop fixes it. One line, once ever, the first win where the gold
+    // could actually buy the cheapest mainland weapon upgrade.
+    if (!s.seenGearHint && s.equipped.weapon === 'stick') {
+      const up = MM.data.GEAR.weapon
+        .filter(w => w.price > 0 && !w.isle && !w.notForSale)
+        .sort((a, b) => a.price - b.price)[0];
+      if (up && s.gold >= up.price) {
+        s.seenGearHint = true;
+        lines.push(`💡 That's enough gold for the ${up.emoji} <b>${up.name}</b> at the 🏪 shop — a better weapon makes <b>every correct answer hit harder</b>!`);
+      }
+    }
+    petFetch(lines);
+    E.save();
+    return lines;
+  };
+
+  // Shared with E.tryOverwhelm (Wave 8a, P7): the same topic-priority logic
+  // startCombat uses for a live monster's regular (non-boss) quick problems —
+  // factored out so the one-shot overwhelm problem asks exactly what a real
+  // battle would have asked, never something easier or harder.
+  E.pickRegularMonsterProblem = function (mon) {
+    const s = E.state;
+    const task = MM.data.TASKS[s.dungeonIndex - 1];
+    if (task.spire) return MM.mastery.pickSpireProblem(s);
+    if (task.breakwater) return MM.mastery.pickBreakwaterProblem(s);
+    const mixed = task.mixed || E.isDeepWingFloor(s);
+    if (mixed && mon.skill && MM.mastery.cappedSkills(s).includes(mon.skill)) {
+      return MM.problems.generateQuick(mon.skill);
+    }
+    return mixed ? MM.mastery.pickArenaProblem(s) : MM.mastery.pickCombatProblem(s, s.dungeonIndex);
+  };
+
+  // ---------- Overwhelm (Wave 8a, P7): outgrown-the-dungeon relief ----------
+  // A kid who lingers leveling up in early dungeons can end up WAY past what
+  // they teach — grinding a full battle against something that can't scratch
+  // you isn't a challenge, it's busywork. "Expected level" is deliberately
+  // crude: a dungeon's position in the curriculum (1-21) IS its difficulty
+  // rating, so expectedLevel(dungeonIndex) = dungeonIndex. Once the kid's
+  // level clears that by OVERWHELM_GAP or more, a regular (non-boss,
+  // non-arena, non-gauntlet) monster gives one quick problem instead of a
+  // fight: right and it's an instant win (full normal rewards); wrong and
+  // the fight just starts, exactly as if Overwhelm had never checked in —
+  // this is a SKIP, never a trap, so a miss costs nothing.
+  const OVERWHELM_GAP = 6;
+  E.expectedLevel = dungeonIndex => dungeonIndex;
+  E.isOverwhelming = function (mon) {
+    const s = E.state;
+    if (mon.boss || mon.arena || mon.gauntlet) return false;
+    return s.level - E.expectedLevel(s.dungeonIndex) >= OVERWHELM_GAP;
+  };
+  E.tryOverwhelm = function (mon) {
+    E.markSeen(mon);
+    const prob = E.pickRegularMonsterProblem(mon);
+    MM.ui.showProblem({
+      header: `😮 <b>${MM.data.theMon(mon.name, true)} takes one look at you and hesitates.</b>`,
+      problem: prob,
+      leaveLabel: '⚔️ Just fight',
+      onAnswer(correct, kidAnswer) {
+        recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
+        if (!correct) return { msg: 'It shakes off the hesitation — <b>the fight begins for real!</b>', end: 'fight' };
+        mon.hp = 0; // defeated, same as a real battle leaves it (m.hp > 0 gates aliveness everywhere else)
+        E.grantVictory(mon);
+        return { msg: 'It takes one look at your worked answer and unties itself on the spot.', end: 'won' };
+      },
+      onEnd(reason) {
+        if (reason === 'won') { MM.ui.refresh(); return; }
+        // 'leave' (chose to fight) or 'fight' (missed the one-shot) — either
+        // way, a normal battle starts, no penalty either direction.
+        E.startCombat(mon);
+      },
+    });
+  };
+
   E.startCombat = function (mon) {
     MM.track('combat ' + mon.name);
     const s = E.state;
@@ -2138,11 +2368,20 @@ var MM = globalThis.MM = globalThis.MM || {};
         // Expansion dungeons draw from every topic, weakest-first.
         pickProblem: () => {
           E.spendStamina(1); // each battle round is tiring
-          if (task.spire) return mon.boss ? MM.mastery.pickSpireGate(s) : MM.mastery.pickSpireProblem(s);
-          if (task.breakwater) return mon.boss ? MM.mastery.pickBreakwaterGate(s) : MM.mastery.pickBreakwaterProblem(s);
-          const mixed = task.mixed || E.isDeepWingFloor(s);
-          if (mon.boss) return mixed ? MM.mastery.pickMixedGate(s) : MM.mastery.pickBossProblem(s, s.dungeonIndex);
-          return mixed ? MM.mastery.pickArenaProblem(s) : MM.mastery.pickCombatProblem(s, s.dungeonIndex);
+          if (mon.boss) {
+            if (task.spire) return MM.mastery.pickSpireGate(s);
+            if (task.breakwater) return MM.mastery.pickBreakwaterGate(s);
+            const mixed = task.mixed || E.isDeepWingFloor(s);
+            return mixed ? MM.mastery.pickMixedGate(s) : MM.mastery.pickBossProblem(s, s.dungeonIndex);
+          }
+          // Wave 8a (P2, monster telegraphs): a mixed-dungeon monster bound
+          // to a topic (mon.skill, its telegraph icon) asks THAT topic — the
+          // icon over its head is a promise, not decoration. Falls back to
+          // the general weakest-first pool if the parent has that topic
+          // switched off (same "disabled everywhere" contract as capSkill).
+          // Shared with E.tryOverwhelm so a one-shot problem always matches
+          // what a real battle round would have asked.
+          return E.pickRegularMonsterProblem(mon);
         },
         recordAnswer,
         dodgeChance: () => E.dodgeChance(),
@@ -2182,85 +2421,7 @@ var MM = globalThis.MM = globalThis.MM || {};
           return null;
         },
         victory(m) {
-          E.recordKill(m);
-          E.bountyEvent('kill');
-          if (m.behavior === 'thief') E.bountyEvent('thief'); // Wave 5: "catch 2 thieves"
-          const baseGold = m.boss ? m.gold : Math.floor(Math.random() * (2 * s.dungeonIndex)) + s.dungeonIndex;
-          const gold = E.gainGold(baseGold);
-          const levelsBefore = s.level;
-          E.gainXp(m.xp);
-          const lines = [
-            `⭐ +${m.xp} XP`,
-            `💰 +${gold} gold${gold > baseGold ? ' 🧲' : ''}`,
-          ];
-          if (m.hat) { s.gold += 1; lines.push('🎩 +1 gold — for the tiny hat.'); }
-          if (m.stolen) {
-            const back = E.gainGold(Math.ceil(m.stolen * 1.5));
-            lines.push(`🪶 Caught the thief! Your <b>${m.stolen} gold</b> back — with interest: <b>+${back}</b>!`);
-          }
-          if (s.level > levelsBefore) lines.push(`🎺 <b>LEVEL UP!</b> You are now level ${s.level} (max HP ${s.maxhp})`);
-          if (m.boss && task.finale) {
-            // the Great Lighthouse: sincere, no jokes — the ending dialog
-            // (Keeper of the Light) fires from onEnd, below
-            s.bossesDefeated[s.mapId] = true;
-            s.isles.lampLit = true;
-            lines.push('🌫 <i>The Murk does not die. It thins into ordinary morning mist.</i>');
-            lines.push('🗼 <b>The Great Lamp is lit!</b>');
-          } else if (m.boss && task.vault) {
-            // the Smugglers' Vault: Captain Brine's hoard yields the unique
-            // charm (the ranged crossbow is a guaranteed CHEST find instead —
-            // see the guard standing over it in E.chest)
-            s.bossesDefeated[s.mapId] = true;
-            if (!s.items.charms.includes('wayfinder')) {
-              s.items.charms.push('wayfinder');
-              if (s.charmsOn.length < E.CHARM_SLOTS) s.charmsOn.push('wayfinder');
-              lines.push(`🗺 <b>The hoard yields a charm:</b> the Wayfinder's Locket!`);
-            } else {
-              lines.push(`💰 Captain Brine's hoard, fair and square.`);
-            }
-          } else if (m.boss && task.spire) {
-            // the Clockwork Spire: Horologe Isle's own finale. spireDone is
-            // the flag a later wave can gate a fourth sail destination on.
-            s.bossesDefeated[s.mapId] = true;
-            s.isles.spireDone = true;
-            lines.push('⚙️ <i>Somewhere deep in the tower, a long-stopped gear shudders — and turns.</i>');
-            lines.push('⏰ <b>The Clockwork Spire ticks again!</b>');
-          } else if (m.boss && task.chime) {
-            // the Resonant Halls: Chime Isle's own finale. hallsDone is the
-            // flag a later wave can gate a fifth sail destination on.
-            s.bossesDefeated[s.mapId] = true;
-            s.isles.hallsDone = true;
-            lines.push('🎵 <i>A single clear note rings out — and every hall answers it in tune.</i>');
-            lines.push('🔔 <b>The Resonant Halls sing again!</b>');
-          } else if (m.boss && task.breakwater) {
-            // the Sunken Breakwater: Gullwrack Harbor's own finale.
-            // breakwaterDone is the flag Wave 6's repair sites (and any
-            // later wave) can check.
-            s.bossesDefeated[s.mapId] = true;
-            s.isles.breakwaterDone = true;
-            lines.push('🧱 <i>Somewhere above, the last loose stone in the breakwater grinds back into place.</i>');
-            lines.push('🌊 <b>The Sunken Breakwater holds again!</b>');
-          } else if (m.boss && task.isle) {
-            // isle bosses guard lighthouse lenses, not quest items
-            s.bossesDefeated[s.mapId] = true;
-            s.isles.lenses[task.lens] = true;
-            lines.push(`🔆 <b>The ${task.item} blazes back to life!</b>`);
-            lines.push('<i>Far above, a beam of light sweeps across the waves for the first time in years.</i>');
-            lines.push('⛵ <i>The captain will want to hear about this!</i>');
-          } else if (m.boss) {
-            s.bossesDefeated[s.mapId] = true;
-            s.haveItem = true;
-            if (s.dungeonIndex === 10) {
-              lines.push(`🌫 <i>The shadows drain away like ink in water...</i>`);
-              lines.push(`<i>Where the Lord of Confusion stood, a tired student in a grey robe blinks in the light.</i>`);
-              lines.push(`💬 <i>"I... I remember now. You showed your work. Every single step."</i>`);
-            }
-            lines.push(`${task.itemEmoji} <b>You found the ${task.item}!</b>`);
-            lines.push(task.exp ? `Bring it to Miscount 🧑‍🎓 across the bridge!` : `Bring it to the MathMaker at the castle! 🏰`);
-          }
-          petFetch(lines);
-          E.save();
-          return { lines };
+          return { lines: E.grantVictory(m) };
         },
         onEnd(result) {
           s.seaLegs = false; // the fizz lasts one battle
@@ -2553,6 +2714,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!E.moneyQuizOn()) { // money-math topic disabled: no quiz
       s.items.treasures.splice(index, 1);
       const paid = E.gainGold(value);
+      E.shelveItem(t);
       MM.sound.coin();
       E.save();
       return MM.ui.dialog('🏪 Shop', `You sell the ${t.emoji} <b>${t.name}</b> for <b>${paid} gold</b>!`, () => MM.ui.openShop());
@@ -2573,6 +2735,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         const bonus = correct ? Math.ceil(v * 0.1) : 0;
         s.items.treasures.splice(index, 1);
         const paid = E.gainGold(v + bonus);
+        E.shelveItem(t);
         MM.sound.coin();
         E.save();
         return {
@@ -2882,7 +3045,7 @@ var MM = globalThis.MM = globalThis.MM || {};
           const levelsBefore = s.level;
           E.gainXp(xp);
           const lines = [`⭐ +${xp} XP`, `💰 +${gold} gold`];
-          if (mon.hat) { s.gold += 1; lines.push('🎩 +1 gold — for the tiny hat.'); }
+          if (mon.hat) { s.gold += 1; s.hatsRetired = (s.hatsRetired || 0) + 1; lines.push('🎩 +1 gold — for the tiny hat.'); }
           if (s.level > levelsBefore) lines.push(`🎺 <b>LEVEL UP!</b> You are now level ${s.level}`);
           // every third golem coughs up a magical charm (until you own all six)
           if (L % 3 === 0) {
@@ -3082,32 +3245,55 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
     const probs = MM.mastery.pickReviewProblems(s, Math.max(1, s.taskIndex), 3);
     let i = 0;
-    const step = () => {
-      const prob = probs[i];
-      MM.ui.showProblem({
-        header: `${shipboard ? '⛵ <b>Your bunk aboard the Compass Rose</b>' : '🛏 <b>The Cozy Compass Inn</b>'} — warm-up ${i + 1} of 3 <i>(${shipboard ? 'the sea rocks best when the mind is settled' : 'a good night\'s sleep for a good night\'s thinking'})</i>`,
-        problem: prob,
-        leaveLabel: 'Skip the rest',
-        onAnswer(correct, kidAnswer) {
-          recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
-          i++;
-          const bonus = E.hasAmulet('keeper') ? E.gainGold(5) : 0;
-          const msg = (correct ? '✓ Nice.' : (shipboard ? 'The captain calls down: "You\'ll get it next time, sailor."' : 'The innkeeper smiles: "You\'ll get it next time."')) +
-            (bonus ? ` <span class="dim">(+${bonus} gold — your amulet hums warmly)</span>` : '');
-          if (i >= probs.length) {
-            s.hp = s.maxhp;
-            s.stamina = s.maxStamina;
-            s.greenHair = false; // a good wash fixes everything
-            E.save();
-            return { msg: msg + `<br><br>😴 You sleep wonderfully — and breakfast is included. <b>HP and stamina fully restored!</b><br><br>💤 <i>${MM.data.pick(MM.data.INN_DREAMS)}</i>`, end: 'win' };
-          }
-          return { msg };
-        },
-        onNext: step,
-        onEnd() { MM.ui.refresh(); },
-      });
+    const startWarmup = () => {
+      const step = () => {
+        const prob = probs[i];
+        MM.ui.showProblem({
+          header: `${shipboard ? '⛵ <b>Your bunk aboard the Compass Rose</b>' : '🛏 <b>The Cozy Compass Inn</b>'} — warm-up ${i + 1} of 3 <i>(${shipboard ? 'the sea rocks best when the mind is settled' : 'a good night\'s sleep for a good night\'s thinking'})</i>`,
+          problem: prob,
+          leaveLabel: 'Skip the rest',
+          onAnswer(correct, kidAnswer) {
+            recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
+            i++;
+            const bonus = E.hasAmulet('keeper') ? E.gainGold(5) : 0;
+            const msg = (correct ? '✓ Nice.' : (shipboard ? 'The captain calls down: "You\'ll get it next time, sailor."' : 'The innkeeper smiles: "You\'ll get it next time."')) +
+              (bonus ? ` <span class="dim">(+${bonus} gold — your amulet hums warmly)</span>` : '');
+            if (i >= probs.length) {
+              s.hp = s.maxhp;
+              s.stamina = s.maxStamina;
+              s.greenHair = false; // a good wash fixes everything
+              E.save();
+              return { msg: msg + `<br><br>😴 You sleep wonderfully — and breakfast is included. <b>HP and stamina fully restored!</b><br><br>💤 <i>${MM.data.pick(MM.data.INN_DREAMS)}</i>`, end: 'win' };
+            }
+            return { msg };
+          },
+          onNext: step,
+          onEnd() { MM.ui.refresh(); },
+        });
+      };
+      step();
     };
-    step();
+    // Wave 8a (P8, delight catalog): the innkeeper's cat — a new sleeping
+    // spot every real day, pure cuteness, zero design weight. Mainland only
+    // (the ship's bunk has no cat), and the +1 stamina pat is once per day
+    // so it can never be farmed.
+    if (!shipboard && s.catPettedDate !== E.todayStr()) {
+      const spot = MM.data.catSpotFor(E.todayStr());
+      return MM.ui.dialogChoices('🐈 The inn cat',
+        `You spot the inn cat, ${spot}.`,
+        [
+          { label: '🐾 Give it a pat', primary: true, onClick: () => {
+              s.stamina = Math.min(s.maxStamina, s.stamina + 1);
+              s.catPettedDate = E.todayStr();
+              E.save();
+              MM.sound.coin();
+              MM.ui.log('🐈 Purrrrr. (+1 stamina)');
+              startWarmup();
+            } },
+          { label: 'Let it sleep', onClick: startWarmup },
+        ]);
+    }
+    startWarmup();
   };
 
   E.usePotion = function () {

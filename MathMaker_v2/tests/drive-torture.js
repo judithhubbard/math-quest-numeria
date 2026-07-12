@@ -61,7 +61,11 @@ const ANCIENT = {
   check(typeof s.enchants === 'object' && !Array.isArray(s.enchants), 'enchant map grafted on');
   check(s.potionsBought === 0 && s.seenBulkQuip === false, 'bulk-potion tracking grafted on');
   check(typeof s.defeatedAt === 'object', 'day-persistent kills grafted on');
-  check(!!s.parent && !!s.parent.topics && s.parent.topics.music_reading === false, 'parent panel grafted on with music OFF');
+  // 2026-07-11 user decision reversed the old Wave-4 "music defaults off"
+  // migration: every topic now defaults ON (missing means enabled), even
+  // for saves this ancient — music_reading isn't one of the 10 mainland
+  // TASKS skills the topicCap migration seeds, so it stays unset (= on).
+  check(!!s.parent && !!s.parent.topics && s.parent.topics.music_reading !== false, 'parent panel grafted on, music_reading left enabled (default-ON)');
   check(!!s.spellsCelebrated && s.spellsCelebrated.scout === false, 'spell celebrations grafted on (nothing falsely marked seen)');
 
   // and now PLAY: enter the current task's dungeon and win one real fight
@@ -107,7 +111,7 @@ const ANCIENT = {
   check(true, '...and wins it — the ancient save is fully alive');
   // and the save round-trips in the NEW shape
   await page.evaluate(() => { MM.engine.save(); MM.engine.load('AncientKid'); });
-  check(await page.evaluate(() => MM.engine.state.stamina != null && MM.engine.state.parent.topics.music_reading === false),
+  check(await page.evaluate(() => MM.engine.state.stamina != null && MM.engine.state.parent.topics.music_reading !== false),
     'saved and reloaded in the modern shape');
 
   console.log('=== CHECKS ===');

@@ -57,11 +57,53 @@ var MM = globalThis.MM = globalThis.MM || {};
     return 0;
   }
 
-  // Weakest skills first (lowest recent accuracy, unpracticed counts as weak-ish).
+  // ---------- "almost!" surfacing (Wave 8a, DQ) ----------
+  // badgeTier (above) gates on a correct-count volume threshold. This checks
+  // how close the kid is to the NEXT tier, using the persisted best-tier-
+  // ever (state.badges) rather than the instantaneous (recent-accuracy-
+  // gated, so it can dip) tier — "almost" only ever counts up, never flickers.
+  const TIER_THRESHOLD = { 1: 10, 2: 25, 3: 50 };
+  function almostNextTier(state, skill) {
+    const cur = (state.badges && state.badges[skill]) || 0;
+    if (cur >= 3) return null;
+    // read-only: this runs on every sidebar render for every topic, so it
+    // must NOT call ensure() and seed a real mastery entry just from being
+    // asked "is this almost?" — a topic the kid has never touched should
+    // stay entirely absent from state.mastery, not show up as {attempts:0}.
+    const m = (state.mastery && state.mastery[skill]) || { correct: 0 };
+    const need = TIER_THRESHOLD[cur + 1] - m.correct;
+    return (need > 0 && need <= 3) ? { tier: cur + 1, need } : null;
+  }
+
+  // ---------- rust (Wave 8a, P5): the spacing model the arc was missing ----------
+  // weakestFirst alone only ever looks at ACCURACY — a topic the kid nailed
+  // three weeks ago and hasn't touched since looks just as "mastered" as one
+  // practiced yesterday. Real spaced-practice needs recency too: a topic
+  // unpracticed for RUST_DAYS+ real days gets a one-time nudge toward the
+  // front of the queue, framed (in the bounty board) as the WORLD needing
+  // tending — which, after Wave 7, is literally the kid's job.
+  const RUST_DAYS = 5;
+  const RUST_BONUS = 0.15; // enough to outrank a SLIGHTLY weaker fresh topic,
+                            // never enough to leapfrog a genuinely struggling one
+  function daysSincePracticed(state, skill) {
+    const d = state.lastPracticed && state.lastPracticed[skill];
+    if (!d) return 0; // never recorded a practice date — nothing to go stale
+    const ms = Date.now() - new Date(d + 'T00:00:00').getTime();
+    return Math.max(0, Math.floor(ms / 86400000));
+  }
+  function isRusty(state, skill) {
+    return daysSincePracticed(state, skill) >= RUST_DAYS;
+  }
+
+  // Weakest skills first (lowest recent accuracy, unpracticed counts as
+  // weak-ish, and a stale topic gets a staleness bonus toward the front).
   function weakestFirst(state, skills) {
     return skills.slice().sort((a, b) => {
       const aa = recentAccuracy(state, a), bb = recentAccuracy(state, b);
-      return (aa == null ? 0.5 : aa) - (bb == null ? 0.5 : bb);
+      let av = aa == null ? 0.5 : aa, bv = bb == null ? 0.5 : bb;
+      if (isRusty(state, a)) av -= RUST_BONUS;
+      if (isRusty(state, b)) bv -= RUST_BONUS;
+      return av - bv;
     });
   }
 
@@ -178,5 +220,5 @@ var MM = globalThis.MM = globalThis.MM || {};
     return probs;
   }
 
-  MM.mastery = { record, tierFor, accuracy, recentAccuracy, badgeTier, weakestFirst, capSkill, cappedSkills, pickCombatProblem, pickBossProblem, pickArenaProblem, pickMixedGate, pickReviewProblems, pickHalfMixSkill, pickHalfMixProblem, pickHalfMixGate, pickSpireProblem, pickSpireGate, pickBreakwaterProblem, pickBreakwaterGate, ensure };
+  MM.mastery = { record, tierFor, accuracy, recentAccuracy, badgeTier, weakestFirst, capSkill, cappedSkills, pickCombatProblem, pickBossProblem, pickArenaProblem, pickMixedGate, pickReviewProblems, pickHalfMixSkill, pickHalfMixProblem, pickHalfMixGate, pickSpireProblem, pickSpireGate, pickBreakwaterProblem, pickBreakwaterGate, ensure, isRusty, daysSincePracticed, almostNextTier };
 })();

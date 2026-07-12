@@ -1347,7 +1347,7 @@ tracker.js shipped and nobody has ever read it.
    nothing (user playtest: "I have not been able to make the spells do
    anything" — mechanics verified working; the FEEDBACK was missing).
 
-## Wave 8a — The Two Kids Update, mechanical half (SONNET; after v1.0.0)
+## Wave 8a — The Two Kids Update, mechanical half (SONNET; after v1.0.0) ✅ SHIPPED (2026-07-11)
 
 From FINAL_REVIEW.md (read §1 first — the two-kids framing is the spec's
 soul). One session. Every item obeys §0's ground rules.
@@ -1397,6 +1397,121 @@ soul). One session. Every item obeys §0's ground rules.
 Acceptance — drive-twokids-a.js + unit blocks; ALL existing drives green;
 run the MARATHON after (it should still complete; overwhelm will speed
 its early dungeons). Update README/this file/tests/README.
+
+**Deviations from this spec, and why:**
+- **Expected-level formula: `expectedLevel(dungeonIndex) = dungeonIndex`**
+  (`E.expectedLevel`, js/engine.js). The mainland/expansion dungeon ORDER
+  already tracks difficulty 1:1 (task order = curriculum order), so the
+  dungeon index itself is the simplest honest stand-in for "expected level"
+  — no separate lookup table to keep in sync as new dungeons are added.
+  `OVERWHELM_GAP = 6`. Gate is `!mon.boss && !mon.arena && !mon.gauntlet`;
+  in practice only the dungeon-collision call site in `E.tryMove` can ever
+  reach a non-boss/arena/gauntlet monster, so the extra two flags are
+  defensive, not load-bearing.
+- **Overwhelm reward path is a full extraction, not a duplication.** The
+  old inline `victory(m)` hook inside `startCombat` became `E.grantVictory`,
+  a top-level function reused by both a real battle win AND the Overwhelm
+  instant-win — so the two paths can never drift apart on rewards. Likewise
+  `E.pickRegularMonsterProblem` factors out the exact non-boss topic-priority
+  logic `startCombat`'s `pickProblem` hook already used, so an Overwhelm
+  one-shot problem always asks whatever a real battle round would have.
+- **`E.monsterTopicIcon` gained a parent-off check that wasn't in the
+  original draft.** It originally showed a mixed dungeon's `mon.skill` icon
+  unconditionally — dishonest the moment a parent switched that topic off
+  (the icon would still promise a topic `pickProblem` would never serve).
+  Fixed to fall back to `null` exactly when `pickRegularMonsterProblem`
+  would fall back, so "the icon is a promise" holds even with a topic
+  disabled.
+- **Delight-catalog (P8) scope, honestly**: shipped — bestiary hat counter
+  (`s.hatsRetired`, footer line in the Monster Book), the shopkeeper's shelf
+  (`s.shopShelf`, last 3 sold items, persistent), the innkeeper's cat (a
+  `MM.data.CAT_SPOTS` line that varies by real calendar day, a once-per-day
+  pat for +1 stamina before the inn's warm-up sequence — the inn has no
+  walkable room to "bump" a sprite in, so this reuses the existing
+  dialog-choice pattern instead), monster idle life (guards flash 💤 past 2
+  tiles away, thieves flash 🪙, both continuous low-duty-cycle ambient
+  motion gated on `!s.calmMode`), a throttled (≤1/3 real minutes) wanderer
+  "bumps a wall" log line (standing in for a floating-text reaction — this
+  engine's only floating-text renderer lives inside the battle canvas, not
+  the world canvas), and a one-line "pet high-fives you" on any boss win.
+  NOT shipped: pet-chases-gulls-on-beaches, pet-sneezes-in-Frostbite,
+  pet-stares-into-Emberlyn's-forge — three more location-specific pet
+  animations from the FUTURE_LEVELS §4 catalog, left for whenever the pet
+  system gets its own pass (all are "zero design weight" per spec; cutting
+  three of eight items to keep this wave to its one-session scope seemed
+  better than a rushed version of all eight).
+- **Hall of Heroes audited, not changed.** Every plaque line is already a
+  personal stat with no sort/ranking against other profiles — the one
+  arguable soft spot is that a raw `Level N` number sits next to another
+  hero's `Level N` when a family scrolls the list, which a sibling COULD
+  read as a comparison. Left as-is: it's descriptive, not a ranking
+  mechanism (no sort-by-level, no percentile, no "you're behind"), and
+  every other line in the wave (badges, growth-story, misses) was held to
+  the stricter "never even show a comparable number" bar.
+
+### Help pass (design session, 2026-07-12, shipped with the wave-8a tag)
+
+Live playtest: the Help menu had become one wall of every system in the
+game — Spire gear-gates explained to a kid still in the first meadow —
+and a kid reached mid-game never realizing gear upgrades exist.
+Round 2 (same day, more playtest feedback): still visually cluttered —
+bold scattered mid-sentence, no grouping — and missing the first question
+an anxious kid brings to a help menu: "what happens if I die?"
+
+- **Progressive help** (ui.helpDialog): sections are now `{when, html}`
+  entries. Spellbook waits for the first gold badge (the badge section
+  teases "gold badges unlock something special…" until then), Rope of
+  Return waits for taskIndex ≥ 2, Spire gear-gates wait for the Lamp,
+  charm details wait for the first charm owned. Gates only ever ADD as
+  the save progresses — nothing a kid has read ever disappears. A new
+  **Gear section sits right after Battles** (weapon = how hard every
+  correct answer hits; the shop sells power).
+- **One-time gear nudge** (E.grantVictory): first victory where the kid
+  still wields the stick AND can afford the cheapest mainland weapon,
+  one line — "That's enough gold for the 🗡 Bronze Dagger at the 🏪
+  shop…". Fires once ever (s.seenGearHint); load() marks it seen for
+  any save already past the stick, so it can never fire as a late-game
+  non-sequitur. Lives in grantVictory so Overwhelm wins get it too.
+- drive-halls' help assertion now tests the gate BOTH ways (Spellbook
+  absent before the first gold badge, present after).
+- **Round 2 — visual calm + the death question:** entries grouped under
+  three h3 headings (The basics / Growing stronger / Out in the world),
+  exactly ONE bolded lead term per entry (it reads as a mini-heading;
+  no bold mid-sentence), `.help-p` line spacing. New basics entry
+  "😵 If you lose a fight…" — the true, kind answer (keep everything
+  learned, half gold, wake at the castle) stated where the
+  failure-averse kid will look for it first.
+- **Round 2 — the Food button:** two bars, two buttons — 🧪 Potion
+  refills ❤️, new 🍗 Food (F) refills stamina via a small chooser
+  (potions are one kind, so P stays instant; food comes in kinds).
+  Eat disables at full stamina; empty state points at the shop and inn;
+  the 🎒 bag still lists food (shortcut, not a move). Hunger/exhaustion
+  log lines now point at the button and reassure: exhaustion never
+  blocks walking — "you can always still walk" (verified: stamina
+  clamps at 0, movement is never gated on it).
+
+- **Round 3 — four more playtest reports, same session:**
+  (a) starter gear (price 0) was unsellable → permanent bag clutter;
+  now sells for a sentimental 1 gold — shopkeeper: "Every hero starts
+  somewhere. One gold, for the memories." (equipped pieces still can't
+  be sold, so a kid can never end up weaponless);
+  (b) the ring/amulet "Bare finger / Unequip" pseudo-item row read like
+  an equippable item called Bare Finger — replaced with a
+  "✓ On — take off" button on the worn row itself (matches charms);
+  (c) sidebar said "Potions: 1" with no food line — counts now live ON
+  the buttons ("🧪 Potion ×3", "🍗 Food ×6"); the gauge and the lever
+  are the same control (Pass H2 parallelism rule);
+  (d) 9 buttons overflowed their labels — 👪 Parent and 👤 Switch moved
+  to a header-corner (3-column GRID, not absolute positioning, so
+  overlap with the title is impossible — the first attempt overlapped
+  and only the opened screenshot caught it; assertions now check both
+  clipping AND overlap). 📊 Report stays with the kid's buttons: since
+  8a it's the kid-facing growth story, not a parent tool. The 7 kid
+  buttons fit one row again.
+
+Lesson (the recurring one, third time now): the sidebar NAMED the stick,
+the shop SOLD the dagger, and no system ever SAID "gear is how you grow."
+A system that doesn't narrate itself doesn't exist.
 
 ## Wave 8b — The Two Kids Update, the heart (OPUS 4.8; after 8a)
 
@@ -1525,6 +1640,21 @@ verified numerically, brave-miss costs nothing extra, Academy slate flow
 + daily rotation + cap-leak; extend drive-marathon: Soothe at least two
 battles en route (prove the alternate verb end-to-end); ALL drives +
 marathon green. **Then stop for prose review before tagging.**
+
+**Evidence discipline (new — learned reviewing 8a):** your session's
+scratchpad disappears with your session, and this environment kills
+background tasks that run past ~20–25 minutes — 8a's marathon evidence
+died both ways at once, and the reviewer had to re-run it from scratch.
+So: (1) write every drive/marathon run's full output to
+`tests/logs/<drive>-<n>.log` inside the repo (create the directory and
+gitignore it) — never only to your scratchpad; (2) run the marathon in
+the FOREGROUND, or if backgrounded, redirect to that log file so the
+verdict survives the process; (3) if the environment kills a run, the
+run does not count — re-run until the log file itself contains the
+final `MARATHON COMPLETE` / checks lines; (4) in your completion
+report, give the log paths and paste the marathon's final lines
+verbatim. A claim the reviewer can't open a file and see is a claim
+that gets re-run.
 
 ## Sizing guidance for the implementing model
 

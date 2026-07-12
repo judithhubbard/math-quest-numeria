@@ -187,6 +187,55 @@ through an otherwise-thorough review.
 - The delight backlog (FUTURE_LEVELS §4) and post-game Tending
   (FUTURE_LEVELS §5) remain the fun reservoirs to draw from.
 
+## Pass H — The Kid Questions pass (added 2026-07-12; standing, runs with
+## every wave review and after any live-playtest feedback)
+
+Pass G catches worlds that are broken; it cannot catch worlds that are
+whole but ILLEGIBLE. The 2026-07-12 playtest found three of those in one
+day: a kid who never learned gear upgrades exist, a Help menu explaining
+endgame systems to a beginner, and no answer anywhere to "what happens if
+I die?". None of these is a bug a drive can fail on — every feature
+worked. The missing pass is played in a different posture: not "does the
+game work?" but "what does a kid WANT TO KNOW right now, and does the
+game answer before she has to ask?"
+
+**H1. The question list.** At a fresh profile, at mid-game, and at
+endgame, walk the questions a kid actually brings:
+  - How do I get stronger? (each answer must be SAID by a system, not
+    just implemented by one)
+  - What happens if I die? What exactly do I lose? (the anxious kid's
+    first question — the answer is kind, so SAY it, in Help and at the
+    moment of death)
+  - Can I get stuck? Can I always get home? (exhaustion, dungeons,
+    islands — every "no you can't get stuck" must be narrated where the
+    fear arises)
+  - What should I do next? Where do I go?
+  - What is this bar / number / icon, and what's MY lever for it?
+Each question passes only if the game answers it at the moment it
+arises — a doc, a README, or a parent explaining doesn't count.
+
+**H2. Menu ergonomics.** Open every menu at fresh/mid/endgame:
+  - Progressive disclosure: no menu explains a system the save hasn't
+    met (help gates on save state; gates only ever ADD).
+  - Visual calm: entries grouped under headings; ONE bolded lead term
+    per entry; no bold mid-sentence; emoji as anchors, not confetti.
+  - Parallelism: every persistent gauge has an obvious adjacent lever
+    (❤️ bar ↔ 🧪 Potion; 🍗 bar ↔ 🍗 Food). A gauge without a lever
+    beside it is a question the UI refuses to answer.
+  - Length: a fresh-profile menu must fit roughly one modal screen.
+
+**H3. The two-kids read.** Re-read every new/changed player-facing
+surface twice: once as the brave kid (does it invite?), once as the
+anxious kid (does it reassure — specifically about loss, failure, and
+being trapped?). FINAL_REVIEW.md holds the personas.
+
+**How it runs:** manually, screenshots opened (G4 applies), at the three
+save stages, as part of every wave review — plus one targeted sweep
+whenever live playtest feedback arrives, because each report is usually
+one instance of a class (the gear report was really "systems don't
+narrate their own existence"; the help report was really "menus don't
+know what the kid knows yet").
+
 ## The done checklist
 
 - [ ] Waves 5, 6, 7 shipped + reviewed

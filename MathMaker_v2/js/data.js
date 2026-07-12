@@ -26,11 +26,32 @@ var MM = globalThis.MM = globalThis.MM || {};
   // needed to exist WITHOUT a mainland dungeon of its own. This is now the
   // one source of truth for "every topic a parent can see/toggle" — used by
   // mastery.cappedSkills and ui.parentSettings. Order here is display order.
-  // New topics default ON unless the topic itself says otherwise (see
-  // mastery.cappedSkills: missing from state.parent.topics reads as enabled) —
-  // music_reading is the ONE exception (Wave 4: not core 5th-grade curriculum,
-  // parents opt in): E.load force-writes it to `false` on every load for any
-  // save that's never seen the key before, so "missing" never happens for it.
+  // Every topic defaults ON, no exceptions (2026-07-11 user decision):
+  // missing from state.parent.topics reads as enabled (mastery.cappedSkills),
+  // and nothing may seed a topic to false — the parent panel is the one
+  // OFF-switch. (Wave 4 briefly force-wrote music_reading to false on load;
+  // that migration is gone.)
+  // Wave 8a (P2, monster telegraphs): a small icon drawn over every monster's
+  // head (drawWorld) and shown on its bestiary card — "which fight is this?"
+  // is agency for the anxious kid and a target list for the brave one.
+  // Registry-complete: a unit test cross-checks this against PARENT_TOPICS,
+  // so a new topic can never ship without a matching icon.
+  MM.data.SKILL_ICONS = {
+    addsub_facts: '➕',
+    muldiv_facts: '✖️',
+    multidigit_addsub: '🧮',
+    multidigit_mult: '🔢',
+    long_division: '➗',
+    decimals_ps: '📏',
+    decimals_md: '💰',
+    fractions_as: '🍕',
+    fractions_m: '🎂',
+    word_problems: '📖',
+    time_reading: '🕐',
+    geometry: '📐',
+    music_reading: '🎵',
+  };
+
   MM.data.PARENT_TOPICS = [
     'addsub_facts', 'muldiv_facts', 'multidigit_addsub', 'multidigit_mult',
     'long_division', 'decimals_ps', 'decimals_md', 'fractions_as', 'fractions_m',
@@ -325,28 +346,34 @@ var MM = globalThis.MM = globalThis.MM || {};
       boss: { name: 'Lord of Confusion', sprite: 'ghost', pal: P.voidGhost, verb: 'warps reality around',
           desc: 'Not a villain — a student who got lost and forgot that help exists. You know how this story ends: you ended it well.' } },
     // 11: Cavern of Echoes
+    // Wave 8a (P2): mixed dungeons bind each regular TYPE to a topic — its
+    // telegraph icon is a promise the battle honors (see E.monsterTopicIcon /
+    // startCombat's pickProblem). Bosses stay unbound (they're the real test —
+    // full mixed review). The Spire (19) is the one exception: its own 50/50
+    // picker already overrides per-monster skill, so binding it there would
+    // make the icon a LIE the picker ignores half the time.
     { types: [
-        { name: 'Echo Bat', sprite: 'bat', pal: { A: '#7ed4c8', B: '#57a89c', m: '#3d7c72', E: '#e8fff8' }, verb: 'shrieks at',
+        { name: 'Echo Bat', sprite: 'bat', pal: { A: '#7ed4c8', B: '#57a89c', m: '#3d7c72', E: '#e8fff8' }, verb: 'shrieks at', skill: 'long_division',
           desc: 'Argues with its own echo. Loses.' },
-        { name: 'Cave Wisp', sprite: 'ghost', pal: { A: '#b8f0e4', B: '#84ccbc', k: '#1c443c' }, verb: 'echoes through',
+        { name: 'Cave Wisp', sprite: 'ghost', pal: { A: '#b8f0e4', B: '#84ccbc', k: '#1c443c' }, verb: 'echoes through', skill: 'word_problems',
           desc: 'Repeats everything you say in a spookier voice.' }],
       boss: { name: 'Echo Warden', sprite: 'golem', pal: { A: '#6ba89c', B: '#4d8478', m: '#38635a', W: '#c4f0e4', E: '#5ce8d0' }, verb: 'booms at',
           desc: 'Booms every sentence three times. Three times. Three times.' } },
     // 12: Sunken Library
     { types: [
-        { name: 'Ink Ghost', sprite: 'ghost', pal: { A: '#8aa4d4', B: '#5f7cb0', k: '#141f38', E: '#0e1626' }, verb: 'smudges',
+        { name: 'Ink Ghost', sprite: 'ghost', pal: { A: '#8aa4d4', B: '#5f7cb0', k: '#141f38', E: '#0e1626' }, verb: 'smudges', skill: 'word_problems',
           desc: 'Smudges your work out of professional jealousy. Its own handwriting is terrible.' },
-        { name: 'Page Golem', sprite: 'golem', pal: { A: '#e8e4d4', B: '#c4bfa8', m: '#9a957e', W: '#fffcf0', E: '#3a6bb0' }, verb: 'papercuts',
+        { name: 'Page Golem', sprite: 'golem', pal: { A: '#e8e4d4', B: '#c4bfa8', m: '#9a957e', W: '#fffcf0', E: '#3a6bb0' }, verb: 'papercuts', skill: 'decimals_md',
           desc: 'Built entirely of overdue books. The fines alone are terrifying.' }],
       boss: { name: 'The Librarian', sprite: 'mage', pal: { H: '#2c4a8a', h: '#1f3666', A: '#1a2844', E: '#8ac4ff' }, verb: 'shushes',
           desc: 'Has shushed emperors. You are no exception.' } },
     // 13: Star Peak
     { types: [
-        { name: 'Star Wisp', sprite: 'ghost', pal: { A: '#fff4c4', B: '#ffd94a', k: '#5c4a10' }, verb: 'flares at',
+        { name: 'Star Wisp', sprite: 'ghost', pal: { A: '#fff4c4', B: '#ffd94a', k: '#5c4a10' }, verb: 'flares at', skill: 'addsub_facts',
           desc: 'A bit of starlight that missed the sky and made do.' },
-        { name: 'Comet Bat', sprite: 'bat', pal: { A: '#8a7cc8', B: '#665a9e', m: '#4a4076', E: '#ffe27a' }, verb: 'streaks past',
+        { name: 'Comet Bat', sprite: 'bat', pal: { A: '#8a7cc8', B: '#665a9e', m: '#4a4076', E: '#ffe27a' }, verb: 'streaks past', skill: 'multidigit_mult',
           desc: 'Fast, bright, and gone before the apology.' },
-        { name: 'Night Shade', sprite: 'ghost', pal: { A: '#4a4066', B: '#332c4d', E: '#ffe27a', k: '#12101f' }, verb: 'dims',
+        { name: 'Night Shade', sprite: 'ghost', pal: { A: '#4a4066', B: '#332c4d', E: '#ffe27a', k: '#12101f' }, verb: 'dims', skill: 'time_reading',
           desc: 'The dark between the stars, with opinions.' }],
       boss: { name: 'The Fallen Star', sprite: 'mage', pal: { H: '#d8a03c', h: '#b0812c', A: '#66551c', E: '#fff4c4', F: '#2b230e' }, verb: 'blazes at',
           desc: 'It fell so far, it forgot it was made to shine. You reminded it.' } },
@@ -354,13 +381,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     // guard = parks on a chokepoint, wander = drifts, thief = steals gold & flees.
     { types: [
         { name: 'Scuttle Crab', sprite: 'spider', pal: { A: '#e07a5c', B: '#b85a40', L: '#8a3d2c', W: '#f4d8b0', E: '#2b1a14' }, verb: 'pinches',
-          behavior: 'guard',
+          behavior: 'guard', skill: 'muldiv_facts',
           desc: 'Found a spot it likes. The spot is the doorway. It knows what it\'s doing.' },
         { name: 'Drift Jelly', sprite: 'ghost', pal: { A: '#f0b8d8', B: '#c488b0', k: '#44203a' }, verb: 'stings',
-          behavior: 'wander',
+          behavior: 'wander', skill: 'decimals_ps',
           desc: 'Goes wherever the tide says. The tide is very indecisive.' },
         { name: 'Pilfer Gull', sprite: 'bat', pal: { A: '#f0f0ec', B: '#c4c4bc', m: '#8a8a80', E: '#ffb02c' }, verb: 'pecks',
-          behavior: 'thief',
+          behavior: 'thief', skill: 'word_problems',
           desc: 'Steals gold, buttons, sandwiches, and once an entire hat. Zero remorse.' }],
       boss: { name: 'The Old Current', sprite: 'snake', pal: { A: '#2c8a8a', B: '#1d6468', W: '#a8ecdc', k: '#0c2a2e', T: '#4ec4b4' }, verb: 'sweeps over',
           desc: 'It has pushed ships off course for a hundred years. Yours was the first to push back.' } },
@@ -368,13 +395,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     // (gulls hate the cold)
     { types: [
         { name: 'Snow Sprite', sprite: 'ghost', pal: { A: '#eaf6ff', B: '#b8d8ec', k: '#27455c' }, verb: 'chills',
-          behavior: 'wander',
+          behavior: 'wander', skill: 'fractions_as',
           desc: 'Made of snow that refused to melt. Stubbornness is a building material.' },
         { name: 'Frost Pup', sprite: 'rat', pal: { A: '#e8f0f4', B: '#bcd0dc', F: '#8aa8bc', T: '#9cc0d4' }, verb: 'nips',
-          behavior: 'chase',
+          behavior: 'chase', skill: 'addsub_facts',
           desc: 'Adorable. Freezing. Will absolutely nip you. But adorable.' },
         { name: 'Icebound Sentinel', sprite: 'golem', pal: { A: '#9cc8e0', B: '#6898b8', m: '#48708c', W: '#e4f4fc', E: '#1d3d54' }, verb: 'hammers',
-          behavior: 'guard',
+          behavior: 'guard', skill: 'multidigit_addsub',
           desc: 'Frozen mid-guard a century ago. Sees no reason to stop now.' }],
       boss: { name: 'The Glacier\'s Heart', sprite: 'golem', pal: { A: '#bce4f4', B: '#84b8d8', m: '#5888ac', W: '#ffffff', E: '#7adcf0' }, verb: 'avalanches into',
           desc: 'The cold core of the hollow. It beats once a winter. You made it skip one.' } },
@@ -382,16 +409,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     // thief who loves anything shiny
     { types: [
         { name: 'Magma Rat', sprite: 'rat', pal: { A: '#e0603c', B: '#b8442c', F: '#ffd94a', T: '#ff8a4a' }, verb: 'scorches',
-          behavior: 'chase',
+          behavior: 'chase', skill: 'muldiv_facts',
           desc: 'Runs warm. Sleeps in the forge. The forge has complained.' },
         { name: 'Soot Wisp', sprite: 'ghost', pal: { A: '#565058', B: '#3d383f', k: '#16141a', E: '#ff8a4a' }, verb: 'smothers',
-          behavior: 'wander',
+          behavior: 'wander', skill: 'decimals_md',
           desc: 'What\'s left when a chimney dreams. Leaves fingerprints on everything.' },
         { name: 'Forge Golem', sprite: 'golem', pal: { A: '#8a4a34', B: '#66341f', m: '#4a2312', W: '#ffb02c', E: '#ffe27a' }, verb: 'brands',
-          behavior: 'guard',
+          behavior: 'guard', skill: 'multidigit_mult',
           desc: 'Still guarding the anvil it was built beside. Employee of the century. Several centuries.' },
         { name: 'Coal Thief', sprite: 'bat', pal: { A: '#3d383f', B: '#28242c', m: '#16141a', E: '#ffd94a' }, verb: 'swipes at',
-          behavior: 'thief',
+          behavior: 'thief', skill: 'long_division',
           desc: 'Steals coal, gold, and once a whole lantern. Insists it\'s "collecting."' }],
       boss: { name: 'The Foreman', sprite: 'golem', pal: { A: '#66341f', B: '#4a2312', m: '#301508', W: '#ff8a4a', E: '#ffe27a' }, verb: 'clocks',
           desc: 'Kept the forge burning long after everyone went home. You finally gave it the day off.' } },
@@ -399,16 +426,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     // fog itself has jobs now
     { types: [
         { name: 'Fog Wisp', sprite: 'ghost', pal: { A: '#c8d4dc', B: '#98a8b4', k: '#2c3844' }, verb: 'chills',
-          behavior: 'wander',
+          behavior: 'wander', skill: 'time_reading',
           desc: 'A stray curl of Murk that wandered off to find itself. Still looking.' },
         { name: 'Beacon Golem', sprite: 'golem', pal: { A: '#8a95a0', B: '#69737e', m: '#4c5560', W: '#eef4f8', E: '#ffd94a' }, verb: 'hammers',
-          behavior: 'guard',
+          behavior: 'guard', skill: 'geometry',
           desc: 'Built to polish the lens. Has not been asked to in nine years. Deeply offended by dust.' },
         { name: 'Wreck Gull', sprite: 'bat', pal: { A: '#dce6ea', B: '#b0bcc4', m: '#7d8a92', E: '#ffb02c' }, verb: 'dives at',
-          behavior: 'chase',
+          behavior: 'chase', skill: 'word_problems',
           desc: 'Nests in the rafters. Extremely opinionated about ship routes it has never sailed.' },
         { name: 'Lantern Moth', sprite: 'spider', pal: { A: '#e8dcc4', B: '#c4b490', L: '#8a7a5c', W: '#fff4c4', E: '#3a3428' }, verb: 'flutters at',
-          behavior: 'thief',
+          behavior: 'thief', skill: 'decimals_ps',
           desc: 'Drawn to anything shiny, including — regrettably — your coin purse.' }],
       boss: { name: 'The Murk', sprite: 'ghost', pal: { A: '#4a5460', B: '#333c47', E: '#dce8ec', k: '#181e26' }, verb: 'engulfs',
           desc: 'Not wicked. Just deep, and dark, and terribly patient — fog that grew where the light stopped reaching.' } },
@@ -416,13 +443,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     // gauntlet, and the game's best treasure density
     { types: [
         { name: 'Vault Watchman', sprite: 'skeleton', pal: { W: '#8a95a0', w: '#69737e', E: '#ffd94a' }, verb: 'strikes',
-          behavior: 'guard',
+          behavior: 'guard', skill: 'decimals_md',
           desc: 'Guards a crossbow it has never once been allowed to fire. The resentment shows.' },
         { name: "Sticky-Fingered Gull", sprite: 'bat', pal: { A: '#3a3428', B: '#241f18', m: '#141210', E: '#ffd94a' }, verb: 'pecks',
-          behavior: 'thief',
+          behavior: 'thief', skill: 'muldiv_facts',
           desc: 'A cousin of the honest gulls up the coast. The family does not discuss it.' },
         { name: 'Wharf Cat', sprite: 'rat', pal: { A: '#403a4a', B: '#2c2838', F: '#5c5468', T: '#4a4458' }, verb: 'swipes at',
-          behavior: 'wander',
+          behavior: 'wander', skill: 'fractions_m',
           desc: 'Technically a stray. Technically owns this entire cave, actually.' }],
       boss: { name: 'Captain Brine', sprite: 'mage', pal: { H: '#3a2e1c', h: '#2b2114', A: '#1c1830', E: '#ffd94a', S: '#5c4a2c', s: '#443a20' }, verb: 'plunders',
           desc: 'Ran this vault for a decade on a strict policy of taking everything and asking nothing.' } },
@@ -445,13 +472,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     // shouts:true here; one loud monster per game is plenty).
     { types: [
         { name: 'Off-Key Sprite', sprite: 'ghost', pal: { A: '#e88ac4', B: '#b85c94', k: '#4a1c38' }, verb: 'shrieks at',
-          behavior: 'wander',
+          behavior: 'wander', skill: 'fractions_as',
           desc: 'Every note it hums is very slightly wrong. It has never noticed. It never will.' },
         { name: 'Bass Golem', sprite: 'golem', pal: { A: '#3d3050', B: '#241c38', m: '#16101f', W: '#8d75d8', E: '#e88ac4' }, verb: 'booms at',
-          behavior: 'guard',
+          behavior: 'guard', skill: 'multidigit_addsub',
           desc: 'Hums one note, very low, forever. The floor tiles have gotten used to it.' },
         { name: 'Piccolo Pixie', sprite: 'bat', pal: { A: '#f4d8b0', B: '#d4a860', m: '#8a6a3c', E: '#e88ac4' }, verb: 'pecks',
-          behavior: 'thief',
+          behavior: 'thief', skill: 'word_problems',
           desc: 'Steals gold, then plays a little victory tune about it. The tune is, frankly, better than the theft.' }],
       boss: { name: 'The Discord', sprite: 'ghost', pal: { A: '#a85cc4', B: '#7a3d94', k: '#2c1638', E: '#7ee85c' }, verb: 'clashes against',
           desc: "Every note in the Halls used to fit together. It just wanted to sing along — nobody ever taught it where it fit. Someone finally did." } },
@@ -864,6 +891,24 @@ var MM = globalThis.MM = globalThis.MM || {};
     'You dream of long division. It divides evenly. Bliss.',
     'You dream of a decimal point hopping happily from place to place.',
   ];
+  // Wave 8a (P8, delight catalog): the innkeeper's cat — a different spot
+  // every visit, deterministic per real day so it's stable within one visit
+  // but genuinely different the next time the kid checks in.
+  MM.data.CAT_SPOTS = [
+    'curled up on the windowsill',
+    'sprawled across a stack of folded quilts',
+    'perched on top of the tallest bookshelf',
+    'asleep in the innkeeper\'s own rocking chair',
+    'nested in a warm laundry basket',
+    'stretched out on the hearthside rug',
+    'wedged into an empty flower pot, somehow',
+    'curled around a teapot that has long since gone cold',
+  ];
+  MM.data.catSpotFor = function (dateStr) {
+    let h = 0;
+    for (let i = 0; i < dateStr.length; i++) h = (h * 31 + dateStr.charCodeAt(i)) >>> 0;
+    return MM.data.CAT_SPOTS[h % MM.data.CAT_SPOTS.length];
+  };
   MM.data.DEFEAT_LINES = [
     'Some of your gold rolled into a drain. The drain seems happy.',
     'A passing crow watched the whole thing. It will tell no one, out of respect.',
@@ -950,6 +995,23 @@ var MM = globalThis.MM = globalThis.MM || {};
     'LOST: one boot. If found, return to Old Fisher Finn. He knows which one.',
     'The board is not responsible for monsters reading their own bounties.',
   ];
+
+  // Wave 8a (P5, rust): a bounty targeting a topic the kid hasn't practiced
+  // in a while gets one of these instead of nothing — framed as the WORLD
+  // needing tending (fitting, after Wave 7), never as a scold. Keyed by
+  // skill; only the ten mainland topics ever anchor a bounty dungeon.
+  MM.data.RUST_LINES = {
+    addsub_facts: 'The Meadow Cave misses you — its slimes have gotten sloppy with their sums again.',
+    muldiv_facts: 'The Rat Cellar misses you — the rats have started multiplying without permission.',
+    multidigit_addsub: 'The Old Mine misses you — its ghosts are miscounting again.',
+    multidigit_mult: 'The Forest Ruin misses you — the guardians keep losing track of their own strength.',
+    long_division: 'The River Catacombs miss you — something down there keeps dividing unevenly.',
+    decimals_ps: 'The Crystal Grotto misses you — its light has gone a little uneven at the edges.',
+    decimals_md: 'The Merchant\'s Vault misses you — the spirit in there is hoarding again, badly.',
+    fractions_as: 'The Fraction Fortress misses you — its walls have drifted out of proportion.',
+    fractions_m: 'The Wizard\'s Tower misses you — the fractions upstairs have started multiplying unsupervised.',
+    word_problems: 'The Tower of Trials misses you — the stories up there have gotten tangled again.',
+  };
 
   // Old Fisher Finn's running gag: a different catch after every task.
   MM.data.FINN_BOOTS = [

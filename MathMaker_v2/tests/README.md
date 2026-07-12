@@ -48,7 +48,17 @@ whole thing proven absent from `GENERATORS`/`QUICK`); a gear gate proven to
 render as two DISTINCT sprites open vs shut (the readability fix, guarded
 against regression); and Golden Numeria (the kingdom resets, the hero's
 level/badges/book/gear/charms/pet/crown all survive, and monsters come back
-tougher).
+tougher). Wave 8a adds: `MM.data.SKILL_ICONS` registry-completeness (every
+`PARENT_TOPICS` skill has a telegraph icon); the mon.skill cap-leak (a
+monster bound to a topic falls back the instant a parent disables it, same
+"disabled everywhere" contract); the Overwhelm rule's level-gap boundary
+(a gap of 5 doesn't trigger, exactly 6 does, and bosses/arena/gauntlet
+foes never trigger regardless of level); rust ordering (a stale-but-better
+skill still outranks a fresh-but-slightly-worse one in `weakestFirst`);
+"almost!" tier detection (`almostNextTier`, using the persisted best-tier-
+ever so it only ever counts up); and the growth-tracking save shape
+(`recordAnswer` populating `lastPracticed`/`history`/`recentMisses` in the
+shape the parent panel and report card read).
 
 ## Browser drives (need Playwright + Chrome)
 
@@ -207,6 +217,24 @@ fail on any page error.
   teaching, Pip's riddle contest); the post-credits monster in a tiny hat;
   replay-from-throne; and Golden Numeria (the kingdom resets, the hero keeps
   everything, and the report card never re-locks).
+
+- `drive-twokids-a.js` — Wave 8a (mechanical half of "The Two Kids Update"):
+  monster topic telegraphs (a bound monster's icon rendered live, screenshot;
+  ≥9/10 of its problems match its topic; the icon AND the problem selection
+  both fall back the instant a parent switches the topic off; a single-topic
+  mainland dungeon telegraphs the same topic on every monster; the Clockwork
+  Spire roster proven free of `mon.skill` bindings); the Overwhelm rule
+  (not overwhelming at level 1, overwhelming at level 20 in dungeon 1, the
+  one-problem modal opening instead of the battle overlay, a correct answer
+  as an instant win with no fight, and the same overleveled kid still
+  getting a real battle against the dungeon's boss); "almost!" (the bag
+  button's sparkle and the one-per-session log nudge, confirmed NOT to
+  repeat on further refreshes); growth tracking's live UI (the report
+  card's real-numbers growth line, the parent panel's expandable recent-
+  misses list); and the delight-catalog leftovers (the bestiary's hat
+  counter, the shopkeeper's shelf persisting a just-sold item, and the
+  innkeeper's cat — greets before the warm-up, pats for +1 stamina, once
+  per real day).
 
 Testing conventions: the current battle problem is exposed as
 `MM.battle.current` so drives can compute correct answers; engine state is

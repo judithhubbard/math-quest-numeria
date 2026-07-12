@@ -94,14 +94,17 @@ async function solveEchoDoor(page) {
   await page.waitForTimeout(500);
 
   // ---------- carry-over 1: spellbook tutorial + celebration ----------
-  check(/Spellbook/.test(await page.evaluate(() => {
+  // 2026-07-12: help is progressive now — the Spellbook section must be
+  // ABSENT before the first gold badge and appear once one exists.
+  const helpHtml = () => page.evaluate(() => {
     let html = '';
     const origDialog = MM.ui.dialog;
     MM.ui.dialog = (title, body) => { html = body; };
     MM.ui.helpDialog();
     MM.ui.dialog = origDialog;
     return html;
-  })), 'Help dialog mentions the Spellbook');
+  });
+  check(!/utility spells/.test(await helpHtml()), 'Help hides the Spells section before any gold badge');
 
   const celebration = await page.evaluate(() => {
     const s = MM.engine.state;
@@ -116,6 +119,7 @@ async function solveEchoDoor(page) {
   await page.waitForTimeout(100);
   const secondPop = await page.evaluate(() => MM.ui.modalOpen());
   check(!secondPop, 'unlock celebration pops exactly once (no duplicate re-shown)');
+  check(/utility spells/.test(await helpHtml()), 'Help shows the Spells section once a gold badge exists');
   const blinkTitle = await page.evaluate(() => {
     const el = document.getElementById('spellRow');
     return el ? el.innerHTML : '';

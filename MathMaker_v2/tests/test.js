@@ -1609,5 +1609,108 @@ for (const skill of skills) {
   if (reach(true) !== 4) fail('not all east-bank targets (u,A,B,K) reachable with the bridge: ' + reach(true));
 }
 
+// ---------- Wave 8a (P2): SKILL_ICONS registry completeness ----------
+// A monster telegraph icon must exist for every topic a parent can toggle —
+// same "registry-complete" contract as SKILL_NAMES/PARENT_TOPICS above.
+{
+  for (const skill of MM.data.PARENT_TOPICS) {
+    if (!MM.data.SKILL_ICONS[skill]) fail(`skill '${skill}' has no MM.data.SKILL_ICONS entry — a future topic must ship with a telegraph icon`);
+  }
+}
+
+// ---------- Wave 8a (P2): mon.skill cap-leak ----------
+// A monster bound to a topic (its telegraph icon) must fall back to the
+// general pool the instant a parent switches that topic off — the exact
+// same "disabled everywhere" contract the rest of cap-leak above checks.
+{
+  const st = { parent: { topics: { long_division: false } }, mastery: {}, dungeonIndex: 11, floorIndex: 0 };
+  MM.engine.state = st;
+  let sawLeak = false;
+  for (let i = 0; i < 300; i++) {
+    const p = MM.engine.pickRegularMonsterProblem({ skill: 'long_division' });
+    if (p.skill === 'long_division') sawLeak = true;
+  }
+  if (sawLeak) fail('cap-leak: a mon.skill-bound monster served a disabled topic (long_division)');
+  MM.engine.state = null;
+}
+
+// ---------- Wave 8a (P7): the Overwhelm rule ----------
+{
+  const st = { level: 1, dungeonIndex: 1 };
+  MM.engine.state = st;
+  if (MM.engine.isOverwhelming({})) fail('overwhelm: a level-1 kid in dungeon 1 should never trigger overwhelm');
+  st.level = 20;
+  if (!MM.engine.isOverwhelming({})) fail('overwhelm: level 20 vs dungeon 1 (expected level 1, gap 19) should trigger overwhelm');
+  if (MM.engine.isOverwhelming({ boss: true })) fail('overwhelm: bosses must never be skipped, however overleveled');
+  if (MM.engine.isOverwhelming({ arena: true })) fail('overwhelm: arena golems must never be skipped');
+  if (MM.engine.isOverwhelming({ gauntlet: true })) fail('overwhelm: gauntlet bosses must never be skipped');
+  st.level = 6; // exactly at the gap (dungeonIndex 1 + OVERWHELM_GAP 6 - 1... check boundary)
+  st.dungeonIndex = 1;
+  // gap must be >= 6 to trigger — level 6 vs expected 1 is a gap of 5, not yet overwhelming
+  if (MM.engine.isOverwhelming({})) fail('overwhelm: a gap of 5 should not yet trigger (boundary check)');
+  st.level = 7; // gap of 6 — right at the threshold
+  if (!MM.engine.isOverwhelming({})) fail('overwhelm: a gap of exactly 6 should trigger');
+  MM.engine.state = null;
+}
+
+// ---------- Wave 8a (P5): rust ordering ----------
+// A stale skill must outrank (sort ahead of, i.e. be treated as weaker than)
+// a fresh skill even when its raw recent accuracy is slightly BETTER —
+// that's the whole point of the staleness bonus: real spaced practice needs
+// recency, not just accuracy.
+{
+  const st = { mastery: {}, lastPracticed: {} };
+  for (let i = 0; i < 8; i++) MM.mastery.record(st, 'freshSkill', true);
+  for (let i = 0; i < 2; i++) MM.mastery.record(st, 'freshSkill', false); // 80% recent accuracy
+  st.lastPracticed.freshSkill = MM.engine.todayStr();
+  for (let i = 0; i < 9; i++) MM.mastery.record(st, 'staleSkill', true);
+  MM.mastery.record(st, 'staleSkill', false); // 90% recent accuracy — objectively BETTER
+  const staleDate = new Date(Date.now() - 10 * 86400000).toISOString().slice(0, 10);
+  st.lastPracticed.staleSkill = staleDate;
+  if (!MM.mastery.isRusty(st, 'staleSkill')) fail('rust: a skill unpracticed 10 days should be rusty');
+  if (MM.mastery.isRusty(st, 'freshSkill')) fail('rust: a skill practiced today should not be rusty');
+  const ranked = MM.mastery.weakestFirst(st, ['freshSkill', 'staleSkill']);
+  if (ranked[0] !== 'staleSkill') {
+    fail(`rust: staleSkill (90% but stale) should outrank freshSkill (80%, not stale) in weakest-first order, got ${JSON.stringify(ranked)}`);
+  }
+}
+
+// ---------- Wave 8a (DQ): "almost!" surfacing ----------
+{
+  const st = { mastery: {}, badges: {} };
+  if (MM.mastery.almostNextTier(st, 'addsub_facts') !== null) fail('almost: a fresh skill (0 correct) should not be "almost" bronze yet');
+  for (let i = 0; i < 8; i++) MM.mastery.record(st, 'addsub_facts', true); // 8 correct: 2 away from bronze (10)
+  const hit = MM.mastery.almostNextTier(st, 'addsub_facts');
+  if (!hit || hit.tier !== 1) fail(`almost: 8/10 correct should be "almost bronze", got ${JSON.stringify(hit)}`);
+  for (let i = 0; i < 2; i++) MM.mastery.record(st, 'addsub_facts', true); // now 10 correct: bronze earned
+  st.badges.addsub_facts = 1; // badgeTier is persisted separately; simulate the engine's own bookkeeping
+  if (MM.mastery.almostNextTier(st, 'addsub_facts') !== null) fail('almost: exactly at a threshold (0 correct into next tier) should not still read as "almost"');
+}
+
+// ---------- Wave 8a (P6): growth tracking shape ----------
+// recordAnswer must populate lastPracticed/history/recentMisses in the
+// shape the parent panel and report card read — this guards the save-shape
+// contract those UI reads depend on.
+{
+  const st = {
+    mastery: {}, totals: { answered: 0, correct: 0 }, streak: 0, equipped: {},
+    lastPracticed: {}, history: {}, recentMisses: {}, badges: {},
+  };
+  MM.engine.state = st;
+  MM.engine.recordAnswer('addsub_facts', true, { text: '2+2', kidAnswer: '4' });
+  if (!st.lastPracticed.addsub_facts) fail('growth tracking: recordAnswer did not set lastPracticed');
+  const today = MM.engine.todayStr();
+  if (!st.history[today] || !st.history[today].addsub_facts) fail('growth tracking: recordAnswer did not write a history ledger entry');
+  if (st.history[today].addsub_facts.a !== 1 || st.history[today].addsub_facts.c !== 1) {
+    fail(`growth tracking: history entry wrong shape: ${JSON.stringify(st.history[today].addsub_facts)}`);
+  }
+  MM.engine.recordAnswer('addsub_facts', false, { text: '3+3', kidAnswer: '5' });
+  const misses = st.recentMisses.addsub_facts;
+  if (!misses || misses.length !== 1 || misses[0].kidAnswer !== '5' || misses[0].text !== '3+3') {
+    fail(`growth tracking: recentMisses did not capture the wrong answer verbatim: ${JSON.stringify(misses)}`);
+  }
+  MM.engine.state = null;
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');
 process.exit(fails ? 1 : 0);
