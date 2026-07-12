@@ -900,21 +900,25 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   // ---------- shared problem form (used by battle + modals) ----------
   // Builds the answer input (or choice buttons) into `container`.
-  // Calls onAnswer(correct) exactly once.
+  // Calls onAnswer(correct, kidAnswer) exactly once — kidAnswer is the raw
+  // submitted text (or the chosen button's label, for kind:'choice'). Wave 8a
+  // (P6 growth tracking) needs the verbatim wrong answer for the parent
+  // panel's "recent misses" list; existing callers that only take `correct`
+  // keep working unchanged (JS ignores the extra argument).
   UI.buildProblemForm = function (container, problem, onAnswer) {
     let answered = false;
-    const resolve = (correct) => {
+    const resolve = (correct, kidAnswer) => {
       if (answered) return;
       answered = true;
       container.querySelectorAll('button,input').forEach(n => n.disabled = true);
-      onAnswer(correct);
+      onAnswer(correct, kidAnswer);
     };
     if (problem.kind === 'choice') {
       container.innerHTML = `<div class="choices">` +
         problem.choices.map((c, i) => `<button class="choice" data-i="${i}">${c}</button>`).join('') +
         `</div>`;
       container.querySelectorAll('.choice').forEach(b => {
-        b.onclick = () => resolve(+b.dataset.i === problem.answer);
+        b.onclick = () => resolve(+b.dataset.i === problem.answer, problem.choices[+b.dataset.i]);
       });
       return;
     }
@@ -939,7 +943,7 @@ var MM = globalThis.MM = globalThis.MM || {};
           `Hmm, I can't read "<b>${input.value.replace(/</g, '&lt;')}</b>" — try a number like <b>12</b>, <b>3.5</b>, <b>3/4</b>, or <b>14 r 2</b>.`;
         return;
       }
-      resolve(MM.problems.checkAnswer(problem, input.value));
+      resolve(MM.problems.checkAnswer(problem, input.value), input.value);
     };
     container.querySelector('#submitBtn').onclick = submit;
     input.addEventListener('keydown', ev => { if (ev.key === 'Enter') submit(); });
@@ -1584,9 +1588,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     const leaveBtn = document.getElementById('leaveBtn');
     leaveBtn.onclick = () => { closeModal(); opts.onEnd && opts.onEnd('leave'); };
 
-    UI.buildProblemForm(document.getElementById('probForm'), p, (correct) => {
+    UI.buildProblemForm(document.getElementById('probForm'), p, (correct, kidAnswer) => {
       if (correct) MM.sound.correct(); else MM.sound.wrong();
-      const result = opts.onAnswer(correct) || {};
+      const result = opts.onAnswer(correct, kidAnswer) || {};
       let html = correct
         ? `<div class="right">✓ Correct!</div>`
         : `<div class="wrong">✗ Not quite.</div><div class="solution">${p.solution}</div>`;
@@ -1720,15 +1724,18 @@ var MM = globalThis.MM = globalThis.MM || {};
       ? `<h3>💰 The shopkeeper buys treasures & used gear</h3>${treasureSell}${gearSell}`
       : `<p class="dim">Nothing to sell right now — treasures and unequipped gear show up here.</p>`;
     // carts are supplies-only: no gear tab, no sell counter
-    if (cart && shopTab !== 'supplies') shopTab = 'supplies';
+    // carts sell supplies AND buy treasures/gear (user decision 2026-07-11:
+    // every sell counter is a word-problem dispenser — buy-only carts
+    // withheld math practice, not just convenience). No gear tab, though.
+    if (cart && shopTab === 'gear') shopTab = 'supplies';
     const tabContent = shopTab === 'supplies' ? suppliesTab : shopTab === 'sell' ? sellTab : gearTab;
     const tabBtn = (tab, label) => `<button class="shop-tab-btn${shopTab === tab ? ' active' : ''}" data-tab="${tab}">${label}</button>`;
     openModal(`
       <h2>${SHOP_NAMES[s.mapId] || SHOP_NAMES.world}</h2>
       <div class="dialog-body">
-        <div class="shop-gold">You have <b>💰 ${s.gold} gold</b>. Answer the shopkeeper's question for <b>10% off</b>${cart ? '' : ' (or a selling bonus)'}!
-        <br><span class="dim">${cart ? 'A biscuit-tin till and the essentials — buying only, the till can\'t count change out.' : onIsles ? 'Gear of the deep sea — nothing finer this side of the horizon.' : 'Bought gear goes to your 🎒 bag — used gear sells back for half price.'}</span></div>
-        <div class="shop-tabs">${cart ? '' : tabBtn('gear', '⚔️ Gear') + tabBtn('supplies', '🧪 Supplies') + tabBtn('sell', '💰 Sell')}</div>
+        <div class="shop-gold">You have <b>💰 ${s.gold} gold</b>. Answer the shopkeeper's question for <b>10% off</b> (or a selling bonus)!
+        <br><span class="dim">${cart ? 'A biscuit-tin till and the essentials. The till has learned to count — treasures welcome.' : onIsles ? 'Gear of the deep sea — nothing finer this side of the horizon.' : 'Bought gear goes to your 🎒 bag — used gear sells back for half price.'}</span></div>
+        <div class="shop-tabs">${cart ? tabBtn('supplies', '🧪 Supplies') + tabBtn('sell', '💰 Sell') : tabBtn('gear', '⚔️ Gear') + tabBtn('supplies', '🧪 Supplies') + tabBtn('sell', '💰 Sell')}</div>
         ${tabContent}
       </div>
       <div class="btnrow"><button id="shopClose" class="secondary">Leave shop</button></div>`);

@@ -53,6 +53,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       totals: { answered: 0, correct: 0 },
       worldPos: null,
       seenBattleHelp: false,
+      lastPracticed: {},   // Wave 8a (P5): skill -> date string, last real day practiced
+      history: {},         // Wave 8a (P6): date string -> {skill: {a,c}}, pruned >30 days
+      recentMisses: {},    // Wave 8a (P6): skill -> last 10 {text, kidAnswer}
+      hatsRetired: 0,      // Wave 8a (P8): lifetime tiny-hat monsters defeated
     };
     E.enterWorld();
     E.save();
@@ -126,6 +130,12 @@ var MM = globalThis.MM = globalThis.MM || {};
       s.spellsCelebrated = {};
       for (const name of ['scout', 'blink', 'beacon']) s.spellsCelebrated[name] = E.spellUnlocked(name);
     }
+    // Wave 8a: rust weighting, growth tracking, and the hat counter — all
+    // missing means "never tracked yet," not "reset to zero."
+    if (!s.lastPracticed) s.lastPracticed = {};
+    if (!s.history) s.history = {};
+    if (!s.recentMisses) s.recentMisses = {};
+    if (s.hatsRetired == null) s.hatsRetired = 0;
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     E.enterWorld();  // always resume on the overworld
@@ -249,8 +259,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       header: `🏪 Selling: ${item.emoji} <b>${item.name}</b> — ${v} gold (half of ${item.price})`,
       problem: prob,
       leaveLabel: 'Keep it',
-      onAnswer(correct) {
-        recordAnswer('word_problems', correct);
+      onAnswer(correct, kidAnswer) {
+        recordAnswer('word_problems', correct, { text: prob.text, kidAnswer });
         const bonus = correct ? Math.ceil(v * 0.1) : 0;
         s.gear[slot] = s.gear[slot].filter(x => x !== id);
         const paid = E.gainGold(v + bonus);
@@ -381,8 +391,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       header: `🔥 <b>Fusing the ${gem.emoji} ${gem.name} Gem</b> onto your ${item.emoji} ${item.name} — free if you get this right, 25 gold if not (it works either way)`,
       problem: prob,
       leaveLabel: 'Never mind',
-      onAnswer(correct) {
-        recordAnswer(prob.skill, correct);
+      onAnswer(correct, kidAnswer) {
+        recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
         s.items.gems.splice(idx, 1);
         s.enchants = s.enchants || {};
         s.enchants[`${slot}:${itemId}`] = gemId;
@@ -1385,8 +1395,8 @@ var MM = globalThis.MM = globalThis.MM || {};
         header: '📐 <b>A blueprint plaque.</b> Solve it to unlock the repair.',
         problem: prob,
         leaveLabel: 'Step away',
-        onAnswer(correct) {
-          recordAnswer(prob.skill, correct);
+        onAnswer(correct, kidAnswer) {
+          recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
           if (correct) {
             site.plaqueSolved = true;
             E.save();
@@ -1662,7 +1672,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     return E.isRangedEquipped() ? ' · 🏹 opening shot always lands out of reach' : '';
   };
 
-  function recordAnswer(skill, correct) {
+  // meta (Wave 8a, P6 growth tracking): optional {text, kidAnswer} — the
+  // problem's text and the kid's verbatim submitted answer. Only ever used
+  // to grow s.recentMisses; every existing call site that doesn't pass it
+  // keeps working exactly as before.
+  function recordAnswer(skill, correct, meta) {
     const s = E.state;
     MM.mastery.record(s, skill, correct);
     s.totals.answered++;
@@ -1672,6 +1686,28 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (correct) E.bountyEvent('correct');
     const pet = s.isles && s.isles.pet;
     if (pet && correct) { pet.correct++; E.checkPetStage(); }
+    // Wave 8a (P5, rust): the last real day this topic was practiced, so
+    // weakestFirst can nudge stale topics back into rotation.
+    s.lastPracticed = s.lastPracticed || {};
+    s.lastPracticed[skill] = E.todayStr();
+    // Wave 8a (P6, growth tracking): a 30-day daily ledger per topic (for
+    // the report card's "this week vs. before" line) and the last 10 misses
+    // verbatim (for the parent panel — a parent diagnoses a regrouping
+    // error from three real examples faster than from any percentage).
+    const today = E.todayStr();
+    s.history = s.history || {};
+    s.history[today] = s.history[today] || {};
+    const h = s.history[today][skill] || { a: 0, c: 0 };
+    h.a++; if (correct) h.c++;
+    s.history[today][skill] = h;
+    const cutoff = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    for (const d of Object.keys(s.history)) if (d < cutoff) delete s.history[d];
+    if (!correct && meta && meta.kidAnswer != null) {
+      s.recentMisses = s.recentMisses || {};
+      const list = s.recentMisses[skill] = s.recentMisses[skill] || [];
+      list.push({ text: meta.text || '', kidAnswer: String(meta.kidAnswer).slice(0, 40) });
+      if (list.length > 10) list.shift();
+    }
   }
   E.recordAnswer = recordAnswer;
 
@@ -2326,8 +2362,8 @@ var MM = globalThis.MM = globalThis.MM || {};
         header: '🚪 <b>A magic lock seals this door.</b>',
         problem: prob,
         leaveLabel: 'Step away',
-        onAnswer(correct) {
-          recordAnswer(prob.skill, correct);
+        onAnswer(correct, kidAnswer) {
+          recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
           if (correct) {
             s.grid[y][x] = '.';
             s.opened[`${s.mapId}:${x},${y}`] = true;
@@ -2359,8 +2395,8 @@ var MM = globalThis.MM = globalThis.MM || {};
         header: '⏰ <b>A clock door — read the time to open it.</b>',
         problem: prob,
         leaveLabel: 'Step away',
-        onAnswer(correct) {
-          recordAnswer(prob.skill, correct);
+        onAnswer(correct, kidAnswer) {
+          recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
           if (correct) {
             s.grid[y][x] = '.';
             s.opened[`${s.mapId}:${x},${y}`] = true;
@@ -2468,8 +2504,8 @@ var MM = globalThis.MM = globalThis.MM || {};
         header: '🎁 <b>A treasure chest with a puzzle lock!</b> <i>(tricky — take your time)</i>',
         problem: prob,
         leaveLabel: 'Leave it for now',
-        onAnswer(correct) {
-          recordAnswer(prob.skill, correct);
+        onAnswer(correct, kidAnswer) {
+          recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
           if (correct) {
             s.grid[y][x] = '.';
             s.opened[`${s.mapId}:${x},${y}`] = true;
@@ -2532,8 +2568,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       header: `🏪 Selling: ${t.emoji} <b>${t.name}</b> — worth ${v} gold`,
       problem: prob,
       leaveLabel: 'Keep it',
-      onAnswer(correct) {
-        recordAnswer('word_problems', correct);
+      onAnswer(correct, kidAnswer) {
+        recordAnswer('word_problems', correct, { text: prob.text, kidAnswer });
         const bonus = correct ? Math.ceil(v * 0.1) : 0;
         s.items.treasures.splice(index, 1);
         const paid = E.gainGold(v + bonus);
@@ -2581,8 +2617,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       header: `${npc.name} — <i>"Bet you can't get my riddle! Winner gets my allowance!"</i>`,
       problem: prob,
       leaveLabel: 'Maybe later, Pip',
-      onAnswer(correct) {
-        recordAnswer(prob.skill, correct);
+      onAnswer(correct, kidAnswer) {
+        recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
         s.pipAsked[s.taskIndex] = true;
         E.save();
         if (correct) {
@@ -2951,8 +2987,8 @@ var MM = globalThis.MM = globalThis.MM || {};
           (<i>${prevTask.mixed ? 'anything you\'ve learned' : MM.data.SKILL_NAMES[prevTask.skill]}</i>). Take all the time you need!`,
         problem: prob,
         leaveLabel: 'Come back later',
-        onAnswer(correct) {
-          recordAnswer(prob.skill, correct);
+        onAnswer(correct, kidAnswer) {
+          recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
           if (correct) {
             s.unsealed['d' + idx] = true;
             E.save();
@@ -3052,8 +3088,8 @@ var MM = globalThis.MM = globalThis.MM || {};
         header: `${shipboard ? '⛵ <b>Your bunk aboard the Compass Rose</b>' : '🛏 <b>The Cozy Compass Inn</b>'} — warm-up ${i + 1} of 3 <i>(${shipboard ? 'the sea rocks best when the mind is settled' : 'a good night\'s sleep for a good night\'s thinking'})</i>`,
         problem: prob,
         leaveLabel: 'Skip the rest',
-        onAnswer(correct) {
-          recordAnswer(prob.skill, correct);
+        onAnswer(correct, kidAnswer) {
+          recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
           i++;
           const bonus = E.hasAmulet('keeper') ? E.gainGold(5) : 0;
           const msg = (correct ? '✓ Nice.' : (shipboard ? 'The captain calls down: "You\'ll get it next time, sailor."' : 'The innkeeper smiles: "You\'ll get it next time."')) +
@@ -3189,8 +3225,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       header: `🏪 <b>${item.emoji} ${item.name}</b>${qty > 1 ? ` × ${qty}` : ''} — ${c} gold`,
       problem: prob,
       leaveLabel: 'Never mind',
-      onAnswer(correct) {
-        recordAnswer('word_problems', correct);
+      onAnswer(correct, kidAnswer) {
+        recordAnswer('word_problems', correct, { text: prob.text, kidAnswer });
         const discount = correct ? Math.floor(c * 0.1) : 0;
         const paid = c - discount;
         s.gold -= paid;
