@@ -105,12 +105,14 @@ var MM = globalThis.MM = globalThis.MM || {};
       else if (k === 'arrowleft' || k === 'a') { ev.preventDefault(); MM.engine.tryMove(-1, 0); }
       else if (k === 'arrowright' || k === 'd') { ev.preventDefault(); MM.engine.tryMove(1, 0); }
       else if (k === 'p') MM.engine.usePotion();
+      else if (k === 'f') UI.foodMenu();
       else if (k === 'b') UI.openBag();
       else if (k === 'r') UI.reportCard();
       else if (k === 'm') UI.monsterBook();
     });
 
     document.getElementById('btnPotion').onclick = () => MM.engine.usePotion();
+    document.getElementById('btnFood').onclick = () => UI.foodMenu();
     document.getElementById('btnBag').onclick = () => UI.openBag();
     document.getElementById('btnReport').onclick = () => UI.reportCard();
     document.getElementById('btnBook').onclick = () => UI.monsterBook();
@@ -703,6 +705,40 @@ var MM = globalThis.MM = globalThis.MM || {};
         const crown = MM.sprites.get('crown', { scale: 2 });
         ctx.drawImage(crown, vx * TILE + TILE / 2 - crown.width / 2, vy * TILE + bob - 8);
       }
+      // Wave 8a (P2, monster telegraphs): a small topic icon over its head —
+      // agency for the kid who wants to pick her fights, a target list for
+      // the kid hunting a specific topic's brave-problem bonus. Emoji glyphs
+      // ignore fillStyle (no drop-shadow trick), so a small dark disc behind
+      // it does the contrast work instead — same idea as the gear-gate pips.
+      const topicIcon = MM.engine.monsterTopicIcon && MM.engine.monsterTopicIcon(m);
+      if (topicIcon) {
+        const ix = vx * TILE + TILE / 2, iy = vy * TILE + bob - 2;
+        ctx.beginPath();
+        ctx.arc(ix, iy, 10, 0, Math.PI * 2);
+        ctx.fillStyle = '#141221';
+        ctx.fill();
+        ctx.font = '13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(topicIcon, ix, iy + 1);
+        ctx.textBaseline = 'alphabetic';
+      }
+      // Wave 8a (P8, delight catalog): monster idle life — a snoozing guard
+      // (until the kid gets close) and a thief admiring its haul. Ambient
+      // motion, so it's off entirely under Calm Mode, same as torch flicker
+      // and footstep puffs.
+      if (!s.calmMode) {
+        const distToHero = Math.abs(m.x - s.px) + Math.abs(m.y - s.py);
+        if (m.behavior === 'guard' && distToHero > 2 && Math.sin(now / 900 + m.x * 5) > 0.85) {
+          ctx.font = '12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('💤', vx * TILE + TILE - 6, vy * TILE + bob - 6);
+        } else if (m.behavior === 'thief' && m.stolen == null && Math.sin(now / 550 + m.x * 3) > 0.9) {
+          ctx.font = '11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('🪙', vx * TILE + 6, vy * TILE + bob - 6);
+        }
+      }
     }
 
     // hero (walk frames while moving, idle bob otherwise)
@@ -718,6 +754,13 @@ var MM = globalThis.MM = globalThis.MM || {};
         const scale = pet.stage >= 1 ? 3 : 2;
         const spr = MM.sprites.get(MM.data.PETS[pet.species].sprite, { scale });
         ctx.drawImage(spr, pvx * TILE + (TILE - spr.width) / 2, pvy * TILE + (TILE - spr.height) + petBob);
+        // Wave 8a (P8, delight catalog): "curls up if the kid stands still
+        // 10s" — pure cosmetic, off under Calm Mode like every other idle gag.
+        if (!s.calmMode && now - lastMoveAt > 10000) {
+          ctx.font = '11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('💤', pvx * TILE + TILE / 2, pvy * TILE - 4);
+        }
         if (MM.engine.petAlert) {
           // big, bouncing, impossible to miss
           const jump = Math.abs(Math.sin(now / 200)) * 8;
@@ -810,10 +853,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     const pieces = ['body', 'helmet', 'boots'].map(sl => MM.engine.equippedItem(sl)).filter(Boolean);
     document.getElementById('statAtk').innerHTML =
       `⚔️ <b>${range.min}–${range.max}</b> dmg per correct answer <span class="dim">(${MM.data.gearLabel('weapon', s.equipped.weapon)})</span>` +
-      (s.stamina <= 0 ? ' <b>😫 halved — you\'re exhausted! Eat 🎒</b>' : '');
+      (s.stamina <= 0 ? ' <b>😫 halved — you\'re exhausted! Eat 🍗</b>' : '');
     document.getElementById('statDef').innerHTML =
       `🛡️ blocks <b>${MM.engine.totalDef()}</b> of every monster hit <span class="dim">(${pieces.map(p => p.emoji).join('') || 'no armor!'})</span>`;
-    document.getElementById('statPotions').textContent = `🧪 Potions: ${s.potions}`;
+    // counts live ON the buttons (playtest 2026-07-12): the sidebar said
+    // "Potions: 1" with no food line; now each supply button carries its own
+    // number — the gauge and the lever are the same control.
+    document.getElementById('btnPotion').textContent = `🧪 Potion ×${s.potions}`;
+    const foodCount = Object.values(s.items.food || {}).reduce((a, b) => a + b, 0);
+    document.getElementById('btnFood').textContent = `🍗 Food ×${foodCount}`;
     document.getElementById('statStreak').innerHTML = s.streak >= 3
       ? `🔥 <b>Streak ${s.streak}!</b> +${s.streak >= 6 ? 4 : 2} dmg${s.streak >= 5 ? ' · crits unlocked!' : ''}`
       : (s.streak > 0 ? `✨ Streak: ${s.streak}` : '');
@@ -850,7 +898,28 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
 
     document.getElementById('log').innerHTML = messages.map(m => `<div>${m}</div>`).join('');
+    checkAlmost(s);
   };
+
+  // Wave 8a (DQ, "almost!"): a badge within 3 correct of its next tier gets
+  // a small ✨ on the bag button — and ONE log nudge for the whole browser
+  // session (not persisted; a fresh page load can nudge again, but reruns of
+  // renderSidebar this same session must not spam the log every answer).
+  let almostNudgedThisSession = false;
+  function checkAlmost(s) {
+    const btn = document.getElementById('btnBag');
+    if (!btn) return;
+    const hits = MM.data.PARENT_TOPICS
+      .map(sk => ({ sk, hit: MM.mastery.almostNextTier(s, sk) }))
+      .filter(x => x.hit);
+    btn.innerHTML = hits.length ? '🎒 Bag <span class="almost-sparkle">✨</span>' : '🎒 Bag';
+    if (hits.length && !almostNudgedThisSession) {
+      almostNudgedThisSession = true;
+      const { sk, hit } = hits[0];
+      const tierWord = MM.data.BADGES[hit.tier].name.split(' ')[0].toLowerCase();
+      MM.ui.log(`${MM.data.BADGES[hit.tier].emoji} ${MM.data.SKILL_NAMES[sk]} is THIS close to ${tierWord}!`);
+    }
+  }
 
   // Spellbook row: appears in the sidebar the moment any spell is unlocked
   // (gold badges). Buttons disable themselves outside a dungeon, out of
@@ -1161,21 +1230,23 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!s || UI.modalOpen() || MM.battle.active()) return;
     const gearRows = Object.keys(MM.data.GEAR).map(slot => {
       const owned = s.gear[slot] || [];
+      // rings/amulets are one-at-a-time AND fine to wear none of — the worn
+      // one gets a "take off" action right on its row (the old separate
+      // "Bare finger / Unequip" pseudo-item row read like an equippable
+      // item called Bare Finger — playtest 2026-07-12)
+      const oneAtATime = slot === 'ring' || slot === 'amulet';
       const rows = owned.map(id => {
         const item = MM.data.gearById(slot, id);
         const on = s.equipped[slot] === id;
         return `<div class="shop-row${on ? ' equipped' : ''}">
           <span class="shop-item">${MM.data.gearLabel(slot, id)}${item.quip ? `<span class="quip">${item.quip}</span>` : ''}</span>
           <span class="shop-stat">${MM.data.gearStat(slot, item)}</span>
-          ${on ? '<span class="shop-buy">✓ equipped</span>'
+          ${on ? (oneAtATime ? `<button class="shop-buy" data-equip="${slot}:">✓ On — take off</button>`
+                             : '<span class="shop-buy">✓ equipped</span>')
                : `<button class="shop-buy" data-equip="${slot}:${id}">Equip</button>`}
         </div>`;
       }).join('');
-      const oneAtATime = slot === 'ring' || slot === 'amulet';
-      const unequip = (oneAtATime && s.equipped[slot])
-        ? `<div class="shop-row"><span class="shop-item dim">${slot === 'ring' ? 'Bare finger' : 'Bare neck'}</span><span class="shop-stat">—</span>
-           <button class="shop-buy" data-equip="${slot}:">Unequip</button></div>` : '';
-      return `<div class="slot-label">${MM.data.SLOT_NAMES[slot]}${owned.length ? '' : ' <span class="dim">— nothing yet</span>'}</div>${rows}${unequip}`;
+      return `<div class="slot-label">${MM.data.SLOT_NAMES[slot]}${owned.length ? '' : ' <span class="dim">— nothing yet</span>'}</div>${rows}`;
     }).join('');
     // Wave 2: loose (unfused) gems — Emberlyn in Port Brightwater fuses them
     const gemCounts = {};
@@ -1381,6 +1452,36 @@ var MM = globalThis.MM = globalThis.MM || {};
       });
   }
 
+  // Wave 8a (P6, growth tracking): last 7 real days vs lifetime accuracy.
+  // The arrow answers "how's THIS topic going lately" — never a comparison
+  // to anyone else, and hidden entirely until there's enough data to mean
+  // something (5+ lifetime attempts, 3+ this week).
+  function weeklyTrend(s, skill) {
+    const m = (s.mastery || {})[skill];
+    if (!m || m.attempts < 5) return '';
+    const cutoff = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+    let a = 0, c = 0;
+    for (const d of Object.keys(s.history || {})) {
+      if (d < cutoff) continue;
+      const h = s.history[d][skill];
+      if (h) { a += h.a; c += h.c; }
+    }
+    if (a < 3) return '';
+    const weekAcc = c / a, lifeAcc = m.correct / m.attempts;
+    if (weekAcc >= lifeAcc + 0.1) return ` <span class="trend-up">▲ this week</span>`;
+    if (weekAcc <= lifeAcc - 0.1) return ` <span class="trend-down">▼ this week</span>`;
+    return '';
+  }
+  // An expandable list of the actual last few wrong answers per topic — a
+  // parent spots a regrouping slip from three real examples faster than
+  // from any percentage (that's the whole reason recentMisses exists).
+  function missesBlock(s, skill) {
+    const list = (s.recentMisses || {})[skill];
+    if (!list || !list.length) return '';
+    const rows = list.slice(-5).reverse().map(m =>
+      `<div class="miss-row">${String(m.text || '').replace(/</g, '&lt;')} — answered <b>${String(m.kidAnswer || '').replace(/</g, '&lt;')}</b></div>`).join('');
+    return `<details class="miss-details"><summary>Recent misses (${list.length})</summary>${rows}</details>`;
+  }
   function parentSettings() {
     const s = MM.engine.state;
     const topics = s.parent.topics || {};
@@ -1388,10 +1489,13 @@ var MM = globalThis.MM = globalThis.MM || {};
       const m = (s.mastery || {})[skill];
       const acc = m && m.attempts ? ` <span class="dim">(${m.correct}/${m.attempts})</span>` : '';
       const tier = (s.badges || {})[skill] || 0;
-      return `<label class="topic-check">
-        <input type="checkbox" data-skill="${skill}" ${topics[skill] !== false ? 'checked' : ''}>
-        ${MM.data.SKILL_NAMES[skill]}${tier ? ' ' + MM.data.BADGES[tier].emoji : ''}${acc}
-      </label>`;
+      return `<div class="topic-row">
+        <label class="topic-check">
+          <input type="checkbox" data-skill="${skill}" ${topics[skill] !== false ? 'checked' : ''}>
+          ${MM.data.SKILL_NAMES[skill]}${tier ? ' ' + MM.data.BADGES[tier].emoji : ''}${acc}${weeklyTrend(s, skill)}
+        </label>
+        ${missesBlock(s, skill)}
+      </div>`;
     }).join('');
     const bugs = MM.bugs.list();
     const bugRows = bugs.length
@@ -1517,50 +1621,115 @@ var MM = globalThis.MM = globalThis.MM || {};
     document.getElementById('dlgOk').onclick = () => { closeModal(); parentSettings(); };
   }
 
+  // Food button (2026-07-12 playtest): two bars, two buttons — 🧪 Potion
+  // refills the ❤️ bar, 🍗 Food refills the stamina bar. Potions are one
+  // kind so P is instant; food comes in kinds, so F opens a small chooser.
+  // (The 🎒 bag still lists food too — this is a shortcut, not a move.)
+  UI.foodMenu = function () {
+    if (UI.modalOpen() || MM.battle.active()) return;
+    const s = MM.engine.state;
+    const rows = MM.data.FOODS
+      .filter(f => (s.items.food[f.id] || 0) > 0)
+      .map(f => `
+        <div class="shop-row">
+          <span class="shop-item">${f.emoji} ${f.name} <span class="dim">× ${s.items.food[f.id]}</span></span>
+          <span class="shop-stat">+${f.stamina} 🍗</span>
+          <button class="shop-buy" data-eat="${f.id}" ${s.stamina >= s.maxStamina ? 'disabled title="Stamina is already full"' : ''}>Eat</button>
+        </div>`).join('');
+    openModal(`
+      <h2>🍗 Food</h2>
+      <div class="dialog-body">
+        <div class="shop-gold">Stamina: <b>${s.stamina}/${s.maxStamina}</b>${s.stamina <= 0 ? ' — <b>exhausted!</b> (You can always still walk.)' : ''}</div>
+        ${rows || `<p class="dim">Your bag has no food right now — the 🏪 shop sells plenty.
+          ${s.stamina < s.maxStamina ? 'Resting at the 🛏 inn also restores you, no snacks required.' : ''}</p>`}
+      </div>
+      <div class="btnrow"><button id="foodClose" class="secondary">Close</button></div>`);
+    document.getElementById('foodClose').onclick = () => { closeModal(); UI.refresh(); };
+    document.querySelectorAll('[data-eat]').forEach(b => {
+      b.onclick = () => { MM.engine.eat(b.dataset.eat); closeModal(); UI.foodMenu(); };
+    });
+  };
+
+  // Progressive help (2026-07-12 playtest, twice revised): the old help was
+  // one wall of everything at once — Spire gear-gates explained to a kid
+  // still in the first meadow, while the thing she actually needed ("the
+  // shop sells power") drowned in the middle. Two rules now:
+  // 1. Sections wait for their system to exist in the kid's world (gates
+  //    only ever ADD as the save progresses — nothing she's read ever
+  //    disappears on her).
+  // 2. Visual calm: grouped under h3 headings, ONE bolded lead term per
+  //    entry (it works as a mini-heading), no bold scattered mid-sentence.
+  // "If you lose" sits in the basics on purpose: it's the first question
+  // the failure-averse kid brings to this menu, and the answer is kind.
   UI.helpDialog = function () {
     if (UI.modalOpen()) return;
-    UI.dialog('📖 How to play',
-      `<b>Explore:</b> arrow keys or WASD. Bump into things to interact.<br><br>
-       <b>⚔ Battles:</b> each round you get a <b>quick</b> math problem. A <b>correct answer strikes</b>
-       the monster for your attack power (better weapons hit harder). Then the monster strikes back —
-       your <b>armor blocks</b> part of its damage, and a correct answer gives you a
-       <b>chance to dodge</b> entirely. Wrong answers miss (and show you the solution).<br><br>
-       <b>🏃 Fleeing:</b> always allowed — but the monster <b>fully recovers</b> while
-       you run, so you can't skip the hard questions for free.<br><br>
-       <b>🔥 Streaks:</b> 3 correct in a row = +2 damage, 6 = +4. At 5+ you can land
-       <b>critical hits</b> for double damage!<br><br>
-       <b>🥉🥈🥇 Badges:</b> every math topic has bronze, silver, and gold badges —
-       earn them with correct answers. Your badge shelf lives in the 🎒 bag.<br><br>
-       <b>📖 Spellbook:</b> gold badges unlock utility spells, one at a time, shown
-       in a spellbook row in the sidebar the moment each becomes available —
-       🔍 <b>Scout</b> (3 gold badges — hidden walls shimmer for 10 seconds, once
-       per dungeon visit), ⚡ <b>Blink</b> (6 gold badges, 10 stamina — walk or bump
-       TOWARD what you want to hop over, then click Blink; you land two tiles
-       ahead, on the far side), and 🕯 <b>Beacon</b> (gold badges in every enabled
-       topic, at least 6 — instantly return to the dungeon's entrance, once per
-       visit). Spells only work <b>inside a dungeon</b> — click the sidebar button,
-       there's no keyboard shortcut. They never fight for you — only mastery
-       earns exploration power.<br><br>
-       <b>🪢 Rope of Return:</b> sold at every shop — use it from your 🎒 bag while
-       inside a dungeon to climb straight back out, no walking required. A
-       convenience item, not a reward (Beacon is the free version you earn).<br><br>
-       <b>📕 Monster Book (M):</b> defeat each kind of monster to fill in its card.
-       Can you discover all of them?<br><br>
-       <b>🪧 Notice Board:</b> next to the castle — small jobs with gold rewards,
-       fresh every morning (or as soon as you finish them).<br><br>
-       <b>🧠 The big questions</b> live where nothing is attacking you: <b>boss fights</b>,
-       <b>🚪 doors</b>, <b>🎁 chests</b>, and the <b>🔮 seal</b> on each new dungeon.<br><br>
-       <b>⚙ Gear plates &amp; gates:</b> in the Clockwork Spire, three brass gates are marked
-       <b>•</b>, <b>••</b> and <b>•••</b> — and only <b>one is open at a time</b>. Bump the ⚙ gear plate
-       to turn the mechanism: the plate always shows the pips of whichever gate is
-       open right now, and the gate that just opened <b>glints</b> so you can see which
-       one changed. Nothing is ever lost — you can cycle it as many times as you like.<br><br>
-       <b>🍗 Stamina:</b> walking and fighting make you tired. At zero you're <b>exhausted</b>
-       (half damage, no dodging) — eat food from your <b>🎒 bag</b>, or rest at the 🛏 inn.<br><br>
-       <b>🎁 Chests</b> can hold gold, food, potions, <b>treasures to sell</b> at the 🏪 shop,
-       and — rarely — <b>✨ magical charms</b>. You can collect every charm, but only
-       <b>wear three at a time</b> — choose them in your 🎒 bag!<br><br>
-       There are <b>no timers</b> — take all the time you need. Careful beats fast!`);
+    const s = MM.engine.state || {};
+    const goldBadges = Object.values(s.badges || {}).filter(t => t >= 3).length;
+    const groups = [
+      { title: 'The basics', entries: [
+        { when: true, html: `<b>🧭 Explore.</b> Arrow keys or WASD. Bump into things to talk,
+           open, and search.` },
+        { when: true, html: `<b>⚔ Battles.</b> Each round is one quick math problem. Get it right
+           and your strike lands. Then the monster swings back — your armor blocks part of it,
+           and a right answer may dodge the rest. A wrong answer just misses, and shows you the
+           worked solution.` },
+        { when: true, html: `<b>😵 If you lose a fight…</b> nothing you've earned is lost. You
+           wake up outside the castle, patched up, keeping every level, badge, and item — it
+           only costs half the gold in your pocket. The monster will still be there. Next time,
+           you'll be readier.` },
+        { when: true, html: `<b>🏃 Running away</b> is always allowed — but the monster fully
+           recovers while you run, so you can't skip the hard questions for free.` },
+        { when: true, html: `<b>🐢 No timers.</b> Take all the time you need — careful beats
+           fast.` },
+      ]},
+      { title: 'Growing stronger', entries: [
+        { when: true, html: `<b>🗡 Gear.</b> Your weapon decides how hard every correct answer
+           hits; your armor decides how much of every monster hit gets blocked. The 🏪 shop
+           sells better gear as you earn gold — upgrading is how you grow stronger between
+           levels.` },
+        { when: true, html: `<b>🔥 Streaks.</b> 3 correct in a row = +2 damage, 6 = +4. At 5+
+           you can land critical hits for double damage!` },
+        { when: true, html: `<b>🥉 Badges.</b> Every math topic has bronze, silver, and gold
+           badges — earn them with correct answers. Your badge shelf lives in the 🎒 bag${
+             goldBadges ? '.' : ', and gold badges unlock something special…'}` },
+        { when: goldBadges >= 1, html: `<b>📖 Spells.</b> Gold badges unlock utility spells,
+           shown in the sidebar as each arrives: 🔍 Scout (3 gold badges — hidden walls shimmer,
+           once per dungeon visit), ⚡ Blink (6 gold badges, 10 stamina — walk toward what you
+           want to hop over, then click Blink to land on the far side), 🕯 Beacon (gold in every
+           enabled topic — return to the dungeon entrance, once per visit). Spells only work
+           inside a dungeon, and they never fight for you — only mastery earns exploration
+           power.` },
+      ]},
+      { title: 'Out in the world', entries: [
+        { when: true, html: `<b>🍗 Stamina.</b> Walking and fighting make you tired — at zero,
+           you hit for half and can't dodge, but you can always still walk. Home is never out
+           of reach. The 🍗 Food button (F) has snacks, and the 🛏 inn restores everything.` },
+        { when: true, html: `<b>🧠 The big questions</b> live where nothing is attacking you:
+           boss fights, doors, chests, and the seal on each new dungeon.` },
+        { when: true, html: `<b>🎁 Chests</b> hold gold, food, potions, and treasures to sell at
+           the shop${(s.items && s.items.charms || []).length
+             ? ` — and, rarely, ✨ magical charms. Collect them all, wear three at a time
+                (choose them in your 🎒 bag).`
+             : ` — and, just maybe, something rarer.`}` },
+        { when: true, html: `<b>🪧 The notice board</b> by the castle posts small jobs with gold
+           rewards, fresh every morning.` },
+        { when: true, html: `<b>📕 The Monster Book (M)</b> fills in a card for each kind of
+           monster you defeat. Can you discover them all?` },
+        { when: (s.taskIndex || 1) >= 2, html: `<b>🪢 The Rope of Return</b> is sold at every
+           shop — use it from your 🎒 bag inside a dungeon to climb straight back out.` },
+        { when: !!(s.isles && s.isles.lampLit), html: `<b>⚙ Gear plates &amp; gates.</b> In the
+           Clockwork Spire, three brass gates are marked •, •• and ••• — only one is open at a
+           time. Bump the ⚙ gear plate to turn the mechanism: it always shows the pips of the
+           gate that's open now, and the gate that just opened glints. Nothing is ever lost —
+           cycle it as many times as you like.` },
+      ]},
+    ];
+    const body = groups.map(g => {
+      const entries = g.entries.filter(e => e.when);
+      if (!entries.length) return '';
+      return `<h3>${g.title}</h3>` + entries.map(e => `<p class="help-p">${e.html}</p>`).join('');
+    }).join('');
+    UI.dialog('📖 How to play', body);
   };
 
   // ---------- the problem modal (doors, chests, inn, shop) ----------
@@ -1703,10 +1872,12 @@ var MM = globalThis.MM = globalThis.MM || {};
         .filter(id => id !== s.equipped[slot])
         .map(id => {
           const it = MM.data.gearById(slot, id);
-          if (!it || it.price <= 0) return '';
+          if (!it) return '';
+          // starter gear (price 0) is sellable too — 1 sentimental gold —
+          // so the stick and clothes never clutter the bag forever
           return `<div class="shop-row">
             <span class="shop-item">${it.emoji} ${it.name}</span>
-            <span class="shop-price">${Math.floor(it.price / 2)} g</span>
+            <span class="shop-price">${Math.max(1, Math.floor(it.price / 2))} g</span>
             <button class="shop-sell" data-sellgear="${slot}:${id}">Sell</button>
           </div>`;
         })).join('');
@@ -1730,11 +1901,17 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (cart && shopTab === 'gear') shopTab = 'supplies';
     const tabContent = shopTab === 'supplies' ? suppliesTab : shopTab === 'sell' ? sellTab : gearTab;
     const tabBtn = (tab, label) => `<button class="shop-tab-btn${shopTab === tab ? ' active' : ''}" data-tab="${tab}">${label}</button>`;
+    // Wave 8a (P8, delight catalog): "the shopkeeper puts whatever you just
+    // sold on the shelf behind her" — pure decoration, persistent, no carts
+    // (they have no sell counter, so nothing to shelve).
+    const shelf = (!cart && s.shopShelf && s.shopShelf.length)
+      ? `<div class="shop-shelf dim">🗄 On the shelf: ${s.shopShelf.map(it => `${it.emoji} ${it.name}`).join(' · ')}</div>` : '';
     openModal(`
       <h2>${SHOP_NAMES[s.mapId] || SHOP_NAMES.world}</h2>
       <div class="dialog-body">
         <div class="shop-gold">You have <b>💰 ${s.gold} gold</b>. Answer the shopkeeper's question for <b>10% off</b> (or a selling bonus)!
         <br><span class="dim">${cart ? 'A biscuit-tin till and the essentials. The till has learned to count — treasures welcome.' : onIsles ? 'Gear of the deep sea — nothing finer this side of the horizon.' : 'Bought gear goes to your 🎒 bag — used gear sells back for half price.'}</span></div>
+        ${shelf}
         <div class="shop-tabs">${cart ? tabBtn('supplies', '🧪 Supplies') + tabBtn('sell', '💰 Sell') : tabBtn('gear', '⚔️ Gear') + tabBtn('supplies', '🧪 Supplies') + tabBtn('sell', '💰 Sell')}</div>
         ${tabContent}
       </div>
@@ -1910,10 +2087,19 @@ var MM = globalThis.MM = globalThis.MM || {};
       // re-locked. Same for the Monster Book's pages, below.
       const locked = !s.ngPlus && !s.endingDone && i + 1 > s.taskIndex;
       const tier = (s.badges || {})[t.skill] || 0;
+      // Wave 8a (P6, growth tracking): a real-numbers "how you're doing
+      // LATELY" line, from the same last-10 rolling window the difficulty
+      // adapter already tracks — deliberately never a percentage (a raw
+      // fraction like "9 of your last 10" reads as progress, not a grade).
+      const recent = m && m.recent ? m.recent : [];
+      const growthLine = !locked && recent.length >= 3
+        ? `<span class="report-growth">${recent.reduce((a, b) => a + b, 0)} of your last ${recent.length} ✨</span>`
+        : '';
       return `<div class="report-row${locked ? ' locked' : ''}">
         <span class="report-skill">${locked ? '🔒' : s.tasksDone.includes(i + 1) ? '✅' : '📗'} ${MM.data.SKILL_NAMES[t.skill]}${tier ? ' ' + MM.data.BADGES[tier].emoji : ''}</span>
         <span class="report-acc">${m && m.attempts ? `${m.correct}/${m.attempts} (${acc}%)` : '—'}</span>
         <span class="report-bar"><span style="width:${acc || 0}%" class="${acc >= 85 ? 'great' : acc >= 60 ? 'ok' : 'work'}"></span></span>
+        ${growthLine}
       </div>`;
     }).join('');
     const total = s.totals || { answered: 0, correct: 0 };
@@ -1979,9 +2165,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       // instead of leaving the kid to discover an empty dungeon (Wave 8-
       // preview; new boards avoid such targets at generation time)
       const napping = !it.done && it.type === 'hunt' && it.dungeon && MM.engine.dungeonClearedToday(it.dungeon);
+      // Wave 8a (P5, rust): a job whose topic has gone stale says so
+      const rusty = !it.done && !napping && it.flavor;
       return `
       <div class="shop-row${it.done ? ' owned' : ''}">
-        <span class="shop-item">${it.done ? '✅' : icon[it.type]} ${it.label}${napping ? '<span class="quip">cleared for today — the monsters creep back tomorrow</span>' : ''}</span>
+        <span class="shop-item">${it.done ? '✅' : icon[it.type]} ${it.label}${napping ? '<span class="quip">cleared for today — the monsters creep back tomorrow</span>' : ''}${rusty ? `<span class="quip">${it.flavor}</span>` : ''}</span>
         <span class="shop-stat">${it.done ? 'done!' : `${it.have}/${it.need}`}</span>
         <span class="shop-price">${it.reward} g</span>
       </div>`;
@@ -2017,15 +2205,18 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Wave 5 item 4: a Champion's Gauntlet win marks the boss's card for good
     const gauntletWon = !!(isBoss && b.gauntlet && b.gauntlet[type.name]);
     const img = `<img class="beast-img" src="${beastPortrait(type, kills > 0)}" alt="">`;
+    // Wave 8a (P2, monster telegraphs): the same icon that floats over its
+    // head in the dungeon, so the book doubles as a "who asks what" index.
+    const topicIcon = type.skill && MM.data.SKILL_ICONS[type.skill] ? ` ${MM.data.SKILL_ICONS[type.skill]}` : '';
     if (kills > 0) {
       return `<div class="beast-row">${img}<div class="beast-info">
-        <div class="beast-name">${isBoss ? '👑 ' : ''}${type.name}${gauntletWon ? ' 👑✨' : ''}</div>
+        <div class="beast-name">${isBoss ? '👑 ' : ''}${type.name}${gauntletWon ? ' 👑✨' : ''}${topicIcon}</div>
         <div class="beast-desc">${type.desc || ''}</div>
       </div><span class="beast-count">⚔ × ${kills}</span></div>`;
     }
     if (seen) {
       return `<div class="beast-row">${img}<div class="beast-info">
-        <div class="beast-name">${isBoss ? '👑 ' : ''}${type.name}</div>
+        <div class="beast-name">${isBoss ? '👑 ' : ''}${type.name}${topicIcon}</div>
         <div class="beast-desc">Not yet defeated — its story stays hidden...</div>
       </div></div>`;
     }
@@ -2059,12 +2250,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     const blankNote = shownDungeons < 13
       ? `<p class="dim" style="font-size:13px;font-style:italic">...the rest of the pages are still blank. New places, new monsters!</p>`
       : '';
+    // Wave 8a (P8, delight catalog): "hats respectfully retired: N." No
+    // mechanics — pure cuteness, tracked in E.grantVictory / the arena hook.
+    const hatFooter = `<p class="dim" style="font-size:12.5px;margin-top:8px">🎩 Hats respectfully retired: <b>${s.hatsRetired || 0}</b></p>`;
     openModal(`
       <h2>📕 Monster Book — ${s.name}</h2>
       <div class="dialog-body">
         <div class="shop-gold">Discovered: <b>${found}</b> of <b>${allCards.length}</b> monsters
           <span class="dim">(defeat a monster to fill in its card)</span></div>
-        ${sections}${golemSection}${blankNote}
+        ${sections}${golemSection}${blankNote}${hatFooter}
       </div>
       <div class="btnrow"><button id="dlgOk" class="primary">Close the book</button></div>`);
     document.getElementById('dlgOk').onclick = () => { closeModal(); UI.refresh(); };
