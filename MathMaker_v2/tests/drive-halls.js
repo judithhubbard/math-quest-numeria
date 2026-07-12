@@ -152,7 +152,7 @@ async function solveEchoDoor(page) {
   await page.evaluate(() => {
     const s = MM.engine.state;
     s.taskIndex = 14; s.tasksDone = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-    s.metMiscount = true; s.seenBattleHelp = true; s.difficulty = 'story';
+    s.metMiscount = true; s.seenBattleHelp = true; s.seenCeremony = true; s.difficulty = 'story';
     s.gear = { weapon: ['stick', 'tidal'], body: ['clothes', 'pearl'], helmet: ['coral'], boots: ['wavewalkers'], ring: ['guard'] };
     s.equipped = { weapon: 'tidal', body: 'pearl', helmet: 'coral', boots: 'wavewalkers', ring: 'guard' };
     s.level = 20; s.maxhp = 120; s.hp = 120;

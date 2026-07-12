@@ -1513,7 +1513,7 @@ Lesson (the recurring one, third time now): the sidebar NAMED the stick,
 the shop SOLD the dagger, and no system ever SAID "gear is how you grow."
 A system that doesn't narrate itself doesn't exist.
 
-## Wave 8b — The Two Kids Update, the heart (OPUS 4.8; after 8a)
+## Wave 8b — The Two Kids Update, the heart (OPUS 4.8; after 8a) ✅ SHIPPED (2026-07-12)
 
 Tone-critical. STORY_BIBLE.md open the whole session. Like Wave 7:
 **mandatory stop before shipping prose** — every soothe line and Academy
@@ -1640,6 +1640,76 @@ verified numerically, brave-miss costs nothing extra, Academy slate flow
 + daily rotation + cap-leak; extend drive-marathon: Soothe at least two
 battles en route (prove the alternate verb end-to-end); ALL drives +
 marathon green. **Then stop for prose review before tagging.**
+
+**Deviations from this spec, and why:**
+- **THE BOSS FLOOR — the spec's own balance claim did not survive simulation.**
+  The work order says "double damage at 85% accuracy ≈ 1.7× effective DPS —
+  fine for regulars, and bosses stay ≥3 answers." The 1.7× is right but it
+  measures the wrong thing: it counts *problems asked* (misses included), not
+  *correct answers to kill*. Simulated across the whole gear ladder, a flat 2×
+  (compounding with the existing 2× crit) drops EVERY boss in the game — d1 to
+  d21 — to **two** correct answers. So brave keeps its full, honest double
+  damage, and one invariant is added: **a brave strike may never take more
+  than ⌈maxhp/3⌉ off a BOSS**, which guarantees ≥3 answers even with a crit and
+  best-in-slot gear. Regular monsters stay uncapped (2.94 → 1.92 answers) —
+  halving those is exactly the power the kid opted into. Asserted numerically
+  in both the unit suite and the drive.
+- **"Boldly", not "bravely", in the Ceremony.** The work order's line is *"how
+  will you face the tangles: bravely, or gently?"* — but ⚡ Brave is a *different
+  mechanic* in the very same wave, and a kid answering "bravely" at the door
+  would reasonably expect it to have turned Brave on. Reworded to **"boldly, or
+  gently?"**, which also matches the shop headers the spec itself specifies
+  ("⚔️ For bold arms" / "🕊 For gentle hands").
+- **`spotTheError(skill, tier)` → `spotTheError(skill, flawed)`.** Tier is not
+  an input. A slate's difficulty is *intrinsic to the error it plants* — you
+  cannot render "forgot to carry the 1" at tier 3 — so each slate carries its
+  own authored tier and the caller reads it off the returned problem. The second
+  argument that the Academy actually needs is whether to plant an error at all.
+- **The Academy needed seven new slates, not just a refactor.** Wave 7 authored
+  only four distinct topics (addsub, multidigit_mult, decimals_md, fractions_as).
+  A daily, parent-cap-aware homework room across four topics is not daily
+  practice, so `SPOT_SLATES` adds the classic slip for **muldiv_facts** (the
+  remainder dropped), **multidigit_addsub** (the "flip" — taking the smaller
+  digit from the bigger whichever way round they sit), **long_division** (the
+  zero in the quotient never written), **decimals_ps** ("more digits, so it must
+  be bigger"), **fractions_m** (multiply the whole, carry the fraction along
+  untouched), **word_problems** (first step done, then it stops), and
+  **geometry** (perimeter as length + width). Eleven topics total. `time_reading`
+  and `music_reading` deliberately get none: you *read* a clock face or a staff,
+  you do not *derive* it — there are no worked steps to audit, and a
+  spot-the-error with nothing to inspect is just a quiz wearing a costume.
+- **Bubble Pipe placed at the mainland mid tier (atk 5/120g), not "isle tier".**
+  With the spec's placement, a kid who answers "gently" at the door has exactly
+  ONE gentle instrument (the atk-1 starter) until the Isles — so her identity
+  would cost her ten dungeons of damage, or she'd have to abandon it. Any stance
+  may wield any weapon, so this was never a *power* problem; it was an identity-
+  support problem, and one mid-tier gentle option fixes it. The four instruments
+  now ladder 1 / 5 / 6(ranged) / 13, each pinned to an existing tier.
+- **A soothed monster still gets hit back.** It is still tangled and still
+  frightened; calm is something you *give* it, not something it owes you. This
+  keeps the stakes real (and is what makes the Lullaby gem worth a slot).
+- **Befriending is per-species and monotonic** — like a badge, never taken away.
+  Killing one of the same kind later does not un-friend it: a collection that
+  could be *undone* would be a punishment mechanic, and there are none in this
+  game. A card can carry both marks (⚔ ×N and 🕊 ×N), ranked against each other
+  nowhere.
+- **Bestiary completion counts EITHER verb.** A kid who soothes her way through
+  the entire game must be able to fill the book — soothing is a real way to
+  finish a monster, not a way to skip one. (`found` was kills-only; fixed in
+  both the Monster Book and the Hall of Heroes.)
+- **Delight NOT shipped:** the pet does not yet react specially to the
+  cat-fishing wand (the spec's "the pet finds it DEEPLY fascinating and must be
+  discouraged" is currently only a shop quip). Left for the pet-system pass that
+  already owes three other animations from Wave 8a.
+
+**A real, shipped bug found and fixed on the way in (not part of this wave's
+scope):** `examSlate()` never put `why` on the problem object, but `engine.js`'s
+final exam reads `prob.why` when the kid marks the WRONG step — so since Wave 7
+the MathMaker has been saying **"Here. undefined"** at the single most sensitive
+moment in the game: a miss, in the inverted final exam, where the entire promise
+is that wrong answers earn help. `drive-castle.js` never caught it because it
+only asserts the feedback doesn't *scold*. One line to fix (`why: o.why || ''`),
+now asserted in the unit suite and driven live in `drive-twokids-b.js`.
 
 **Evidence discipline (new — learned reviewing 8a):** your session's
 scratchpad disappears with your session, and this environment kills

@@ -449,6 +449,63 @@ little further toward both, at once:
   thieves admire their loot, and the Monster Book now keeps count of every
   tiny hat respectfully retired.
 
+### 🕊 Two ways to face a monster
+
+Before your very first monster, the MathMaker stops you at the door and asks
+one question: **"How will you face the tangles — boldly, or gently?"**
+
+It is a question, not a class. Nothing is locked behind either answer, and you
+can change your mind at any moment, in any fight. *("You can always change your
+way. Most heroes do, eventually.")*
+
+- **⚔️ Strike** — the classic. Answer correctly, hit the monster.
+- **🕊 Soothe** — **exactly the same math, exactly the same rewards.** A correct
+  answer doesn't wound the monster; it *loosens the tangle in it*. The bar fills
+  with calm instead of draining with damage, and when it's full the monster
+  doesn't splat — it un-tenses, does whatever its kind does when it's finally at
+  ease (the slime bounces, the frost pup rolls over, the golem sits down at last
+  after four hundred years), nudges a pouch of gold over as a *gift*, and wanders
+  off. If it was wearing a tiny hat, it tips it to you.
+
+Soothing a monster **befriends its whole kind, forever**. Befriended monsters
+show up in your Monster Book on a second collection page (🕊), they walk around
+the dungeons in soft, calmed colours with a little dove over their heads — and
+**they stop starting fights with you**. They just wave as you go past. (You can
+still spar with one whenever you want; just walk into it. Guards still guard
+their posts, though, and thieves are still thieves.) When a floor's boss goes
+down, every friend in the room bounces.
+
+The shop lays its weapons out under **🕊 For gentle hands** and **⚔️ For bold
+arms** — your kind first, everything else right below it, all of it always
+buyable. There are four gentle instruments (a ribbon streamer, a bubble pipe, a
+cat-fishing wand, a set of chime bells), each exactly as strong as the sword or
+axe it sits beside. Any stance can wield anything. The identity is offered, never
+enforced.
+
+### ⚡ Brave problems
+
+A sticky **⚡ Brave** toggle sits in every battle. Turn it on and every problem
+comes one tier harder than you'd normally get — and every correct answer hits for
+**double damage**, in gold lightning.
+
+Get one wrong and *nothing extra happens*. It's an ordinary miss. Bravery is
+never a trap. Your lifetime count of brave problems solved is kept on your report
+card and your plaque in the Hall of Heroes — pride that outlives the fight.
+
+(Bosses stay real fights: no brave strike can take more than a third of one.)
+
+### 📝 Miscount's Academy
+
+Once Miscount is a teacher again (after the tenth task), he'll start bringing you
+his students' homework — two or three slates a day. **You mark it.** Some of them
+have exactly one wrong step in them, and some of them are perfect, and saying
+"it's all correct" is always a real answer.
+
+Finding someone *else's* mistake is the safest, kindest practice there is —
+especially for a kid who's frightened of making her own. Miscount is enormously
+proud of his students, and quietly delighted every time you catch something he
+missed.
+
 ### A few playtest fixes
 
 A real play session turned up some friction, since fixed: every locked door

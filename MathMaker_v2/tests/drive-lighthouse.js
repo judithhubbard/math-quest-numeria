@@ -108,7 +108,7 @@ async function bumpTile(page, ch) {
   await page.evaluate(() => {
     const s = MM.engine.state;
     s.taskIndex = 14; s.tasksDone = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-    s.metMiscount = true; s.seenBattleHelp = true;
+    s.metMiscount = true; s.seenBattleHelp = true; s.seenCeremony = true;
     s.gear = { weapon: ['stick', 'sword'], body: ['clothes', 'pearl'], helmet: ['coral'], boots: ['wavewalkers'], ring: ['guard'] };
     s.equipped = { weapon: 'sword', body: 'pearl', helmet: 'coral', boots: 'wavewalkers', ring: 'guard' };
     s.level = 18; s.maxhp = 110; s.hp = 110; s.gold = 100; s.difficulty = 'story';

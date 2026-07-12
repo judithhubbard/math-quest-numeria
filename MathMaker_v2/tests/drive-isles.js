@@ -100,7 +100,7 @@ async function battleToVictory(page, rounds) {
   await page.evaluate(() => {
     const s = MM.engine.state;
     s.taskIndex = 14; s.tasksDone = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-    s.metMiscount = true; s.seenBattleHelp = true;
+    s.metMiscount = true; s.seenBattleHelp = true; s.seenCeremony = true;
     s.gear = { weapon: ['stick', 'star'], body: ['clothes', 'dragon'], helmet: ['winged'], boots: ['dragonhide'], ring: ['guard'] };
     s.equipped = { weapon: 'star', body: 'dragon', helmet: 'winged', boots: 'dragonhide', ring: 'guard' };
     s.level = 15; s.maxhp = 94; s.hp = 94; s.gold = 100; s.difficulty = 'story';

@@ -1712,5 +1712,240 @@ for (const skill of skills) {
   MM.engine.state = null;
 }
 
+// ================= Wave 8b: the Two Kids Update, the heart =================
+
+// ---------- P1: the Soothe flavor pools ----------
+// MM.data.flavor falls back to FLAVOR.generic PER KIND — so a family missing a
+// pool is fine, but `generic` missing one hands pick() an undefined array and
+// throws. Every sprite family that any monster actually uses must resolve.
+{
+  const families = new Set();
+  for (const r of MM.data.MONSTERS) {
+    for (const t of r.types) families.add(t.sprite);
+    families.add(r.boss.sprite);
+  }
+  families.add(MM.data.GOLEM_CARD.sprite);
+  for (const kind of ['enter', 'miss', 'win', 'soothe', 'fret']) {
+    if (!MM.data.FLAVOR.generic[kind] || !MM.data.FLAVOR.generic[kind].length) {
+      fail(`FLAVOR.generic is missing the '${kind}' pool — MM.data.flavor would throw on any family that lacks it`);
+    }
+    for (const fam of families) {
+      let line;
+      try { line = MM.data.flavor(fam, kind, 'Test Monster'); }
+      catch (e) { fail(`flavor('${fam}', '${kind}') threw: ${e.message}`); continue; }
+      if (!line || typeof line !== 'string') fail(`flavor('${fam}', '${kind}') returned nothing`);
+      if (/\{name\}/.test(line)) fail(`flavor('${fam}', '${kind}') left an unsubstituted {name}`);
+    }
+  }
+  // every family a monster uses needs its own soothe + fret voice, not the fallback
+  for (const fam of families) {
+    if (!MM.data.FLAVOR[fam] || !MM.data.FLAVOR[fam].soothe) fail(`sprite family '${fam}' has no soothe pool of its own`);
+    if (!MM.data.FLAVOR[fam] || !MM.data.FLAVOR[fam].fret) fail(`sprite family '${fam}' has no fret pool of its own`);
+    if (!MM.data.SOOTHE_GESTURE[fam]) fail(`sprite family '${fam}' has no soothe victory gesture`);
+  }
+  // bespoke lines must name real monsters (a typo'd key would silently never fire)
+  const realNames = new Set(MM.data.MONSTERS.flatMap(r => [...r.types.map(t => t.name), r.boss.name]));
+  for (const name of Object.keys(MM.data.SOOTHE_BESPOKE)) {
+    if (!realNames.has(name)) fail(`SOOTHE_BESPOKE names '${name}', which is not a monster in any roster`);
+  }
+  // sootheLine must work for every monster in the game
+  for (const r of MM.data.MONSTERS) {
+    for (const t of [...r.types, r.boss]) {
+      const line = MM.data.sootheLine(t);
+      if (!line || /\{name\}/.test(line)) fail(`sootheLine('${t.name}') broken: ${line}`);
+    }
+  }
+}
+
+// ---------- P1: gentle instruments sit at MATCHED tiers ----------
+// Identity is offered, never enforced — so a gentle weapon must never be
+// strictly better OR strictly worse than the bold weapon it sits beside.
+{
+  const gentle = MM.data.WEAPONS.filter(w => w.gentle);
+  if (gentle.length < 3) fail(`expected at least 3 gentle instruments, got ${gentle.length}`);
+  for (const g of gentle) {
+    if (!g.verb) fail(`gentle weapon '${g.name}' has no soothing verb`);
+    // a ranged gentle weapon must be one atk BELOW its melee price-peer, the
+    // same trade the Smuggler's Crossbow makes (that is the whole ranged rule)
+    const peers = MM.data.WEAPONS.filter(w => !w.gentle && !w.ranged && Math.abs(w.price - g.price) <= 60 && w.price > 0);
+    if (g.ranged && peers.length) {
+      if (!peers.some(p => g.atk < p.atk)) {
+        fail(`ranged gentle weapon '${g.name}' (atk ${g.atk}) is not below its melee peer — ranged must trade power for reach`);
+      }
+    }
+  }
+  // and the starter pair must be exactly equal — the Ceremony is a question, not a handicap
+  const stick = MM.data.WEAPONS.find(w => w.id === 'stick');
+  const ribbon = MM.data.WEAPONS.find(w => w.id === 'ribbon');
+  if (!ribbon) fail('no Ribbon Streamer — the Ceremony has nothing to hand a gentle kid');
+  else if (ribbon.atk !== stick.atk || ribbon.price !== stick.price) {
+    fail(`the Ceremony's two starters must be identical in power: stick atk ${stick.atk}/${stick.price}g vs ribbon atk ${ribbon.atk}/${ribbon.price}g`);
+  }
+  if (!MM.data.GEMS.find(g => g.id === 'lullaby')) fail('the Lullaby gem is missing');
+}
+
+// ---------- P3: Brave draws harder, and never at a gate ----------
+{
+  const st = { mastery: {}, parent: { topics: {} }, brave: false };
+  // a settled kid at tier 3 in a topic: brave must cap, not overflow
+  for (let i = 0; i < 20; i++) MM.mastery.record(st, 'addsub_facts', true);
+  if (MM.mastery.tierFor(st, 'addsub_facts') !== 3) fail('fixture: expected tier 3');
+  if (MM.mastery.braveTierFor(st, 'addsub_facts') !== 3) fail('brave: tier must CAP at 3, never exceed it');
+  // a fresh kid at tier 1: brave lifts to 2
+  const fresh = { mastery: {}, parent: { topics: {} } };
+  if (MM.mastery.tierFor(fresh, 'geometry') !== 1) fail('fixture: expected tier 1');
+  if (MM.mastery.braveTierFor(fresh, 'geometry') !== 2) fail('brave: tier 1 must lift to 2');
+
+  // combat problems: normally QUICK (tier-less); brave swaps in a FULL-DEPTH one
+  const calm = { mastery: {}, parent: { topics: {} }, brave: false };
+  const bold = { mastery: {}, parent: { topics: {} }, brave: true };
+  let quicks = 0, deep = 0;
+  for (let i = 0; i < 200; i++) {
+    if (MM.mastery.combatProblem(calm, 'addsub_facts').quick) quicks++;
+    if (!MM.mastery.combatProblem(bold, 'addsub_facts').quick) deep++;
+  }
+  if (quicks !== 200) fail(`brave off: combat must draw QUICK problems (got ${quicks}/200)`);
+  if (deep !== 200) fail(`brave on: combat must draw FULL-DEPTH problems (got ${deep}/200)`);
+
+  // THE PILLAR: gates are never bumped. gateTier ignores brave unless the caller
+  // explicitly says "this is a boss" — a harder problem for no reward is a trap,
+  // and bravery is never a trap.
+  const braveSt = { mastery: {}, parent: { topics: {} }, brave: true };
+  for (let i = 0; i < 20; i++) MM.mastery.record(braveSt, 'muldiv_facts', true); // tier 3 -> base gate tier 3
+  const fresh2 = { mastery: {}, parent: { topics: {} }, brave: true };
+  const gateNoFlag = MM.mastery.gateTier(fresh2, 'geometry');        // a door/chest/seal
+  const gateBoss = MM.mastery.gateTier(fresh2, 'geometry', true);    // a boss
+  if (gateNoFlag !== 2) fail(`brave must NOT lift a door/chest/seal (got tier ${gateNoFlag}, expected the normal 2)`);
+  if (gateBoss !== 3) fail(`brave SHOULD lift a boss problem (got tier ${gateBoss}, expected 3)`);
+}
+
+// ---------- P3: the boss floor ----------
+// A brave strike may never take more than a third of a boss, so a boss is
+// always at least three correct answers — brave, crit, best gear, all of it.
+// (A flat 2x drops every boss in the game to TWO answers; this is the guard.)
+{
+  for (const d of [1, 5, 10, 21]) {
+    const bhp = MM.data.monsterStats(d, true).hp;
+    const cap = Math.ceil(bhp / 3);
+    if (cap * 2 >= bhp) fail(`boss floor broken at dungeon ${d}: two capped brave strikes (${cap}x2) would already finish a ${bhp}hp boss`);
+    if (cap * 3 < bhp) fail(`boss floor too harsh at dungeon ${d}: three capped strikes (${cap}x3) cannot finish a ${bhp}hp boss`);
+  }
+}
+
+// ---------- P4: the Academy's slates ----------
+{
+  const skills = MM.problems.spotTheError.skills();
+  if (skills.length < 8) fail(`the Academy covers only ${skills.length} topics — too thin to be daily practice`);
+  for (const sk of skills) {
+    if (!MM.data.PARENT_TOPICS.includes(sk)) fail(`spotTheError has a slate for '${sk}', which is not a parent topic`);
+    if (!MM.data.SKILL_NAMES[sk]) fail(`spotTheError skill '${sk}' has no display name`);
+    for (let i = 0; i < 60; i++) {
+      const flawed = MM.problems.spotTheError(sk, true);
+      const clean = MM.problems.spotTheError(sk, false);
+      if (!flawed || !clean) { fail(`spotTheError('${sk}') returned null`); break; }
+      // the contract the slate renderer + engine depend on
+      if (flawed.badStep < 0) fail(`spotTheError('${sk}', true) produced no planted error`);
+      if (clean.badStep !== -1) fail(`spotTheError('${sk}', false) is not clean`);
+      if (flawed.answer !== flawed.badStep) fail(`'${sk}': flawed answer index must point at the bad step`);
+      if (clean.answer !== clean.steps.length) fail(`'${sk}': a clean slate's answer must be the trailing "every step is correct"`);
+      if (clean.steps.length !== flawed.steps.length) fail(`'${sk}': clean and flawed slates must share a shape`);
+      if (!flawed.why) fail(`'${sk}': a flawed slate with no 'why' would tell the kid "Here. undefined"`);
+      if (flawed.kind !== 'choice') fail(`'${sk}': slates must be kind:'choice'`);
+      // the exam must never leak into battles or the smoke loop
+      if (MM.problems.GENERATORS[sk] === undefined) fail(`'${sk}' is not a real generator skill`);
+    }
+  }
+  // spot-the-error slates are AUTHORED, not sampled — they must stay out of the
+  // battle/mixed-review registries entirely (same contract as the final exam)
+  for (const key of Object.keys(MM.problems.QUICK)) {
+    const p = MM.problems.generateQuick(key);
+    if (p.exam) fail(`QUICK['${key}'] served an exam slate into combat`);
+  }
+  // the Wave 7 final exam still works, and its `why` is no longer undefined
+  for (let i = 0; i < MM.problems.generateExam.count; i++) {
+    const p = MM.problems.generateExam(i, true);
+    if (p.badStep >= 0 && !p.why) fail(`final exam slate ${i}: prob.why is empty — the mis-mark feedback would read "Here. undefined"`);
+  }
+  const lastSlate = MM.problems.generateExam(MM.problems.generateExam.count - 1, true);
+  if (lastSlate.badStep !== -1) fail('the final exam\'s LAST slate must always be clean, whatever is asked of it');
+}
+
+// ---------- P4: the Academy honours the parent cap ----------
+// A disabled topic must never reach the homework, and if a family has switched
+// off every topic that HAS a slate, the Academy must not appear at all rather
+// than quietly serving something they turned off.
+{
+  const only = 'geometry';
+  const topics = {};
+  for (const sk of MM.data.PARENT_TOPICS) topics[sk] = (sk === only);
+  const st = { parent: { topics }, mastery: {}, taskIndex: 12 };
+  MM.engine.state = st;
+  const avail = MM.engine.academySkills();
+  if (!avail.length) fail('academy: with geometry ON, there should be a slate available');
+  for (const sk of avail) {
+    if (sk !== only) fail(`academy cap-leak: offered '${sk}' when only '${only}' is enabled`);
+  }
+  // now disable every topic that has a slate — the entry must vanish
+  const noneOn = {};
+  for (const sk of MM.data.PARENT_TOPICS) noneOn[sk] = !MM.problems.spotTheError.skills().includes(sk);
+  MM.engine.state = { parent: { topics: noneOn }, mastery: {}, taskIndex: 12 };
+  if (MM.engine.academySkills().length) fail('academy cap-leak: served a slate when every slate-bearing topic is switched off');
+  // and it is closed before Miscount is a teacher at all
+  MM.engine.state = { parent: { topics: {} }, mastery: {}, taskIndex: 3 };
+  if (MM.engine.academySkills().length) fail('the Academy opened before Miscount became a teacher (task 10)');
+  MM.engine.state = null;
+}
+
+// ---------- P1: befriending, and the world it changes ----------
+{
+  const st = {
+    bestiary: { seen: {}, kills: {}, gauntlet: {}, befriended: {} },
+    stance: 'soothe', brave: false, pendingBadges: [],
+  };
+  MM.engine.state = st;
+  const bat = { name: 'Echo Bat', sprite: 'bat', behavior: 'wander' };
+  if (MM.engine.isBefriended(bat)) fail('a fresh profile has no friends yet');
+  if (!MM.engine.recordBefriend(bat)) fail('the FIRST of a kind should report as first');
+  if (MM.engine.recordBefriend(bat)) fail('the second of a kind is not the first');
+  if (!MM.engine.isBefriended(bat)) fail('befriending did not stick');
+  if (MM.engine.befriendedCount(st) !== 1) fail('befriended count wrong');
+
+  // befriended wanderers/chasers stand down; guards still guard, thieves still
+  // steal (the comedy is load-bearing), and bosses are never pacified at all
+  if (!MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', behavior: 'wander' })) fail('a befriended wanderer should stand down');
+  if (!MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', behavior: 'chase' })) fail('a befriended chaser should stand down');
+  if (MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', behavior: 'guard' })) fail('a befriended GUARD still guards its post');
+  if (MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', behavior: 'thief' })) fail('a befriended THIEF still steals — the joke survives the friendship');
+  if (MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', boss: true })) fail('a boss is never pacified');
+  // and a monster you have NOT befriended is never pacified
+  if (MM.engine.isPacified({ name: 'Cave Wisp', sprite: 'ghost', behavior: 'wander' })) fail('an unbefriended wanderer must still hunt');
+
+  // befriending is monotonic — like a badge, it is never taken away
+  MM.engine.recordKill(bat);
+  if (!MM.engine.isBefriended(bat)) fail('killing one later must NOT un-friend the species (no punishment mechanics)');
+  MM.engine.state = null;
+}
+
+// ---------- P1: the calmed palette ----------
+// Every colour blended, on every family — including skeleton and mage, which
+// have no A/B keys at all and would silently no-op under a naive transform.
+{
+  for (const fam of ['slime', 'rat', 'bat', 'spider', 'skeleton', 'ghost', 'golem', 'mage', 'snake']) {
+    const base = MM.sprites.DEFS[fam].colors;
+    const soft = MM.sprites.softPalette(fam, null, 0.45);
+    const keys = Object.keys(soft);
+    if (keys.length !== Object.keys(base).length) fail(`softPalette('${fam}') dropped or added keys`);
+    for (const k of keys) {
+      if (String(soft[k]).toLowerCase() === String(base[k]).toLowerCase()) {
+        fail(`softPalette('${fam}') left key '${k}' untouched — a family with no A/B would render uncalmed`);
+      }
+    }
+    // sorted keys => a stable MM.sprites cache key (the cache stringifies the palette)
+    if (JSON.stringify(keys) !== JSON.stringify(keys.slice().sort())) {
+      fail(`softPalette('${fam}') emits unsorted keys — the sprite cache would mint duplicate canvases`);
+    }
+  }
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');
 process.exit(fails ? 1 : 0);

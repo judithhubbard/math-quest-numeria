@@ -86,7 +86,12 @@ function canonicalize(p) {
       // (the first-battle tutorial fires before battle.active() is true,
       // which silently no-op'ed two whole marathon attempts) — dismiss
       // them first, and only then judge whether the battle is over
-      const overlayOk = await page.$('#overlay:not(.hidden) #dlgOk');
+      // Wave 8b: the CEREMONY ("boldly, or gently?") fires before the very first
+      // monster — a two-button dialogChoices, so it has no #dlgOk at all. Match
+      // any PRIMARY button: that covers the tutorial's OK, the ceremony's two
+      // choices, and every celebration — but never an unanswered problem modal,
+      // whose only button at that point is the secondary "Leave".
+      const overlayOk = await page.$('#overlay:not(.hidden) #dlgOk, #overlay:not(.hidden) .btnrow button.primary');
       if (overlayOk) { await overlayOk.click(); await page.waitForTimeout(250); calm = 0; continue; }
       if (!(await page.evaluate(() => MM.battle.active() || MM.ui.modalOpen()))) {
         if (++calm >= 2) return 'over'; // genuinely no battle happening
@@ -322,9 +327,44 @@ function canonicalize(p) {
   // ---------- the 13 mainland tasks, in order, for real ----------
   for (let i = 1; i <= 13; i++) {
     if (i === 2) { // spot-check forward gating once
+      // Wave 8b: by now the kid has fought a whole dungeon, so the Ceremony has
+      // been asked and winBattle answered it with the first PRIMARY button —
+      // "⚔️ Boldly". This marathon therefore walks the whole game in the Strike
+      // stance, exactly as every pre-8b run did, which is what makes it a fair
+      // regression of the old path. (Asserted HERE, not before the loop: at that
+      // point the kid has met the MathMaker but not yet met a monster.)
+      check(await ev(() => MM.engine.state.seenCeremony === true), 'the Ceremony was asked and answered at the first monster');
+      check(await ev(() => MM.engine.state.stance === 'strike'), '...and this run walks it boldly (the pre-8b path, kept honest)');
       await ev(() => MM.engine.tryEnterDungeon(7));
       check(/[Ss]ealed/.test(await page.textContent('#modalBox')), 'gate: dungeon 7 refuses while task 2 is current');
       await clearModals();
+    }
+    // Wave 8b acceptance: SOOTHE at least two battles en route, in the middle of
+    // a real playthrough — the alternate verb has to survive the whole engine
+    // (rewards, bestiary, bounties, the monster turn), not just its own drive.
+    if (i === 3) {
+      await ev(() => { MM.engine.setStance('soothe'); });
+      await ev((i) => MM.engine.tryEnterDungeon(i), i);
+      await clearModals();
+      await page.waitForFunction(() => String(MM.engine.state.mapId).startsWith('d'));
+      let soothed = 0;
+      for (let n = 0; n < 2; n++) {
+        const started = await ev(() => {
+          const s = MM.engine.state;
+          const mon = s.monsters.find(m => !m.boss && m.hp > 0);
+          if (!mon) return false;
+          MM.engine.startCombat(mon);
+          return true;
+        });
+        if (!started) break;
+        if ((await winBattle()) === 'won') soothed++;
+        await clearModals();
+      }
+      check(soothed === 2, `soothed ${soothed} of 2 battles mid-playthrough (the alternate verb, end to end)`);
+      check(await ev(() => MM.engine.befriendedCount() >= 1), '...and the befriended axis filled in for real');
+      check(await ev(() => MM.engine.state.totals.correct > 0), '...through the ordinary answer path (same math, same records)');
+      await ev(() => { MM.engine.setStance('strike'); });   // back to the bold road
+      await exitDungeonReal();
     }
     const reenter = async () => {
       await ev((i) => MM.engine.tryEnterDungeon(i), i);

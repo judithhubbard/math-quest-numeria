@@ -40,7 +40,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       badges: {},          // skill -> best badge tier earned (1 bronze, 2 silver, 3 gold)
       pendingBadges: [],   // earned but not yet celebrated (popped by ui.refresh)
       spellsCelebrated: {},// spell name -> true once its unlock celebration has shown
-      bestiary: { seen: {}, kills: {}, gauntlet: {} },  // monster name -> true / defeat count / gauntlet win
+      bestiary: { seen: {}, kills: {}, gauntlet: {}, befriended: {} },  // monster name -> true / defeat count / gauntlet win / soothed (Wave 8b)
       bounties: null,      // notice-board jobs {date, items:[...]}; null until task 1
       isleBounties: null,  // Wave 5: Port Brightwater's own separate board
       continent: 'west',   // which overworld you're on: 'west' | 'isles' | 'horologe' | 'chime' | 'gullwrack'
@@ -60,6 +60,20 @@ var MM = globalThis.MM = globalThis.MM || {};
       shopShelf: [],       // Wave 8a (P8): last few sold items, on display
       catPettedDate: null, // Wave 8a (P8): the inn cat's daily pat, once/day
       seenGearHint: false, // one-time "the shop sells sharper blades" nudge
+      // ---------- Wave 8b: the two stances ----------
+      // Two INDEPENDENT dials, both sticky, both the kid's to turn at will. They
+      // COMPOSE — a kid can be brave and soothing at once. Neither is ever
+      // auto-detected or inferred from how the kid plays (FINAL_REVIEW §5: both
+      // mechanics-sets stay available to both kids at all times).
+      stance: 'strike',    // 'strike' | 'soothe' — the VERB. Identical math,
+                           // identical progress, identical rewards; different
+                           // everything else.
+      brave: false,        // ⚡ harder problems, double strike damage, never a
+                           // trap: a brave miss costs exactly a normal miss.
+      braveSolved: 0,      // lifetime brave problems SOLVED — pride that
+                           // outlives the fight (report card + Hall of Heroes)
+      seenCeremony: false, // the first-battle question: boldly, or gently?
+      academy: null,       // Miscount's daily homework: {date, done}
     };
     E.enterWorld();
     E.save();
@@ -144,6 +158,20 @@ var MM = globalThis.MM = globalThis.MM || {};
     // gear-shop nudge: an old save past the stick has nothing to learn —
     // mark it seen so the hint can never fire as a non-sequitur late-game
     if (s.seenGearHint == null) s.seenGearHint = (s.equipped && s.equipped.weapon !== 'stick');
+    // Wave 8b: the stances, the befriended axis, and the Academy.
+    // A returning hero starts in ⚔️ Strike — which is exactly what they have
+    // been doing all along — and is NOT stopped at the door and asked how they
+    // will face their "first" monster, because they have already fought
+    // hundreds. seenCeremony is therefore derived from whether they have ever
+    // seen a battle at all (same idiom as seenGearHint above: an old save past
+    // the stick has nothing to learn from the stick hint). They discover Soothe
+    // the honest way — the stance buttons are in every battle, with tooltips.
+    if (!s.stance) s.stance = 'strike';
+    if (s.brave == null) s.brave = false;
+    if (s.braveSolved == null) s.braveSolved = 0;
+    if (s.seenCeremony == null) s.seenCeremony = !!s.seenBattleHelp;
+    if (s.academy === undefined) s.academy = null;
+    if (!s.bestiary.befriended) s.bestiary.befriended = {};
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     E.enterWorld();  // always resume on the overworld
@@ -1622,6 +1650,24 @@ var MM = globalThis.MM = globalThis.MM || {};
     for (const m of s.monsters) {
       if (m.hp <= 0) continue;
       if (m.stun > 0) { m.stun--; continue; }
+      // Wave 8b: a befriended wanderer/chaser drifts, but never initiates. It
+      // does not chase, does not attack, and cannot be woken by a thief's shout
+      // (that's the whole promise — a friend stays a friend even when the room
+      // goes loud). Bump it and you can still spar, by choice.
+      if (E.isPacified(m)) {
+        m.alerted = 0;
+        if (Math.random() < 0.5) continue;   // mostly it just stays put, at ease
+        const drift = [[1, 0], [-1, 0], [0, 1], [0, -1]].sort(() => Math.random() - 0.5);
+        for (const [dx, dy] of drift) {
+          const nx = m.x + dx, ny = m.y + dy;
+          if ((s.grid[ny] && s.grid[ny][nx]) !== '.') continue;
+          if (nx === s.px && ny === s.py) continue;
+          if (s.monsters.some(o => o !== m && o.hp > 0 && o.x === nx && o.y === ny)) continue;
+          m.x = nx; m.y = ny;
+          break;
+        }
+        continue;
+      }
       const forcedChase = (m.alerted || 0) > 0;
       if (forcedChase) m.alerted--;
       const beh = forcedChase ? 'chase' : (m.behavior || 'chase');
@@ -2154,6 +2200,67 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (mon.home) s.defeatedAt[`${s.mapId}:${mon.home.x},${mon.home.y}`] = E.todayStr();
   };
 
+  // ---------- Wave 8b (P1): the Soothe verb, and the befriended axis ----------
+  // Soothing a monster is not sparing it — it is FINISHING it, the gentle way.
+  // Same problems, same progress, same rewards. What changes is the frame: the
+  // tangle comes loose instead of coming apart. The lore always believed this
+  // ("a worked answer unties them"); the mechanic is only now catching up.
+  E.isSoothing = () => !!(E.state && E.state.stance === 'soothe');
+  E.setStance = function (stance) {
+    const s = E.state;
+    if (!s || (stance !== 'strike' && stance !== 'soothe')) return;
+    s.stance = stance;   // sticky: this is now the profile's default
+    E.save();
+  };
+  E.setBrave = function (on) {
+    const s = E.state;
+    if (!s) return;
+    s.brave = !!on;      // sticky, same as stance
+    E.save();
+  };
+
+  // Befriending is per SPECIES and permanent, exactly like a badge: once earned,
+  // never taken away. Beating one of the same kind later does not un-friend it —
+  // a collection that could be undone would be a punishment mechanic, and there
+  // are none of those in this game.
+  E.isBefriended = function (mon) {
+    const b = E.state && E.state.bestiary;
+    return !!(b && b.befriended && b.befriended[E.beastKey(mon)]);
+  };
+  E.recordBefriend = function (mon) {
+    const s = E.state;
+    const b = s.bestiary;
+    b.befriended = b.befriended || {};
+    const key = E.beastKey(mon);
+    const first = !b.befriended[key];
+    b.befriended[key] = (b.befriended[key] || 0) + 1;
+    return first;   // first of its kind — worth a ceremony
+  };
+  E.befriendedCount = function (st) {
+    const b = (st || E.state || {}).bestiary;
+    return b && b.befriended ? Object.keys(b.befriended).length : 0;
+  };
+
+  // The calmed look: a warm-white-blended palette, used by the world map, the
+  // bestiary card, and (cross-faded, as the calm rises) the battle screen.
+  // Materialized rather than flagged so MM.sprites' palette cache stays honest.
+  E.calmPalette = function (mon, amount) {
+    return MM.sprites.softPalette(mon.sprite, mon.pal || {}, amount == null ? 0.45 : amount);
+  };
+
+  // A befriended wanderer/chaser never STARTS a fight — it waves as you pass,
+  // and you may still bump it to spar voluntarily. Guards still guard their
+  // posts and thieves still steal (the comedy is load-bearing), and bosses are
+  // unaffected. For the anxious kid this turns every soothed species from
+  // ambush-anxiety into visible friendliness: her collection pays out in
+  // CONTROL of her own encounters, which is the entire point of the dial.
+  E.isPacified = function (mon) {
+    if (!mon || mon.boss) return false;
+    const beh = mon.behavior || 'chase';
+    if (beh !== 'wander' && beh !== 'chase') return false;   // guards guard, thieves thieve
+    return E.isBefriended(mon);
+  };
+
   // Topic badges: persist the best tier ever reached (never taken away).
   // The celebration dialog can't open mid-battle or over another modal, so
   // new badges queue in s.pendingBadges and ui.refresh() pops them when clear.
@@ -2192,21 +2299,37 @@ var MM = globalThis.MM = globalThis.MM || {};
   // an Overwhelm instant-win (E.tryOverwhelm, below) — the reward should
   // never depend on HOW the monster went down, only on which monster it was.
   // Extracted verbatim from the old inline victory(m) hook.
-  E.grantVictory = function (m) {
+  E.grantVictory = function (m, soothed) {
     const s = E.state;
     const task = MM.data.TASKS[s.dungeonIndex - 1];
     E.recordKill(m);
     E.bountyEvent('kill');
     if (m.behavior === 'thief') E.bountyEvent('thief'); // Wave 5: "catch 2 thieves"
+    // Wave 8b: a soothed monster is recorded on the SECOND collection axis, and
+    // the first of each kind earns a small ceremony (queued like a badge, so it
+    // never interrupts the battle it was won in).
+    let firstFriend = false;
+    if (soothed) {
+      firstFriend = E.recordBefriend(m);
+      if (firstFriend) (s.pendingBadges = s.pendingBadges || []).push({ befriend: E.beastKey(m), sprite: m.sprite, pal: m.pal || null });
+    }
     const baseGold = m.boss ? m.gold : Math.floor(Math.random() * (2 * s.dungeonIndex)) + s.dungeonIndex;
     const gold = E.gainGold(baseGold);
     const levelsBefore = s.level;
     E.gainXp(m.xp);
     const lines = [
       `⭐ +${m.xp} XP`,
-      `💰 +${gold} gold${gold > baseGold ? ' 🧲' : ''}`,
+      // Identical rewards, either way. The gold is not looted from a body — it
+      // is nudged over, with a pouch, by something that has decided it likes you.
+      soothed
+        ? `💰 +${gold} gold${gold > baseGold ? ' 🧲' : ''} <span class="dim">— a grateful gift</span>`
+        : `💰 +${gold} gold${gold > baseGold ? ' 🧲' : ''}`,
     ];
-    if (m.hat) { s.gold += 1; s.hatsRetired = (s.hatsRetired || 0) + 1; lines.push('🎩 +1 gold — for the tiny hat.'); }
+    if (m.hat) {
+      s.gold += 1; s.hatsRetired = (s.hatsRetired || 0) + 1;
+      // Non-negotiable.
+      lines.push(soothed ? '🎩 It tips the tiny hat to you. +1 gold.' : '🎩 +1 gold — for the tiny hat.');
+    }
     if (m.stolen) {
       const back = E.gainGold(Math.ceil(m.stolen * 1.5));
       lines.push(`🪶 Caught the thief! Your <b>${m.stolen} gold</b> back — with interest: <b>+${back}</b>!`);
@@ -2271,10 +2394,22 @@ var MM = globalThis.MM = globalThis.MM || {};
       lines.push(`${task.itemEmoji} <b>You found the ${task.item}!</b>`);
       lines.push(task.exp ? `Bring it to Miscount 🧑‍🎓 across the bridge!` : `Bring it to the MathMaker at the castle! 🏰`);
     }
+    // Wave 8b: the calmed monster's own send-off, and the friendship, spelled
+    // out. Bosses keep their existing sincere endings — they were always being
+    // soothed; the story just never had a word for it until now.
+    if (soothed) {
+      if (!m.boss) lines.push(`🕊 <i>${MM.data.sootheLine(m)}</i>`);
+      lines.push(firstFriend
+        ? `🕊 <b>${E.beastKey(m)} is your friend now.</b> Its card is marked in your 📕 Monster Book.`
+        : `🕊 Another ${E.beastKey(m)}, calmed.`);
+    }
     // Wave 8a (P8, delight catalog): "post-boss high-five hop" — one small
     // pet cheer on any boss win, zero design weight, no state to track.
+    // Wave 8b: the pet's HAPPIEST hop is reserved for a soothe victory.
     if (m.boss && s.isles && s.isles.pet) {
-      lines.push(`🐾 ${s.isles.pet.name} hops up for a high-five. You oblige.`);
+      lines.push(soothed
+        ? `🐾 ${s.isles.pet.name} is bouncing so hard it keeps leaving the ground. This is the happiest you have ever seen it.`
+        : `🐾 ${s.isles.pet.name} hops up for a high-five. You oblige.`);
     }
     // 2026-07-12 playtest: a kid reached mid-game never realizing gear
     // upgrades exist — the sidebar NAMES the stick, but nothing SAYS the
@@ -2293,6 +2428,31 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.save();
     return lines;
   };
+
+  // ---------- Wave 8b: friends celebrate the boss falling ----------
+  // Every living BEFRIENDED monster still on the floor bounces when the boss
+  // goes down — struck or soothed, it doesn't matter, the room is free either
+  // way. Hostiles stay exactly as they were, still tangled, and that contrast is
+  // the whole story, told in one glance. If the boss was SOOTHED it lingers a
+  // beat and joins in before it wanders off. Fires once, ~2s, never blocks
+  // input; under Calm Mode the hop stays and the motes don't (a ceremony, but a
+  // quiet one).
+  E.friendCheer = null;   // {until, boss?} — read by ui.drawWorld; in memory only
+  E.friendsCelebrate = function (boss, soothed) {
+    const s = E.state;
+    const friends = (s.monsters || []).filter(m => m.hp > 0 && E.isBefriended(m));
+    if (!friends.length && !soothed) return;
+    E.friendCheer = {
+      until: Date.now() + 2200,
+      boss: soothed && boss ? { x: boss.x, y: boss.y, sprite: boss.sprite, pal: boss.pal || null } : null,
+    };
+    if (friends.length) {
+      MM.ui.log(friends.length === 1
+        ? '🕊 Across the room, your friend is bouncing.'
+        : '🕊 All around the room, your friends are bouncing.');
+    }
+  };
+  E.friendCheerActive = () => !!(E.friendCheer && Date.now() < E.friendCheer.until);
 
   // Shared with E.tryOverwhelm (Wave 8a, P7): the same topic-priority logic
   // startCombat uses for a live monster's regular (non-boss) quick problems —
@@ -2339,8 +2499,15 @@ var MM = globalThis.MM = globalThis.MM || {};
         recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
         if (!correct) return { msg: 'It shakes off the hesitation — <b>the fight begins for real!</b>', end: 'fight' };
         mon.hp = 0; // defeated, same as a real battle leaves it (m.hp > 0 gates aliveness everywhere else)
-        E.grantVictory(mon);
-        return { msg: 'It takes one look at your worked answer and unties itself on the spot.', end: 'won' };
+        // Overwhelm honours the stance too: a gentle kid who has outgrown a
+        // dungeon still befriends what she meets there.
+        E.grantVictory(mon, E.isSoothing());
+        return {
+          msg: E.isSoothing()
+            ? 'It takes one look at your worked answer and simply comes untied — and then, unhurried, wanders off.'
+            : 'It takes one look at your worked answer and unties itself on the spot.',
+          end: 'won',
+        };
       },
       onEnd(reason) {
         if (reason === 'won') { MM.ui.refresh(); return; }
@@ -2349,6 +2516,90 @@ var MM = globalThis.MM = globalThis.MM || {};
         E.startCombat(mon);
       },
     });
+  };
+
+  // ---------- Wave 8b: the shared stance hooks ----------
+  // startCombat, startArenaBattle and startGauntletBattle each build their own
+  // hooks object (they always have — their victory/pickProblem differ). The
+  // STANCE behaviour is identical in all three, so it lives here once: a battle
+  // is a battle, whether it's a Slime, a Homework Golem, or a boss rematch.
+  //
+  // `frost` is the caller's own frostPending cell (a one-element array so it can
+  // be written through) — the Frost gem is per-battle state the caller owns.
+  E.stanceHooks = function (mon, frost) {
+    const s = E.state;
+    let freeMissUsed = false;   // ONE free counterattack skip per battle, whatever grants it
+    return {
+      stance: () => s.stance || 'strike',
+      brave: () => !!s.brave,
+      setStance(v) { E.setStance(v); },
+      setBrave(v) { E.setBrave(v); },
+      // What your weapon DOES when you're soothing. Gentle instruments carry
+      // their own verb; anything else is simply held out, gently, which is its
+      // own kind of funny when it's a battle axe.
+      soothingVerb() {
+        const w = E.equippedItem('weapon');
+        return (w && w.verb) || 'holds steady in front of';
+      },
+      playerStrike() {
+        let dmg = E.rollStrike();
+        const brave = !!s.brave;
+        // ⚡ Brave: DOUBLE damage for the harder problem. playerStrike fires
+        // exactly once per CORRECT battle answer, which is precisely what
+        // "brave problems solved" means — so the lifetime counter lives here.
+        if (brave) { dmg *= 2; s.braveSolved = (s.braveSolved || 0) + 1; }
+        const crit = s.streak >= 5 && Math.random() < 0.25;
+        if (crit) dmg *= 2;
+        if (crit && E.hasEnchant('leech')) s.hp = Math.min(s.maxhp, s.hp + 2);
+        if (E.hasEnchant('frost')) frost[0] = true;
+        // THE BOSS FLOOR. A boss must always be a real fight: no single brave
+        // strike may take more than a third of one, so even a perfect brave run
+        // with a crit and best-in-slot gear still needs three correct answers.
+        //
+        // This is load-bearing, not a nicety. Simulated across the whole gear
+        // ladder, a flat 2× (compounding with a 2× crit) drops bosses to TWO
+        // answers from dungeon 1 to dungeon 21 — a boss you barely meet. Brave
+        // keeps its full double damage everywhere else; it just cannot make a
+        // boss trivial. Regular monsters are uncapped: halving those fights is
+        // exactly the power the kid opted in for.
+        if (brave && mon.boss) dmg = Math.min(dmg, Math.ceil(mon.maxhp / 3));
+        return { dmg, crit, brave, soothing: E.isSoothing() };
+      },
+      applyMonsterHit(m) {
+        const dmg = E.rollMonsterHit(m.atk, frost[0] ? 2 : 0);
+        frost[0] = false;
+        s.hp -= dmg;
+        return { dmg, dead: s.hp <= 0 };
+      },
+      // The FIRST counterattack of a battle can be skipped outright, by either
+      // of two sources — a ranged weapon (you're simply out of reach) or the
+      // Lullaby gem while soothing (it's already yawning). One flag, because
+      // there is only ever one first counterattack; if a kid somehow has both,
+      // they still get exactly one skip, and the message names the reason.
+      freeFirstMiss() {
+        if (freeMissUsed) return null;
+        if (E.isRangedEquipped()) {
+          freeMissUsed = true;
+          return { float: 'OUT OF REACH!', msg: `🏹 ${MM.data.theMon(mon.name, true)} swings at empty air — you're out of reach!` };
+        }
+        if (E.isSoothing() && E.hasEnchant('lullaby')) {
+          freeMissUsed = true;
+          return { float: 'ALREADY YAWNING', msg: `🎐 ${MM.data.theMon(mon.name, true)} raises a claw, thinks better of it, and yawns instead.` };
+        }
+        return null;
+      },
+      playerHp: () => Math.max(0, s.hp),
+      playerMaxHp: () => s.maxhp,
+      playerAtkLabel: () => {
+        const r = E.strikeRange();
+        const b = s.brave ? 2 : 1;
+        const verb = E.isSoothing() ? '🕊 calms' : '⚔️ strikes';
+        return `${verb} ${r.min * b}–${r.max * b} per correct answer${s.brave ? ' ⚡' : ''}`;
+      },
+      playerDefLabel: () => `🛡️ blocks ${E.totalDef()}`,
+      isRanged: () => E.isRangedEquipped(),
+      rangedNote: () => E.rangedNote(),
+    };
   };
 
   E.startCombat = function (mon) {
@@ -2360,19 +2611,23 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (mon.hat == null) mon.hat = !mon.boss && Math.random() < 0.02;
     E.markSeen(mon);
     let retryUsed = false; // Ring of Retry: one second-try per battle
-    let frostPending = false; // Frost gem: chills the monster's NEXT counterattack
+    const frostPending = [false]; // Frost gem: chills the monster's NEXT counterattack
     const begin = () => MM.battle.start(mon, {
       dungeonIndex: s.dungeonIndex,
-      hooks: {
+      hooks: Object.assign(E.stanceHooks(mon, frostPending), {
         // regular monsters ask quick problems (pace!); bosses ask the big ones.
         // Expansion dungeons draw from every topic, weakest-first.
         pickProblem: () => {
           E.spendStamina(1); // each battle round is tiring
           if (mon.boss) {
-            if (task.spire) return MM.mastery.pickSpireGate(s);
-            if (task.breakwater) return MM.mastery.pickBreakwaterGate(s);
+            // `true` = this is a BOSS, so the ⚡ Brave stance may lift the tier.
+            // Doors/chests/seals call these same pickers with no flag and are
+            // never bumped — bravery pays in double damage, which only exists
+            // in a fight, so a harder problem anywhere else would be a trap.
+            if (task.spire) return MM.mastery.pickSpireGate(s, true);
+            if (task.breakwater) return MM.mastery.pickBreakwaterGate(s, true);
             const mixed = task.mixed || E.isDeepWingFloor(s);
-            return mixed ? MM.mastery.pickMixedGate(s) : MM.mastery.pickBossProblem(s, s.dungeonIndex);
+            return mixed ? MM.mastery.pickMixedGate(s, true) : MM.mastery.pickBossProblem(s, s.dungeonIndex, true);
           }
           // Wave 8a (P2, monster telegraphs): a mixed-dungeon monster bound
           // to a topic (mon.skill, its telegraph icon) asks THAT topic — the
@@ -2390,26 +2645,6 @@ var MM = globalThis.MM = globalThis.MM || {};
           retryUsed = true;
           return true;
         },
-        playerStrike() {
-          let dmg = E.rollStrike();
-          const crit = s.streak >= 5 && Math.random() < 0.25;
-          if (crit) dmg *= 2;
-          if (crit && E.hasEnchant('leech')) s.hp = Math.min(s.maxhp, s.hp + 2);
-          if (E.hasEnchant('frost')) frostPending = true;
-          return { dmg, crit };
-        },
-        applyMonsterHit(m) {
-          const dmg = E.rollMonsterHit(m.atk, frostPending ? 2 : 0);
-          frostPending = false;
-          s.hp -= dmg;
-          return { dmg, dead: s.hp <= 0 };
-        },
-        playerHp: () => Math.max(0, s.hp),
-        playerMaxHp: () => s.maxhp,
-        playerAtkLabel: () => { const r = E.strikeRange(); return `⚔️ strikes ${r.min}–${r.max} per correct answer`; },
-        playerDefLabel: () => `🛡️ blocks ${E.totalDef()}`,
-        isRanged: () => E.isRangedEquipped(),
-        rangedNote: () => E.rangedNote(),
         // The Murk's two-phase twist: at 50% HP it "thickens" (+2 atk),
         // telegraphed via the same one-shot line the monster's entrance uses.
         afterStrike(m) {
@@ -2421,11 +2656,15 @@ var MM = globalThis.MM = globalThis.MM || {};
           return null;
         },
         victory(m) {
-          return { lines: E.grantVictory(m) };
+          return { lines: E.grantVictory(m, E.isSoothing()) };
         },
         onEnd(result) {
           s.seaLegs = false; // the fizz lasts one battle
           if (result.dead) return E.die();
+          // Wave 8b: when a floor's boss falls — struck OR soothed — every
+          // living friend in the room celebrates. The hostiles don't, and that
+          // contrast IS the story, told in one glance.
+          if (mon.boss && result.won) E.friendsCelebrate(mon, E.isSoothing());
           if (result.fled) {
             // Fleeing is always allowed (gentle failure) — but the monster
             // catches its breath and recovers FULLY, so running away can't be
@@ -2450,31 +2689,66 @@ var MM = globalThis.MM = globalThis.MM || {};
               `"The sea is <i>full</i> of islands, you know," Callie adds, watching the beam sweep past the dark water. "Full of them."`);
           }
         },
-      },
+      }),
     });
-    if (!s.seenBattleHelp) {
+    const tutorial = () => {
+      if (s.seenBattleHelp) return begin();
       s.seenBattleHelp = true;
       E.save();
+      const soothing = E.isSoothing();
       MM.ui.dialog('⚔️ Your first battle!',
         `Here's how battles work:<br><br>
-         🗡 Each round you get a <b>math problem</b>. Answer <b>correctly</b> and you strike
-         for <b>${E.strikeRange().min}–${E.strikeRange().max} damage</b> (your weapon decides how hard you hit).<br><br>
-         👹 Then the monster strikes back! Your <b>armor blocks</b> part of its damage —
-         and if you answered correctly, you might <b>dodge</b> it completely.<br><br>
-         ✗ A wrong answer means your attack <b>misses</b> — but you'll be shown the solution,
+         🗡 Each round you get a <b>math problem</b>. Answer <b>correctly</b> and you
+         ${soothing ? '<b>calm the monster</b> — the tangle in it comes a little looser' : 'strike'}
+         for <b>${E.strikeRange().min}–${E.strikeRange().max}</b> (your weapon decides how much).<br><br>
+         👹 Then the monster ${soothing ? 'lashes out anyway — it is still tangled, and still frightened' : 'strikes back'}!
+         Your <b>armor blocks</b> part of its damage — and if you answered correctly, you might <b>dodge</b> it completely.<br><br>
+         ✗ A wrong answer means it <b>doesn't land</b> — but you'll be shown the solution,
          so you'll get it next time.<br><br>
-         🔥 Answer streaks add bonus damage, and at 5+ you can land <b>CRITICAL HITS</b>.<br><br>
-         Regular monsters ask <b>quick</b> questions. Save your deep thinking for
-         <b>bosses</b>, <b>doors</b> 🚪 and <b>chests</b> 🎁 — they ask the big ones.<br><br>
+         🔥 Answer streaks add bonus power, and at 5+ you can land <b>CRITICAL HITS</b>.<br><br>
+         🕊⚔️ You can switch between <b>Strike</b> and <b>Soothe</b> whenever you like — the
+         buttons are right there in the battle, and the math is <b>exactly the same</b> either way.<br><br>
          🏃 You can always <b>flee</b> — but the monster <b>recovers all its health</b>
          while you run. Sticking with it is how you win!<br><br>
          Take your time — there are <b>no timers</b>. Good luck!<br><br>
          <i>Why do monsters come apart when you show your work? The Sage has theories.
          The monsters decline to comment.</i>`,
         begin);
-    } else {
-      begin();
+    };
+    // ---------- Wave 8b: the Ceremony ----------
+    // Before their very first monster, the kid is ASKED how they'd like to face
+    // the tangles. It is a question, not a class: it sets a starting stance and
+    // a matching (identically-statted) starter instrument, and the sealing line
+    // says out loud that it can be changed. There is no content behind either
+    // door, nothing is locked, and nothing about the choice is ever measured.
+    // (FINAL_REVIEW §5: never auto-detect or enforce which kid is which.)
+    if (!s.seenCeremony) {
+      s.seenCeremony = true;
+      E.save();
+      const choose = (stance, weaponId) => {
+        s.stance = stance;
+        if (weaponId && !s.gear.weapon.includes(weaponId)) s.gear.weapon.push(weaponId);
+        if (weaponId) s.equipped.weapon = weaponId;
+        E.save();
+        MM.ui.dialog('🕯 Then that is how you begin',
+          `${stance === 'soothe'
+            ? 'The MathMaker hands you a <b>🎀 Ribbon Streamer</b>. "Gently, then. It works — I promise you it works. A tangle comes loose exactly as well as it comes apart."'
+            : 'The MathMaker hands you a <b>🥢 Wooden Stick</b>. "Boldly, then. Go and meet it."'}
+           <br><br>
+           <i>"You can always change your way. Most heroes do, eventually."</i>`,
+          tutorial);
+      };
+      return MM.ui.dialogChoices('🕯 Before your first monster',
+        `The MathMaker stops you at the door.<br><br>
+         "There is a thing in there, and it is <b>tangled</b> — that is all a monster has ever been. You will undo it with a
+         worked answer either way; the arithmetic does not care how you hold yourself while you do it." He pauses.<br><br>
+         <b>"So — how will you face the tangles: boldly, or gently?"</b>`,
+        [
+          { label: '⚔️ Boldly', primary: true, onClick: () => choose('strike', 'stick') },
+          { label: '🕊 Gently', primary: true, onClick: () => choose('soothe', 'ribbon') },
+        ]);
     }
+    tutorial();
   };
 
   E.gainXp = function (amount) {
@@ -2827,6 +3101,18 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (curTask) {
       buttons.push({ label: `📜 About the ${curTask.item}...`, onClick: () => E.miscountAssign() });
     }
+    // Wave 8b (P4): the Academy. Judging someone ELSE's work is the safest
+    // practice there is for a kid who fears her own mistakes — the error is
+    // Miscount's, finding it is a kindness, and "it's correct!" is always a
+    // live answer. It opens the moment he becomes a teacher (task 10), a whole
+    // act before the final exam it was originally locked behind.
+    if (E.academySkills().length) {
+      const done = E.academyDoneToday();
+      buttons.push({
+        label: done ? '📝 Homework (all marked today)' : "📝 Check my students' homework",
+        onClick: () => E.academy(),
+      });
+    }
     // Wave 5 item 4: rematch any boss you've ever beaten, at +20% stats
     if (Object.keys(s.bossesDefeated || {}).length) {
       buttons.push({ label: "🏆 Champion's Gauntlet", onClick: () => E.gauntletMenu() });
@@ -2890,45 +3176,29 @@ var MM = globalThis.MM = globalThis.MM || {};
     };
     E.markSeen(mon);
     let retryUsed = false;
-    let frostPending = false;
+    const frostPending = [false];
     MM.battle.start(mon, {
       dungeonIndex: idx,
-      hooks: {
+      hooks: Object.assign(E.stanceHooks(mon, frostPending), {
         // mirrors the exact branching E.mathDoor/startCombat use for this
         // dungeon's TASKS entry — a mixed/isle/Spire boss's rematch must
         // draw from the same pool the real fight would, not a null skill
         pickProblem: () => {
           E.spendStamina(1);
           const t = MM.data.TASKS[idx - 1];
-          if (t.spire) return MM.mastery.pickSpireGate(E.state);
-          if (t.breakwater) return MM.mastery.pickBreakwaterGate(E.state);
-          return t.mixed ? MM.mastery.pickMixedGate(E.state) : MM.mastery.pickBossProblem(E.state, idx);
+          // a rematch is still a boss fight — the ⚡ Brave stance applies
+          if (t.spire) return MM.mastery.pickSpireGate(E.state, true);
+          if (t.breakwater) return MM.mastery.pickBreakwaterGate(E.state, true);
+          return t.mixed ? MM.mastery.pickMixedGate(E.state, true) : MM.mastery.pickBossProblem(E.state, idx, true);
         },
         recordAnswer,
         dodgeChance: () => E.dodgeChance(),
         tryRetry() { if (retryUsed || !E.hasCharm('ring')) return false; retryUsed = true; return true; },
-        playerStrike() {
-          let dmg = E.rollStrike();
-          const crit = s.streak >= 5 && Math.random() < 0.25;
-          if (crit) dmg *= 2;
-          if (crit && E.hasEnchant('leech')) s.hp = Math.min(s.maxhp, s.hp + 2);
-          if (E.hasEnchant('frost')) frostPending = true;
-          return { dmg, crit };
-        },
-        applyMonsterHit(m) {
-          const dmg = E.rollMonsterHit(m.atk, frostPending ? 2 : 0);
-          frostPending = false;
-          s.hp -= dmg;
-          return { dmg, dead: s.hp <= 0 };
-        },
-        playerHp: () => Math.max(0, s.hp),
-        playerMaxHp: () => s.maxhp,
-        playerAtkLabel: () => { const r = E.strikeRange(); return `⚔️ strikes ${r.min}–${r.max} per correct answer`; },
-        playerDefLabel: () => `🛡️ blocks ${E.totalDef()}`,
-        isRanged: () => E.isRangedEquipped(),
-        rangedNote: () => E.rangedNote(),
         victory() {
           E.recordKill(mon);
+          if (E.isSoothing() && E.recordBefriend(mon)) {
+            (s.pendingBadges = s.pendingBadges || []).push({ befriend: E.beastKey(mon), sprite: mon.sprite, pal: mon.pal || null });
+          }
           s.bestiary.gauntlet = s.bestiary.gauntlet || {};
           const firstWin = !s.bestiary.gauntlet[mon.name];
           s.bestiary.gauntlet[mon.name] = true;
@@ -2951,8 +3221,79 @@ var MM = globalThis.MM = globalThis.MM || {};
           E.save();
           MM.ui.refresh();
         },
-      },
+      }),
     });
+  };
+
+  // ---------- Wave 8b (P4): Miscount's Academy ----------
+  // 2-3 slates a real day, like the notice board. Small gold. No fail state at
+  // all — a wrong mark just shows you which step it really was, and you may
+  // keep going. Parent-cap aware: the slates only ever come from topics the
+  // family has switched ON (spotTheError has no slate for time_reading or
+  // music_reading — you READ a clock, you don't derive it — so if a parent has
+  // ONLY those enabled, the menu entry doesn't appear at all rather than
+  // quietly serving a disabled topic).
+  const ACADEMY_SLATES = 3;
+  E.academySkills = function () {
+    const s = E.state;
+    if (!s || s.taskIndex < 10) return [];      // he is only a teacher after his redemption
+    const allowed = MM.mastery.cappedSkills(s);
+    return MM.problems.spotTheError.skills().filter(sk => allowed.includes(sk));
+  };
+  E.academyDoneToday = function () {
+    const s = E.state;
+    return !!(s.academy && s.academy.date === E.todayStr() && s.academy.done >= ACADEMY_SLATES);
+  };
+  E.academy = function () {
+    const s = E.state;
+    const skills = E.academySkills();
+    if (!skills.length) return;
+    if (!s.academy || s.academy.date !== E.todayStr()) s.academy = { date: E.todayStr(), done: 0 };
+    if (E.academyDoneToday()) {
+      return MM.ui.dialog('📝 The Academy',
+        '"All marked, and marked well." Miscount stacks the slates with enormous care. ' +
+        '"They\'ll have fresh ones for you tomorrow — they always do."',
+        () => E.miscountArena());
+    }
+    // weakest-first, so the homework quietly steers practice where it helps
+    const ranked = MM.mastery.weakestFirst(s, skills);
+    let n = s.academy.done;
+    const step = () => {
+      const skill = ranked[n % Math.min(3, ranked.length)];
+      // a real coin-flip: a clean slate is always a live possibility, so the kid
+      // can never just hunt for an error and be right by default
+      const prob = MM.problems.spotTheError(skill, Math.random() < 0.6);
+      if (!prob) return MM.ui.refresh();
+      MM.ui.showProblem({
+        header: `📝 <b>Homework — slate ${n + 1} of ${ACADEMY_SLATES}</b><br>` +
+          `<span class="dim">${MM.data.SKILL_NAMES[skill]}. Which step went wrong — or is every step right?</span>`,
+        problem: prob,
+        leaveLabel: 'Set down the chalk',
+        onAnswer(correct) {
+          // The Academy is MARKING, not being marked: like the final exam, it
+          // never touches mastery or badges. The kid is the grader here.
+          n++;
+          s.academy.done = n;
+          const last = n >= ACADEMY_SLATES;
+          let msg = correct
+            ? (prob.badStep < 0 ? MM.data.pick(MM.data.ACADEMY_CLEAN) : MM.data.pick(MM.data.ACADEMY_CAUGHT))
+            : (prob.badStep < 0
+              ? '<i>"Look again — that one really does hold up. Every step of it."</i>'
+              : `<i>${MM.data.pick(MM.data.ACADEMY_MISSED)} "<b>Step ${prob.badStep + 1}.</b> ${prob.why}"</i>`);
+          if (last) {
+            const gold = E.gainGold(6 + 2 * Math.min(10, s.taskIndex));
+            msg += `<br><br>🧑‍🎓 "That's the lot. Here —" he presses <b>${gold} gold</b> into your hand — ` +
+              `"marking is work, and work gets paid."`;
+            MM.sound.fanfare();
+          }
+          E.save();
+          return { msg, end: last ? 'win' : undefined };
+        },
+        onNext: step,
+        onEnd() { MM.ui.refresh(); },
+      });
+    };
+    MM.ui.dialog('📝 The Academy', MM.data.pick(MM.data.ACADEMY_INTRO), step);
   };
 
   E.miscountAssign = function () {
@@ -3005,10 +3346,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     };
     E.markSeen(mon);
     let retryUsed = false;
-    let frostPending = false;
+    const frostPending = [false];
     MM.battle.start(mon, {
       dungeonIndex: 9, // wizard-tower purples for the sparring stage
-      hooks: {
+      hooks: Object.assign(E.stanceHooks(mon, frostPending), {
         pickProblem: () => { E.spendStamina(1); return MM.mastery.pickArenaProblem(s); },
         recordAnswer,
         dodgeChance: () => E.dodgeChance(),
@@ -3017,28 +3358,13 @@ var MM = globalThis.MM = globalThis.MM || {};
           retryUsed = true;
           return true;
         },
-        playerStrike() {
-          let dmg = E.rollStrike();
-          const crit = s.streak >= 5 && Math.random() < 0.25;
-          if (crit) dmg *= 2;
-          if (crit && E.hasEnchant('leech')) s.hp = Math.min(s.maxhp, s.hp + 2);
-          if (E.hasEnchant('frost')) frostPending = true;
-          return { dmg, crit };
-        },
-        applyMonsterHit(m) {
-          const dmg = E.rollMonsterHit(m.atk, frostPending ? 2 : 0);
-          frostPending = false;
-          s.hp -= dmg;
-          return { dmg, dead: s.hp <= 0 };
-        },
-        playerHp: () => Math.max(0, s.hp),
-        playerMaxHp: () => s.maxhp,
-        playerAtkLabel: () => { const r = E.strikeRange(); return `⚔️ strikes ${r.min}–${r.max} per correct answer`; },
-        playerDefLabel: () => `🛡️ blocks ${E.totalDef()}`,
-        isRanged: () => E.isRangedEquipped(),
-        rangedNote: () => E.rangedNote(),
         victory() {
           E.recordKill(mon);
+          // A soothed Homework Golem is befriended like anything else — and it
+          // is a golem conjured FROM homework, so it takes this extremely well.
+          if (E.isSoothing() && E.recordBefriend(mon)) {
+            (s.pendingBadges = s.pendingBadges || []).push({ befriend: E.beastKey(mon), sprite: mon.sprite, pal: mon.pal || null });
+          }
           E.bountyEvent('spar');
           s.sparWins = L;
           const gold = E.gainGold(8 + 4 * L), xp = 10 + 2 * L;
@@ -3069,7 +3395,7 @@ var MM = globalThis.MM = globalThis.MM || {};
           E.save();
           MM.ui.refresh();
         },
-      },
+      }),
     });
   };
 

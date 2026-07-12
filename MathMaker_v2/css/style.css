@@ -264,6 +264,9 @@ button.mini { padding: 2px 10px; font-size: 12px; }
   transition: width 0.25s ease-out;
 }
 .bbar .fill.mon { background: linear-gradient(90deg, #e05252, #ff9d5c); }
+/* Wave 8b: the calm meter. The SAME bar and the same number — under Soothe it
+   fills with teal instead of draining red. Nothing about the fight changed. */
+.bbar .fill.mon.calm { background: linear-gradient(90deg, #7ee0e8, #a8e6cf); }
 .bbar .fill.hero { background: linear-gradient(90deg, #4cd964, #a8e063); }
 .bbar .fill.hero.low { background: linear-gradient(90deg, #e05252, #ff9d5c); }
 .bbar .ghost {
@@ -295,7 +298,31 @@ button.mini { padding: 2px 10px; font-size: 12px; }
   font-size: 15.5px; line-height: 1.4;
 }
 .battle-problem { padding-top: 6px; }
-.battle-btnrow { margin-top: 12px; }
+.battle-btnrow { margin-top: 12px; justify-content: space-between; align-items: center; }
+
+/* ---------- Wave 8b: the stance row ---------- */
+/* Sticky toggles, never a per-strike press. They sit at the FAR END from Flee
+   so a kid reaching for one can't fat-finger the other. */
+.stance-row { display: flex; gap: 6px; }
+.stance-btn {
+  background: #3a3161; color: #b4a9df;
+  border: 2px solid transparent;
+  padding: 4px 11px; font-size: 12.5px;
+}
+.stance-btn.on { background: #32405a; color: #efeaff; border-color: #ffd94a99; }
+.stance-btn.on.soothe { border-color: #7ee0e8; color: #d8fbff; }
+.stance-btn.brave.on {
+  border-color: #ffd94a; color: #ffe9a3;
+  box-shadow: 0 0 10px #ffd94a55;
+}
+.victory-title.calm {
+  color: #7ee0e8;
+  animation: calmGlow 1.6s ease-in-out infinite alternate;
+}
+@keyframes calmGlow {
+  from { text-shadow: 0 0 6px #7ee0e844; }
+  to { text-shadow: 0 0 20px #7ee0e8bb; }
+}
 
 .victory-panel { text-align: center; padding: 8px 0; }
 .victory-title {
@@ -341,6 +368,13 @@ button.mini { padding: 2px 10px; font-size: 12px; }
 .beast-desc { font-size: 12.5px; color: #9d92c9; font-style: italic; line-height: 1.35; }
 .beast-count { color: #ffd94a; font-size: 13px; white-space: nowrap; }
 .beast-unknown { opacity: 0.8; }
+/* Wave 8b: the befriended card. An inset frame rather than a background, so it
+   survives the :nth-child(odd) zebra striping without an !important fight —
+   the same idiom .hero-me uses. Teal = the calm axis, everywhere. */
+.beast-row.beast-befriended { box-shadow: inset 0 0 0 2px #7ee0e866; }
+.beast-friend { color: #7ee0e8; font-size: 13px; white-space: nowrap; margin-left: 8px; }
+.beast-helped { font-size: 12px; color: #7ee0e8; font-style: italic; margin-top: 2px; }
+.hero-honours { font-size: 12px; color: #7ee0e8; }
 .shop-price { width: 58px; text-align: right; color: #ffd94a; }
 .shop-row button.shop-buy { padding: 4px 14px; font-size: 13.5px; }
 .shop-row span.shop-buy { font-size: 13px; color: #6ee87e; }

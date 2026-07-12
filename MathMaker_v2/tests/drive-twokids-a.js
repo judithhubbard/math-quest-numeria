@@ -75,7 +75,7 @@ function canonicalize(p) {
   await ev(() => {
     const s = MM.engine.state;
     s.taskIndex = 14; s.tasksDone = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-    s.metMiscount = true; s.seenBattleHelp = true; s.gold = 500;
+    s.metMiscount = true; s.seenBattleHelp = true; s.seenCeremony = true; s.gold = 500;
     s.level = 1; s.maxhp = 40; s.hp = 40;
     MM.engine.recalcMaxStamina(); s.stamina = s.maxStamina;
     MM.engine.save();

@@ -60,6 +60,35 @@ ever so it only ever counts up); and the growth-tracking save shape
 (`recordAnswer` populating `lastPracticed`/`history`/`recentMisses` in the
 shape the parent panel and report card read).
 
+Wave 8b adds: the Soothe flavor pools (every sprite family a monster actually
+uses must resolve `soothe` and `fret` — and `FLAVOR.generic` must carry BOTH,
+because `MM.data.flavor` falls back to it per-kind and `pick(undefined)` would
+throw; plus every `SOOTHE_BESPOKE` key is proven to name a real monster, so a
+typo can't silently never fire); the gentle instruments sitting at MATCHED tiers
+(a ranged gentle weapon must be one atk BELOW its melee peer, and the Ceremony's
+two starters must be *identical* in power — a question, not a handicap); Brave's
+tier lift (capping at 3, swapping the quick problem for a full-depth one) and
+**the pillar that it never lifts a door/chest/seal** — bravery pays in double
+damage, which only exists in a fight, so a harder problem anywhere else would be
+a trap; **the boss floor** (a brave strike may never take more than ⌈maxhp/3⌉ off
+a boss, so a boss is always ≥3 correct answers — a flat 2× drops every boss in
+the game to two); the Academy's eleven slates (each proven to plant exactly one
+error when flawed, be clean when not, share a shape between the two, and carry a
+non-empty `why` — the absence of which was a *real shipped bug*, see below) and
+its parent-cap contract (a disabled topic never reaches the homework; if every
+slate-bearing topic is off, the menu entry vanishes rather than serving one);
+befriending (per-species, monotonic — killing one later must NOT un-friend the
+kind; guards still guard, thieves still steal, bosses are never pacified); and
+the calmed palette (every colour blended on every family — including `skeleton`
+and `mage`, which have no `A`/`B` keys and would silently no-op under a naive
+transform — with sorted keys so the sprite cache doesn't mint duplicate canvases).
+
+It also now guards a **real bug this wave found in shipped code**: `examSlate()`
+never put `why` on the problem object, but `engine.js` reads `prob.why` when the
+kid marks the WRONG step — so since Wave 7 the final exam has said *"Here.
+undefined"* on a miss, at the most sensitive moment the game has.
+`drive-castle.js` missed it because it only asserts the feedback doesn't scold.
+
 ## Browser drives (need Playwright + Chrome)
 
 One-time setup in any folder:
@@ -235,6 +264,33 @@ fail on any page error.
   counter, the shopkeeper's shelf persisting a just-sold item, and the
   innkeeper's cat — greets before the warm-up, pats for +1 stamina, once
   per real day).
+
+- `drive-twokids-b.js` — Wave 8b (the heart of "The Two Kids Update"): **the
+  Ceremony** (asked before the first monster; "boldly, or gently?"; the answer
+  sets the stance AND hands over a matching starter proven identical in power;
+  the sealing line says it can be changed); **a full Soothe battle** (the monster
+  bar rendered as a teal CALM meter that FILLS rather than health draining, the
+  sticky stance row, the calm rising with each correct answer, the befriended
+  axis filling in, the "A friend!" ceremony); **the world befriending changes**
+  (a befriended wanderer stands down and standing beside one does not start a
+  fight, a monster you haven't befriended still hunts you, a befriended GUARD
+  still guards and a befriended THIEF still steals, a boss is never pacified, and
+  bumping a friend deliberately still starts a fight — the choice stays yours);
+  **the bestiary's second axis** (its own count, its own card frame, 🕊 beside ⚔);
+  **stance persistence** across save/load; **the shop organizing but never
+  filtering** (the kid's rack first, the other one still fully listed and fully
+  buyable in BOTH stances — asserted both ways round — and the shopkeeper greets
+  the stance); **⚡ Brave verified numerically** (4000 sampled strikes: ×1.999
+  damage; the lifetime counter counting exactly the brave problems solved and
+  never inflating on non-brave ones; the boss floor holding at ≥3 answers with
+  crit + best gear; **a brave miss costing exactly a normal miss** — same streak,
+  same HP, no extra penalty; and brave swapping the quick problem for a
+  full-depth one); and **Miscount's Academy** (offered only once he is a teacher,
+  the slate flow, one choice per step plus a live "every step is correct", a
+  **deliberately mis-marked slate** proven never to render "undefined" and to
+  show which step it really was *and why* without scolding — the shipped Wave-7
+  bug, driven live — the day's homework closing with "come back tomorrow", the
+  daily rollover, and the parent cap).
 
 Testing conventions: the current battle problem is exposed as
 `MM.battle.current` so drives can compute correct answers; engine state is

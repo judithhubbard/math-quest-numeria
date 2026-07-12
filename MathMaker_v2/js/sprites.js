@@ -1549,6 +1549,48 @@ var MM = globalThis.MM = globalThis.MM || {};
     return cv;
   };
 
+  // ---------- Wave 8b: the calmed look (P1) ----------
+  // A befriended (or actively-being-soothed) monster renders in a SOFTENED
+  // palette: every colour blended toward a warm white. One transform gives all
+  // ~70 monster types their calmed look for free — no new sprite art.
+  //
+  // Three things this has to get right, all of them cache-related:
+  //  1. It returns a COMPLETE {char: hex} palette, not a flag. S.get's cache key
+  //     is `name|scale|mirror|JSON.stringify(palette)` — a flag on opts would
+  //     NOT enter the key, so the first render would be cached and every later
+  //     call (calm or not) would get that same canvas back. A materialized
+  //     palette gets its own key for free.
+  //  2. It blends EVERY key in the merged colour set, not just A/B — `skeleton`
+  //     and `mage` have no A or B at all (they're W/w/E/R and H/h/S/s), so an
+  //     A/B-only transform would silently no-op on two whole families.
+  //  3. It emits keys in SORTED order, so the same monster always stringifies to
+  //     the same cache key instead of quietly minting duplicate canvases.
+  const SOFT_TARGET = [255, 244, 230];   // a warm white — calm, never washed-out grey
+  function hexToRgb(h) {
+    if (typeof h !== 'string') return null;
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(h.trim());
+    if (!m) return null;
+    let s = m[1];
+    if (s.length === 3) s = s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
+    return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+  }
+  const hex2 = n => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+
+  // amount 0 = untouched, 1 = fully warm white. 0.45 is the calmed default.
+  S.softPalette = function (name, palette, amount) {
+    const def = S.DEFS[name];
+    if (!def) return Object.assign({}, palette || {});
+    const a = amount == null ? 0.45 : amount;
+    const merged = Object.assign({}, def.colors, palette || {});
+    const out = {};
+    for (const ch of Object.keys(merged).sort()) {   // sorted => stable cache key
+      const rgb = hexToRgb(merged[ch]);
+      if (!rgb) { out[ch] = merged[ch]; continue; }  // pass through anything odd untouched
+      out[ch] = '#' + rgb.map((v, i) => hex2(v + (SOFT_TARGET[i] - v) * a)).join('');
+    }
+    return out;
+  };
+
   // Validate all sprite maps (row lengths + unknown chars). Returns list of problems.
   S.validate = function () {
     const problems = [];

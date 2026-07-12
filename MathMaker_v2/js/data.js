@@ -539,6 +539,24 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Same atk tier and one-rule ranged behavior as the crossbow, so melee-
     // vs-ranged stays a real choice for anyone who never found the Vault.
     { id: 'horologebow', name: 'Horologe Longbow', emoji: '🏹', atk: 12, price: 750, isle: true, notForSale: true, ranged: true, quip: 'Keeps perfect time. Also, perfect aim.' },
+    // ---------- Wave 8b: gentle instruments (P1) ----------
+    // `gentle: true` is an IDENTITY tag, not a rule: any stance may wield any
+    // weapon, and atk is atk whether you call it damage or calm. Each one is
+    // pinned to an existing atk/price tier so choosing your identity never
+    // costs (or buys) you power — the shop merely LISTS them under a warm
+    // header. `verb` is what the weapon does in the 🕊 Soothe stance's
+    // battle line; plain weapons fall back to a generic soothing verb.
+    { id: 'ribbon', name: 'Ribbon Streamer', emoji: '🎀', atk: 1, price: 0, gentle: true, verb: 'sweeps a slow ribbon around',
+      quip: 'Technically a weapon. Mostly a very long ribbon.' },
+    { id: 'bubblepipe', name: 'Bubble Pipe', emoji: '🫧', atk: 5, price: 120, gentle: true, verb: 'drifts a bubble toward',
+      quip: 'Blows perfect spheres. Refuses to blow anything else.' },
+    // ranged, and one atk below its melee peer (the Battle Axe, 7) — exactly the
+    // trade the Smuggler's Crossbow makes against the Tidal Blade. A dangled
+    // lure IS a reach weapon, so it inherits the round-1-miss rule for free.
+    { id: 'catwand', name: 'Cat-Fishing Wand', emoji: '🎣', atk: 6, price: 250, gentle: true, ranged: true, verb: 'dangles the lure for',
+      quip: 'Irresistible to monsters. Utterly irresistible to your pet, who must be discouraged.' },
+    { id: 'chimebells', name: 'Chime Bells', emoji: '🔔', atk: 13, price: 700, isle: true, gentle: true, verb: 'rings a long clear note over',
+      quip: 'Rings in a key nobody can name but everybody recognises.' },
   ];
 
   MM.data.ARMOR = [
@@ -612,6 +630,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     { id: 'leech', name: 'Leech', prefix: 'Leeching', emoji: '🩸', desc: 'heal 2 HP on a critical hit', quip: 'Polite, as leeches go.' },
     { id: 'magnet', name: 'Magnet', prefix: 'Magnetic', emoji: '🧲', desc: '+10% gold found', quip: 'Coins lean toward it when no one\'s looking.' },
     { id: 'echo', name: 'Echo', prefix: 'Echoing', emoji: '🔔', desc: '+1 to streak damage bonuses', quip: 'Repeats your best answers, just to itself.' },
+    // Wave 8b: the one soothe-native gem — the calm twin of the ranged rule,
+    // riding the exact same "first counterattack is skipped" battle hook.
+    // Every OTHER gem works unchanged in either stance (damage IS calm).
+    { id: 'lullaby', name: 'Lullaby', prefix: 'Lulling', emoji: '🎐', desc: "while soothing, the monster's first counterattack is skipped", quip: 'Hums something your grandmother would recognise.' },
   ];
   MM.data.gemById = id => MM.data.GEMS.find(g => g.id === id);
   // "🔥 Flaming Tidal Blade" when enchanted, plain "🔱 Tidal Blade" otherwise —
@@ -864,8 +886,131 @@ var MM = globalThis.MM = globalThis.MM || {};
       enter: ['The {name} looks ready. Ready-ish.'],
       miss: ['The {name} will be telling this story for weeks.'],
       win: ['The {name} is defeated!'],
+      // generic MUST carry every sub-pool: MM.data.flavor falls back to it per
+      // KIND, and a missing key there would hand pick() an undefined pool.
+      soothe: ['The {name} loosens, sighs, and wanders off in peace.'],
+      fret: ['The {name} tenses up again. So nearly calm, though.'],
     },
   };
+
+  // ---------- Wave 8b (P1): the Soothe verb ----------
+  // Two new sub-pools alongside enter/miss/win, drawn when the kid fights in the
+  // 🕊 Soothe stance instead of ⚔️ Strike:
+  //   soothe — the VICTORY line: the tangle comes loose and the monster relaxes.
+  //   fret   — the MISS line: it tenses back up. The sympathy is for the MONSTER
+  //            (it was nearly calm), never a comment on the kid. Same hard rule
+  //            as `miss`: the joke lands on the monster, and a wrong answer is
+  //            never the punchline.
+  // The lore already believed this — "a worked answer unties them" — so a
+  // soothed monster is not spared, it is FINISHED, the gentle way.
+  Object.assign(MM.data.FLAVOR.slime, {
+    soothe: ['The {name} un-tenses all at once and becomes a deeply relaxed puddle.',
+             'The {name} does one happy little bounce and squelches off to nap in the sun.',
+             'The {name} wobbles — gently, this time — and goes to find someone to sit near.'],
+    fret: ['The {name} tightens back up with a nervous squelch.',
+           'The {name} wobbles anxiously. It was so close to calm.',
+           'The {name} re-tenses. Almost, though. Almost.'],
+  });
+  Object.assign(MM.data.FLAVOR.rat, {
+    soothe: ['The {name} rolls over. It would like its tummy scratched, please.',
+             'The {name} stops bristling, yawns enormously, and curls up right there.',
+             'The {name} tucks its nose under its tail. The whiskers finally stop twitching.'],
+    fret: ['The {name} startles and bristles all over again.',
+           'The {name}\'s whiskers start up again. It really was nearly dozing.',
+           'The {name} tenses. It had almost forgotten to be worried.'],
+  });
+  Object.assign(MM.data.FLAVOR.bat, {
+    soothe: ['The {name} lands. It preens one wing, then the other, entirely at peace.',
+             'The {name} flutters down, settles, and gives you a small, dignified nod.',
+             'The {name} hangs itself up quietly and closes its eyes.'],
+    fret: ['The {name} flaps back up, unsettled.',
+           'The {name} loses the thread and goes back to fretting.',
+           'The {name} circles anxiously. It had wanted to land.'],
+  });
+  Object.assign(MM.data.FLAVOR.spider, {
+    soothe: ['The {name} folds its legs up, one at a time, and settles in for a long think.',
+             'The {name} lies back on its own web like a hammock. All eight feet, off duty.',
+             'The {name} unknots itself and drowses. Even the eyes go sleepy — all of them.'],
+    fret: ['The {name} pulls its legs back in, tangled up again.',
+           'The {name} fusses at a knot in its own web.',
+           'The {name} draws itself back up. So many legs, all of them worried.'],
+  });
+  Object.assign(MM.data.FLAVOR.ghost, {
+    soothe: ['The {name} sighs — upward, softly — and drifts off somewhere brighter.',
+             'The {name} stops moaning mid-moan and simply floats. Peacefully. At last.',
+             'The {name} goes quiet, waves once, and thins like a curtain letting the light in.'],
+    fret: ['The {name} shivers and goes back to its moaning. It had nearly gone quiet.',
+           'The {name} drifts back into its worrying.',
+           'The {name} wavers, still restless.'],
+  });
+  Object.assign(MM.data.FLAVOR.skeleton, {
+    soothe: ['The {name} sits down and stops rattling. Every bone lands where it belongs.',
+             'The {name} settles into a comfortable heap and lets out a long, bony sigh.',
+             'The {name} stops clattering. In the quiet, it seems relieved.'],
+    fret: ['The {name} rattles anxiously. Nothing sits right yet.',
+           'The {name} clatters back into a nervous heap.',
+           'The {name} won\'t stop rattling. Not quite yet.'],
+  });
+  Object.assign(MM.data.FLAVOR.golem, {
+    soothe: ['The {name} sits down. It has been standing for four hundred years.',
+             'The {name} lowers itself, very slowly, and finally rests.',
+             'The {name} powers down gently — not broken. Off duty, at last.'],
+    fret: ['The {name} stays standing. It has forgotten how to stop.',
+           'The {name} does not move. It is still wound much too tight.',
+           'The {name} grinds quietly to itself. Not yet.'],
+  });
+  Object.assign(MM.data.FLAVOR.mage, {
+    soothe: ['The {name} lowers its staff, bows politely, and goes off to read something calming.',
+             'The {name} stops mid-incantation, thinks better of it, and takes the afternoon off.',
+             'The {name} puts its notebook away and gives you a small, gracious wave.'],
+    fret: ['The {name} mutters and re-checks its notes, flustered.',
+           'The {name} loses its place and starts over, fretting.',
+           'The {name} fidgets with its staff, unsettled.'],
+  });
+  Object.assign(MM.data.FLAVOR.snake, {
+    soothe: ['The {name} untangles itself — all the way — and pours off into the grass, unhurried.',
+             'The {name} uncoils, loop by loop, until nothing is knotted anywhere.',
+             'The {name} lowers its head, sways once, gently, and slides away at peace.'],
+    fret: ['The {name} knots itself back up, anxiously.',
+           'The {name} coils tighter. It was so nearly loose.',
+           'The {name} tangles again with a worried hiss.'],
+  });
+
+  // Bespoke soothe-victory lines for the monsters with the most personality —
+  // keyed by NAME, checked before the family pool (MM.data.sootheLine, below).
+  // A Cuckoo deserves better than "the bat lands."
+  MM.data.SOOTHE_BESPOKE = {
+    'Slime': ['The Slime does one small, delighted bounce. It has never once been calm before. It likes it.'],
+    'Cuckoo': ['The Cuckoo pops out one last time — and instead of shouting, says "cuckoo" very quietly, the way a good clock should.'],
+    'Tick Imp': ['The Tick Imp stops ticking. For the first time in its life, it is exactly on time.'],
+    'Pendulum Knight': ['The Pendulum Knight swings slower, and slower, and comes to rest dead in the middle.'],
+    'Frost Pup': ['The Frost Pup flops over in the snow, all four paws in the air. Still freezing. Still adorable.'],
+    'Wharf Cat': ['The Wharf Cat decides you may stay. It resumes owning the entire cave, graciously.'],
+    'Coal Thief': ['The Coal Thief shows you its collection. It is, honestly, a very good collection.'],
+    'Pilfer Gull': ['The Pilfer Gull returns a button, a sandwich crust, and — after a long pause — the hat.'],
+    'Sticky-Fingered Gull': ['The Sticky-Fingered Gull gives everything back. The family will be told. The family will be amazed.'],
+    'Off-Key Sprite': ['The Off-Key Sprite hums its wrong note one more time. Calm, it somehow fits.'],
+    'Lantern Moth': ['The Lantern Moth settles on your lantern, content now just to look at it.'],
+    'Ink Ghost': ['The Ink Ghost blots gently, and the smudges settle into something almost like handwriting.'],
+    'Star Wisp': ['The Star Wisp brightens, softly, and drifts back up toward the sky it fell out of.'],
+    'Soot Wisp': ['The Soot Wisp settles into the warm ash by the forge and stays there, sooty and content.'],
+  };
+  // The soothe-victory line for a monster: its own, if it has one; else its family's.
+  MM.data.sootheLine = function (mon) {
+    const bespoke = MM.data.SOOTHE_BESPOKE[mon.name];
+    if (bespoke) return MM.data.pick(bespoke);
+    return MM.data.flavor(mon.sprite, 'soothe', mon.name);
+  };
+
+  // How a calmed monster physically reacts, by sprite family. Five reusable
+  // gestures, animated in battle.js: bounce (a contented wiggle), nap (curl up,
+  // Zzz), wave (a goodbye, or a preen), drift (a slow easeful float upward),
+  // sit (lowering down to rest at last).
+  MM.data.SOOTHE_GESTURE = {
+    slime: 'bounce', rat: 'nap', bat: 'wave', spider: 'nap', ghost: 'drift',
+    skeleton: 'sit', golem: 'sit', mage: 'wave', snake: 'drift',
+  };
+  MM.data.sootheGesture = sprite => MM.data.SOOTHE_GESTURE[sprite] || 'bounce';
 
   MM.data.pick = arr => arr[Math.floor(Math.random() * arr.length)];
   // Some monsters carry their own article ("The Murk", Wave 3's "The Unwound
@@ -909,6 +1054,34 @@ var MM = globalThis.MM = globalThis.MM || {};
     for (let i = 0; i < dateStr.length; i++) h = (h * 31 + dateStr.charCodeAt(i)) >>> 0;
     return MM.data.CAT_SPOTS[h % MM.data.CAT_SPOTS.length];
   };
+  // ---------- Wave 8b (P4): Miscount's Academy ----------
+  // He teaches now. These are the lines he says handing over a slate, and the
+  // ones he says when the kid finds the slip. Bible rule: Miscount is PROUD of
+  // his students — never scornful, never "look what this idiot did." The kid is
+  // being asked for a kindness, not a judgment. And a clean slate is a real
+  // possibility every time, so "it's all correct" is a live answer, not a trap.
+  MM.data.ACADEMY_INTRO = [
+    '"They\'re good, my students. But they hurry." Miscount fans out a few slates. "Would you look these over? A second pair of eyes is the whole trick — I never had one."',
+    '"Homework day." He hands you the chalk without being asked. "Find where it slipped, if it slipped. Some of them are perfect and I want you to say so."',
+    '"I mark these myself, of course," says Miscount. "But I mark them like a man who once got everything wrong. I miss things. Help?"',
+    '"Fresh from the Academy." He sets the slates down carefully, like they matter. "Be kind. Be exact. Those are the same thing, mostly."',
+  ];
+  MM.data.ACADEMY_CAUGHT = [
+    '"There it is." Miscount taps the step, delighted. "She almost had it — and you saw exactly where it slipped."',
+    '"Ha! Yes." He circles it. "He\'ll be pleased, honestly. Knowing WHERE is the whole battle."',
+    '"Caught." Miscount writes a note in the margin — not a cross, a note. "That\'s the one line she needs to see again."',
+    '"You found it faster than I did." He does not sound at all put out about this.',
+  ];
+  MM.data.ACADEMY_CLEAN = [
+    '"Nothing wrong with it," Miscount agrees, beaming. "Every step honest. I make them show their work, you know. All of it."',
+    '"Correct — and you checked anyway." He taps his temple. "That is the habit. That is the whole habit."',
+    '"Clean as a bell." Miscount looks quietly thrilled. "I\'ll tell her you said so."',
+  ];
+  MM.data.ACADEMY_MISSED = [
+    '"Not that one — that one holds up." He points to the real slip, gently. "Here."',
+    '"Look again at that step; it\'s sound." Miscount taps a different line. "It went wrong HERE."',
+    '"Close. That step\'s fine." He underlines the true one. "This is the one that wobbles."',
+  ];
   MM.data.DEFEAT_LINES = [
     'Some of your gold rolled into a drain. The drain seems happy.',
     'A passing crow watched the whole thing. It will tell no one, out of respect.',

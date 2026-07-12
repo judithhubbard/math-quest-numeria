@@ -65,7 +65,7 @@ async function winBattle(page, maxRounds) {
     const s = MM.engine.state;
     s.taskIndex = 5; s.tasksDone = [1, 2, 3];
     s.unsealed = { d4: true };
-    s.seenBattleHelp = true; s.difficulty = 'story';
+    s.seenBattleHelp = true; s.seenCeremony = true; s.difficulty = 'story';
     MM.engine.enterWorld();
     MM.engine.save();
   });

@@ -32,7 +32,7 @@ function canonicalize(p) {
   await page.evaluate(() => {
     const s = MM.engine.state;
     s.taskIndex = 14; s.tasksDone = [1,2,3,4,5,6,7,8,9,10,11,12,13];
-    s.metMiscount = true; s.seenBattleHelp = true;
+    s.metMiscount = true; s.seenBattleHelp = true; s.seenCeremony = true;
     s.gold = 5000; s.difficulty = 'story';
     s.items.treasures = ['pearl', 'pearl', 'pearl'];
     s.isles.lenses = { tidepool: true, frostbite: true, cinderforge: true };

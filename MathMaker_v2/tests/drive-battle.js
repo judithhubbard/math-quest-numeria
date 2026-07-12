@@ -60,8 +60,19 @@ async function answerCurrent(page, forceWrong) {
     const m = s.monsters.find(x => x.hp > 0 && !x.boss);
     MM.engine.startCombat(m);
   });
-  // first-battle explainer
+  // Wave 8b: the CEREMONY comes first — before the very first monster, the kid
+  // is asked how they'd like to face the tangles. This drive walks the classic
+  // (bold) road, so it answers "⚔️ Boldly" and carries on exactly as before.
   await page.waitForSelector('#modalBox h2');
+  const ceremonyH = await page.textContent('#modalBox h2');
+  if (/first monster/i.test(ceremonyH)) {
+    await page.screenshot({ path: SHOTS + '/3a-ceremony.png' });
+    await page.click('#modalBox .btnrow button');   // ⚔️ Boldly
+    await page.waitForSelector('#modalBox h2');
+    await page.click('#dlgOk');                     // the sealing line
+    await page.waitForSelector('#modalBox h2');     // ...then the tutorial
+  }
+  // first-battle explainer
   await page.screenshot({ path: SHOTS + '/3-battle-help.png' });
   await page.click('#dlgOk');
 

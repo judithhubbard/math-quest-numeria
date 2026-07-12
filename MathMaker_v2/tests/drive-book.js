@@ -54,7 +54,7 @@ async function answerCurrent(page) {
   await page.click('#dlgOk');
 
   // castle intro (get task 1), then into dungeon 1; skip first-battle help
-  await page.evaluate(() => { const s = MM.engine.state; s.px = 19; s.py = 5; s.seenBattleHelp = true; });
+  await page.evaluate(() => { const s = MM.engine.state; s.px = 19; s.py = 5; s.seenBattleHelp = true; s.seenCeremony = true; });
   await page.keyboard.press('ArrowUp');
   await page.waitForSelector('#modalBox h2');
   await page.click('#dlgOk');

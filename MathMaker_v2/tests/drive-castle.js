@@ -26,7 +26,7 @@ async function makeChampion(page) {
     s.isles.gullwrackRebuilt = true;
     s.isles.breakwaterDone = true;
     s.level = 20; s.hp = s.maxhp = 200;
-    s.seenBattleHelp = true; s.metMiscount = true;
+    s.seenBattleHelp = true; s.seenCeremony = true; s.metMiscount = true;
     MM.engine.save();
   });
 }

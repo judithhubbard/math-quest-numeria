@@ -18,7 +18,7 @@ const ANCIENT = {
   totals: { answered: 220, correct: 180 },
   unsealed: { d2: true, d3: true, d4: true, d5: true, d6: true },
   opened: {}, bossesDefeated: {}, haveItem: false,
-  seenBattleHelp: true,
+  seenBattleHelp: true,   // NOT seenCeremony — the migration must derive it (Wave 8b)
 };
 
 (async () => {
@@ -67,6 +67,14 @@ const ANCIENT = {
   // TASKS skills the topicCap migration seeds, so it stays unset (= on).
   check(!!s.parent && !!s.parent.topics && s.parent.topics.music_reading !== false, 'parent panel grafted on, music_reading left enabled (default-ON)');
   check(!!s.spellsCelebrated && s.spellsCelebrated.scout === false, 'spell celebrations grafted on (nothing falsely marked seen)');
+  // Wave 8b: the stances graft on. A hero six dungeons deep must NOT be stopped
+  // at a door and asked how she will face her "first" monster — she has fought
+  // hundreds. seenCeremony is derived from seenBattleHelp, so an old save is
+  // left alone and simply finds the stance buttons waiting in its next battle.
+  check(s.stance === 'strike', 'stance grafted on (an old save keeps doing what it was doing)');
+  check(s.brave === false && s.braveSolved === 0, 'brave stance + its lifetime counter grafted on');
+  check(s.seenCeremony === true, 'an already-fighting save is NOT re-asked the first-monster question');
+  check(!!s.bestiary.befriended && Object.keys(s.bestiary.befriended).length === 0, 'the befriended axis grafted on, empty');
 
   // and now PLAY: enter the current task's dungeon and win one real fight
   await page.evaluate(() => MM.engine.tryEnterDungeon(6));

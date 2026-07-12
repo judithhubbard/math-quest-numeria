@@ -126,6 +126,40 @@ var MM = globalThis.MM = globalThis.MM || {};
     return ranked[Math.floor(Math.random() * Math.min(3, ranked.length))];
   }
 
+  // ---------- Wave 8b (P3): the ⚡ Brave stance ----------
+  // Brave draws HARDER problems for DOUBLE strike damage. It is a BATTLE stance
+  // and nothing else: it lifts combat problems and boss problems, and it must
+  // NEVER touch doors, chests, seals or the inn. The reason is a pillar, not a
+  // preference — the payoff for a brave problem is double damage, which only
+  // exists in a fight. A brave problem at a door would be a harder question for
+  // no reward at all, and bravery must never be a trap.
+  //
+  // That rule is enforced structurally rather than by discipline: the gate
+  // pickers take an explicit `brave` argument, and ONLY the boss branches in
+  // engine.js pass it. Every other caller passes nothing and gets the old
+  // behaviour unchanged.
+  function isBrave(state) { return !!(state && state.brave); }
+
+  // A combat problem for one skill. Combat normally draws a QUICK problem (they
+  // carry no tier at all — that's what keeps battles quick). Brave swaps in a
+  // FULL-DEPTH problem one tier above where the kid currently sits, capped at 3:
+  // the work order's "one tier higher — and at tier 3, a full-depth problem in
+  // the quick slot", which collapses to one rule since quick problems are
+  // tier-less by construction.
+  function combatProblem(state, skill) {
+    if (!isBrave(state)) return MM.problems.generateQuick(skill);
+    return MM.problems.generate(skill, braveTierFor(state, skill));
+  }
+  function braveTierFor(state, skill) {
+    return Math.min(3, tierFor(state, skill) + 1);
+  }
+  // The adaptive tier a full-depth GATE/BOSS problem draws at. `brave` is only
+  // ever true on the boss paths.
+  function gateTier(state, skill, brave) {
+    const base = Math.max(2, tierFor(state, skill));
+    return (brave && isBrave(state)) ? Math.min(3, base + 1) : base;
+  }
+
   // Combat problem for dungeon i: usually the dungeon's topic,
   // sometimes review of a weak earlier topic. QUICK problems only, so battles
   // keep their pace — the slow, full-depth problems live at the gates
@@ -138,14 +172,14 @@ var MM = globalThis.MM = globalThis.MM || {};
       const ranked = weakestFirst(state, earlier);
       skill = Math.random() < 0.7 ? ranked[0] : ranked[Math.floor(Math.random() * ranked.length)];
     }
-    return MM.problems.generateQuick(capSkill(state, skill));
+    return combatProblem(state, capSkill(state, skill));
   }
 
   // Boss battles are the dungeon's real test: full-depth problems of its
   // topic, at a tier that adapts to how the kid has been doing.
-  function pickBossProblem(state, dungeonIndex) {
+  function pickBossProblem(state, dungeonIndex, brave) {
     const skill = capSkill(state, MM.data.TASKS[dungeonIndex - 1].skill);
-    return MM.problems.generate(skill, Math.max(2, tierFor(state, skill)));
+    return MM.problems.generate(skill, gateTier(state, skill, brave));
   }
 
   // Quick problems from ALL ten topics, weighted toward whatever the kid is
@@ -157,15 +191,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     const skill = Math.random() < 0.5
       ? ranked[Math.floor(Math.random() * Math.min(3, ranked.length))]
       : ranked[Math.floor(Math.random() * ranked.length)];
-    return MM.problems.generateQuick(skill);
+    return combatProblem(state, skill);
   }
 
   // Full-depth mixed problem for gates in the expansion dungeons
   // (bosses, doors, chests, seals): weakest topic, adaptive tier.
-  function pickMixedGate(state) {
+  // `brave` (Wave 8b) is passed ONLY by the boss branches — see gateTier.
+  function pickMixedGate(state, brave) {
     const ranked = weakestFirst(state, cappedSkills(state));
     const skill = ranked[Math.floor(Math.random() * Math.min(3, ranked.length))];
-    return MM.problems.generate(skill, Math.max(2, tierFor(state, skill)));
+    return MM.problems.generate(skill, gateTier(state, skill, brave));
   }
 
   // ---------- 50/50 own-topic vs. everything else ----------
@@ -187,24 +222,25 @@ var MM = globalThis.MM = globalThis.MM || {};
     return ranked[Math.floor(Math.random() * Math.min(3, ranked.length))];
   }
   function pickHalfMixProblem(state, ownSkill) {
-    return MM.problems.generateQuick(pickHalfMixSkill(state, ownSkill));
+    return combatProblem(state, pickHalfMixSkill(state, ownSkill));
   }
   // Full-depth version for a topic dungeon's doors, chests, and boss.
-  function pickHalfMixGate(state, ownSkill) {
+  // `brave` (Wave 8b) is passed ONLY by the boss branches — see gateTier.
+  function pickHalfMixGate(state, ownSkill, brave) {
     const skill = pickHalfMixSkill(state, ownSkill);
-    return MM.problems.generate(skill, Math.max(2, tierFor(state, skill)));
+    return MM.problems.generate(skill, gateTier(state, skill, brave));
   }
 
   // Clockwork Spire (Wave 3): time_reading. Kept as named wrappers — tests
   // and engine.js call these by name for the cap-leak contract.
   const pickSpireSkill = state => pickHalfMixSkill(state, 'time_reading');
   const pickSpireProblem = state => pickHalfMixProblem(state, 'time_reading');
-  const pickSpireGate = state => pickHalfMixGate(state, 'time_reading');
+  const pickSpireGate = (state, brave) => pickHalfMixGate(state, 'time_reading', brave);
 
   // Sunken Breakwater (Wave 6): geometry.
   const pickBreakwaterSkill = state => pickHalfMixSkill(state, 'geometry');
   const pickBreakwaterProblem = state => pickHalfMixProblem(state, 'geometry');
-  const pickBreakwaterGate = state => pickHalfMixGate(state, 'geometry');
+  const pickBreakwaterGate = (state, brave) => pickHalfMixGate(state, 'geometry', brave);
 
   // Easy warm-ups for resting at the inn.
   function pickReviewProblems(state, upToTask, count) {
@@ -220,5 +256,5 @@ var MM = globalThis.MM = globalThis.MM || {};
     return probs;
   }
 
-  MM.mastery = { record, tierFor, accuracy, recentAccuracy, badgeTier, weakestFirst, capSkill, cappedSkills, pickCombatProblem, pickBossProblem, pickArenaProblem, pickMixedGate, pickReviewProblems, pickHalfMixSkill, pickHalfMixProblem, pickHalfMixGate, pickSpireProblem, pickSpireGate, pickBreakwaterProblem, pickBreakwaterGate, ensure, isRusty, daysSincePracticed, almostNextTier };
+  MM.mastery = { record, tierFor, accuracy, recentAccuracy, badgeTier, weakestFirst, capSkill, cappedSkills, pickCombatProblem, pickBossProblem, pickArenaProblem, pickMixedGate, pickReviewProblems, pickHalfMixSkill, pickHalfMixProblem, pickHalfMixGate, pickSpireProblem, pickSpireGate, pickBreakwaterProblem, pickBreakwaterGate, ensure, isRusty, daysSincePracticed, almostNextTier, combatProblem, braveTierFor, gateTier, isBrave };
 })();

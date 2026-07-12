@@ -59,7 +59,7 @@ async function dismissDialogs(page) { // e.g. badge celebrations between battles
   await page.click('#dlgOk');
 
   // castle intro, then the board posts three jobs
-  await page.evaluate(() => { const s = MM.engine.state; s.px = 19; s.py = 5; s.seenBattleHelp = true; });
+  await page.evaluate(() => { const s = MM.engine.state; s.px = 19; s.py = 5; s.seenBattleHelp = true; s.seenCeremony = true; });
   await page.keyboard.press('ArrowUp');
   await page.waitForSelector('#modalBox h2');
   await page.click('#dlgOk');

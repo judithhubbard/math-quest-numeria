@@ -115,7 +115,7 @@ async function walkSteps(page, n) {
   // ---------- 1.5b: the door-audit fix (dungeon 2's guarded chest) ----------
   await page.evaluate(() => {
     const s = MM.engine.state;
-    s.taskIndex = 2; s.unsealed = { d2: true }; s.seenBattleHelp = true;
+    s.taskIndex = 2; s.unsealed = { d2: true }; s.seenBattleHelp = true; s.seenCeremony = true;
     MM.engine.enterDungeon(2);
   });
   check(await page.evaluate(() => MM.engine.state.grid[11][14] === '*'),

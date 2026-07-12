@@ -157,7 +157,7 @@ async function solveSite(page, mapId, site) {
   check(unlockedAfter, 'Gullwrack IS offered from Horologe once spireDone');
 
   // ---------- sail there for real, land in a full town ----------
-  await page.evaluate(() => { MM.engine.state.gold = 500; MM.engine.state.hp = MM.engine.state.maxhp = 999; MM.engine.state.seenBattleHelp = true; });
+  await page.evaluate(() => { MM.engine.state.gold = 500; MM.engine.state.hp = MM.engine.state.maxhp = 999; MM.engine.state.seenBattleHelp = true; MM.engine.state.seenCeremony = true; });
   await page.evaluate(() => MM.engine.sail('gullwrack'));
   await page.waitForFunction(() => MM.engine.state.mapId === 'gullwrack', { timeout: 10000 });
   check(true, 'arrived at Gullwrack Harbor');
