@@ -459,7 +459,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   }
 
   function playerDefeated() {
-    banner('💫 DEFEATED... 💫', '#ff6b6b');
+    // Not "DEFEATED", and not red (playtest 2026-07-12: losing reads as
+    // being carried home, never as dying) — gold, like the rescue it is.
+    banner('✨ Whisked to safety! ✨', '#ffd94a');
     tween(v => { bt.heroOy = 40 * v; bt.heroFlash = 0.5 * (1 - v); }, 600);
     after(900, () => teardown({ dead: true }));
   }

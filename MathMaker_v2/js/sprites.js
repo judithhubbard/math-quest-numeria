@@ -222,6 +222,32 @@ var MM = globalThis.MM = globalThis.MM || {};
         'FFFFFFFFFFFFFFFF',
       ],
     },
+    // Playtest round 4: the Mimic — a chest with the lid caught mid-grin.
+    // Same wood/trim palette as the real chest (it studied), plus a dark
+    // mouth, white teeth, glowing eyes, and a little pink tongue.
+    // Transparent background: it's a MONSTER sprite (battle + bestiary),
+    // not a tile — the world keeps drawing the ordinary chest tile for it.
+    mimic: {
+      colors: { k: '#5f3d1c', C: '#b0763e', c: '#8a5a2c', Y: '#ffd94a', y: '#d8a03c', W: '#fffcf0', d: '#2a1626', E: '#ffe27a', T: '#e05294' },
+      map: [
+        '................',
+        '................',
+        '...kkkkkkkkkk...',
+        '..kCCCCCCCCCCk..',
+        '.kCCcCCCCCCcCCk.',
+        '.kCCCCYYYYCCCCk.',
+        '.kkkkkkkkkkkkkk.',
+        '.kWWdWWddWWdWWk.',
+        '.kddEEddddEEddk.',
+        '.kddddTTTTddddk.',
+        '.kWWdWWddWWdWWk.',
+        '.kkkkkkkkkkkkkk.',
+        '.kCCCCYyyYCCCCk.',
+        '.kCcCCCCCCCcCCk.',
+        '..kkkkkkkkkkkk..',
+        '................',
+      ],
+    },
     ladder: {
       colors: { F: '#57506a', f: '#4a445c', L: '#c49658', l: '#96702e', d: '#2a2438' },
       map: [

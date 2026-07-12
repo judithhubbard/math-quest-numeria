@@ -99,6 +99,14 @@ a **treasure** (15%) — pearls, goblets, idols, dragon teeth that exist purely
 to be **sold at the shop** (answer the shopkeeper's money question for a 10%
 bonus) — or, 10% of the time, a **magical charm**.
 
+**🎭 Beware (a little): some chests are not chests.** From the fourth dungeon
+on, a rare chest may be a **Mimic** — watch closely and you'll see it
+*breathe*, and your pet will stare at it with a tail that is *not* wagging.
+Bump it and it grins: a completely normal battle follows (you can even
+soothe it). Win either way and you get everything it was hiding **plus a
+bonus treasure for your nerve** — curiosity always pays in Numeria. Its page
+in the Monster Book waits under "Wandering Chests."
+
 ### ✨ Magical charms (nine to collect, three to wear)
 
 Collect them all — but you can only **wear three at a time** (choose on the

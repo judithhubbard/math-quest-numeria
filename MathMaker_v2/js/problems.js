@@ -837,10 +837,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     const stem = stemDown
       ? `<line x1="${noteX - 6.5}" y1="${noteY}" x2="${noteX - 6.5}" y2="${noteY + 30}" stroke="#262042" stroke-width="2"/>`
       : `<line x1="${noteX + 6.5}" y1="${noteY}" x2="${noteX + 6.5}" y2="${noteY - 30}" stroke="#262042" stroke-width="2"/>`;
-    // treble clef stand-in: a simple curl (real glyph rendering is font-
-    // dependent; a drawn swirl reads clearly at this size regardless of font)
-    const clef = `<path d="M 32 ${top - 4} C 20 ${top + 10}, 44 ${top + 20}, 32 ${top + 34} C 20 ${top + 46}, 40 ${top + 52}, 34 ${top + 40}"
-        fill="none" stroke="#262042" stroke-width="3" stroke-linecap="round"/>`;
+    // the REAL treble clef: Unicode 𝄞 (U+1D11E) as SVG text. The old hand-
+    // drawn "simple curl" stand-in did not read as a clef at all (playtest,
+    // 2026-07-12). Font-dependent in theory, but macOS and Windows both ship
+    // the glyph in system fonts; sized so its curl wraps the G line (second
+    // from the bottom), the way real notation anchors it.
+    const gLineY = top + 3 * lineGap;
+    const clef = `<text x="18" y="${gLineY + 2 * lineGap}" font-size="${lineGap * 6.4}"
+        fill="#262042">\u{1D11E}</text>`;
     return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
       <rect x="2" y="2" width="${w - 4}" height="${h - 4}" rx="8" fill="#fdfaf3" stroke="#262042" stroke-width="3"/>
       ${lines}

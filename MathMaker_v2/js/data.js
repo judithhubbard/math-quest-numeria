@@ -504,6 +504,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     pal: { A: '#c4c8d4', B: '#9aa0b0', m: '#767c8c', W: '#e8ecf4', E: '#7ee0e8' },
     desc: 'Conjured from enchanted homework. Gets a little tougher every time it loses — the healthiest attitude in Numeria.',
   };
+  // Playtest round 4 (the kids asked): a rare chest that is not a chest.
+  // One shared card, GOLEM_CARD-style, since a mimic can turn up in any
+  // dungeon past the third — it belongs to no single roster.
+  MM.data.MIMIC_CARD = {
+    name: 'Mimic', sprite: 'mimic', verb: 'chomps at',
+    desc: 'Practiced being a chest for years. The giggle still needs work — real chests don\'t.',
+  };
 
   // Balance: monsters attack EVERY round; their attack is a MAXIMUM that gets
   // rolled (75-110%) and then reduced by the player's total block. Attack
@@ -783,6 +790,17 @@ var MM = globalThis.MM = globalThis.MM || {};
   // failed. Bosses get no flavor lines — boss fights (and the story's sincere
   // beats) stay played straight. {name} is replaced with the monster's name.
   MM.data.FLAVOR = {
+    mimic: {
+      enter: ['The {name} snaps its lid, delighted. It has waited SO long for this.',
+              'The {name} does its best chest impression mid-fight. It is not fooling anyone now.',
+              'The {name} rattles happily. Something inside rattles back.'],
+      miss: ['The {name} giggles. Chests should not giggle.',
+             'The {name} taps its lid, like a customer waiting at a counter.'],
+      win: ['The {name} sighs, and finally sits still — an honest chest at last.',
+            'The {name} gives up the act, and everything else besides.'],
+      soothe: ['The {name} stops pretending. Being a chest was lonely work anyway.'],
+      fret: ['The {name} clacks its lid softly. It isn\'t sure how to be calmed. No one has ever tried.'],
+    },
     slime: {
       enter: ['The {name} jiggles menacingly. Menacingly-ish.',
               'The {name} squares up. It has no shoulders, but it squares up.',
@@ -983,7 +1001,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     'Slime': ['The Slime does one small, delighted bounce. It has never once been calm before. It likes it.'],
     'Cuckoo': ['The Cuckoo pops out one last time — and instead of shouting, says "cuckoo" very quietly, the way a good clock should.'],
     'Tick Imp': ['The Tick Imp stops ticking. For the first time in its life, it is exactly on time.'],
-    'Pendulum Knight': ['The Pendulum Knight swings slower, and slower, and comes to rest dead in the middle.'],
+    'Pendulum Knight': ['The Pendulum Knight swings slower, and slower, and comes to rest exactly in the middle.'],
     'Frost Pup': ['The Frost Pup flops over in the snow, all four paws in the air. Still freezing. Still adorable.'],
     'Wharf Cat': ['The Wharf Cat decides you may stay. It resumes owning the entire cave, graciously.'],
     'Coal Thief': ['The Coal Thief shows you its collection. It is, honestly, a very good collection.'],
@@ -994,6 +1012,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     'Ink Ghost': ['The Ink Ghost blots gently, and the smudges settle into something almost like handwriting.'],
     'Star Wisp': ['The Star Wisp brightens, softly, and drifts back up toward the sky it fell out of.'],
     'Soot Wisp': ['The Soot Wisp settles into the warm ash by the forge and stays there, sooty and content.'],
+    'Mimic': ['The Mimic opens wide and offers you everything it was hiding. It keeps one shiny button, for sentimental reasons.'],
   };
   // The soothe-victory line for a monster: its own, if it has one; else its family's.
   MM.data.sootheLine = function (mon) {

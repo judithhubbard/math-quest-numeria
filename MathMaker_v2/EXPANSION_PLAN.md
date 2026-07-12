@@ -1726,6 +1726,37 @@ report, give the log paths and paste the marathon's final lines
 verbatim. A claim the reviewer can't open a file and see is a claim
 that gets re-run.
 
+## Fix pass — playtest round 4 (design session) ✅ SHIPPED (2026-07-12, with the 8b release)
+
+Four live-playtest reports, applied right after the Wave 8b review:
+
+1. **Real treble clef** (problems.js staffSvg): the Wave-4 hand-drawn
+   "simple curl" stand-in did not read as a clef at all. Now the actual
+   Unicode glyph 𝄞 (U+1D11E) as SVG text, sized so the curl wraps the
+   G line. Verified by screenshot on the family's platform. (There is
+   no bass clef in the game — staff problems are treble-only.)
+2. **Continent-aware gem messages** (gemLootMsg + bag note): gems drop
+   from any chest (6% roll) from dungeon 1, but fusing is Emberlyn's
+   only, post-task-13. Before the pier opens the loot line now promises
+   the future ("far across the sea lives an enchanter… one day, you'll
+   sail there") instead of naming an unreachable place.
+3. **Mimic chests** (the kids' request, built KIND): ≥ dungeon 4 only,
+   never a guaranteed-gem/story chest, ≤1 per floor (E.MIMIC_CHANCE,
+   drives pin to 1). TELEGRAPHED — the chest breathes (1px bob; Calm
+   Mode gets a static grin at the seam instead) and the pet's ❗ warns
+   ("its tail is not wagging"). Bump → one grin dialog → a completely
+   NORMAL battle; win OR soothe pays the chest's own loot roll PLUS a
+   treasure "for your nerve" — curiosity always net-rewarded. Fleeing
+   re-reveals the same mimic (never a free chest). Shared MIMIC_CARD
+   (GOLEM_CARD-style, "Wandering Chests" book page appears once met,
+   count 76→77); Soothe/befriend works, bespoke soothe line included.
+   tests/drive-mimic.js (25 checks).
+4. **Loss language, final softening**: battle banner "💫 DEFEATED… 💫"
+   (red) → "✨ Whisked to safety! ✨" (gold); E.die's log line now "The
+   world spins — the MathMaker's magic carries you home"; Pendulum
+   Knight's soothe line "dead in the middle" → "exactly in the middle".
+   Audit confirmed no player-facing "die/death" anywhere else.
+
 ## Sizing guidance for the implementing model
 
 - One wave = one focused session (Wave 5 items are each ≤ half a session).

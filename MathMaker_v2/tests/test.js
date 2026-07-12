@@ -252,7 +252,7 @@ if (revs.length !== 3) fail('pickReviewProblems count');
 
 // ---------- bestiary data ----------
 {
-  const cards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD]);
+  const cards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD, MM.data.MIMIC_CARD]);
   const names = new Set();
   for (const c of cards) {
     if (!c.desc) fail(`bestiary: "${c.name}" has no desc`);
@@ -260,7 +260,7 @@ if (revs.length !== 3) fail('pickReviewProblems count');
     if (names.has(c.name)) fail(`bestiary: duplicate monster name "${c.name}" (cards are keyed by name)`);
     names.add(c.name);
   }
-  if (cards.length !== 76) fail(`bestiary: expected 76 cards, found ${cards.length}`);
+  if (cards.length !== 77) fail(`bestiary: expected 77 cards, found ${cards.length}`);
 }
 
 // ---------- Wave 2: enchant gems + the amulet slot ----------
@@ -1743,8 +1743,10 @@ for (const skill of skills) {
     if (!MM.data.FLAVOR[fam] || !MM.data.FLAVOR[fam].fret) fail(`sprite family '${fam}' has no fret pool of its own`);
     if (!MM.data.SOOTHE_GESTURE[fam]) fail(`sprite family '${fam}' has no soothe victory gesture`);
   }
-  // bespoke lines must name real monsters (a typo'd key would silently never fire)
-  const realNames = new Set(MM.data.MONSTERS.flatMap(r => [...r.types.map(t => t.name), r.boss.name]));
+  // bespoke lines must name real monsters (a typo'd key would silently never
+  // fire) — rosters plus the shared special cards (Homework Golem, Mimic)
+  const realNames = new Set(MM.data.MONSTERS.flatMap(r => [...r.types.map(t => t.name), r.boss.name])
+    .concat([MM.data.GOLEM_CARD.name, MM.data.MIMIC_CARD.name]));
   for (const name of Object.keys(MM.data.SOOTHE_BESPOKE)) {
     if (!realNames.has(name)) fail(`SOOTHE_BESPOKE names '${name}', which is not a monster in any roster`);
   }

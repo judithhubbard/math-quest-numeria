@@ -1052,6 +1052,21 @@ var MM = globalThis.MM = globalThis.MM || {};
       A: MM.maps.find(s.grid, 'A'), B: MM.maps.find(s.grid, 'B'), C: MM.maps.find(s.grid, 'C'),
     };
     E.applyGearState();
+    // Mimic chests (playtest round 4 — the kids asked for them): decided at
+    // floor entry, not at bump time, so the WORLD can telegraph one (its
+    // breathing bob, the pet's warning) — a surprise you could have spotted,
+    // never a gotcha. Rules: never dungeons 1-3 (chest trust comes first),
+    // never a guaranteed-gem or story chest, at most ONE per floor. Not
+    // persisted: an unbumped mimic may be an ordinary chest tomorrow —
+    // mimics wander, and an opened chest (s.opened) is already gone forever.
+    E._mimics = new Set();
+    if (idx >= 4) {
+      for (const pos of MM.maps.find(s.grid, '*')) {
+        if (isGuaranteedGemChest(s.mapId, pos.x, pos.y)) continue;
+        if (idx === 18 && pos.x === 13 && pos.y === 3) continue; // the crossbow chest
+        if (Math.random() < E.MIMIC_CHANCE) { E._mimics.add(`${pos.x},${pos.y}`); break; }
+      }
+    }
     // spawn monsters from map markers: m = wanderer/chaser mix, g = the
     // roster's guard type, t = its thief type (isle dungeons only)
     s.monsters = [];
@@ -2019,6 +2034,17 @@ var MM = globalThis.MM = globalThis.MM || {};
           }
           return;
         }
+        // Playtest round 4: the pet smells a mimic too — the anxious kid's
+        // early-warning system. Same ❗, its own line: this chest is a trick.
+        if (row && row[s.px + dx] === '*' && E._mimics && E._mimics.has(`${s.px + dx},${s.py + dy}`)) {
+          E.petAlert = true;
+          if (!petAlertNoted) {
+            petAlertNoted = true;
+            MM.sound.dodge();
+            MM.ui.log(`❗ ${pet.name} stares hard at that treasure chest. Its tail is <b>not</b> wagging.`);
+          }
+          return;
+        }
       }
     }
     petAlertNoted = false;
@@ -2333,6 +2359,26 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (m.stolen) {
       const back = E.gainGold(Math.ceil(m.stolen * 1.5));
       lines.push(`🪶 Caught the thief! Your <b>${m.stolen} gold</b> back — with interest: <b>+${back}</b>!`);
+    }
+    // Playtest round 4: a Mimic IS its chest — beaten or befriended, it gives
+    // up everything it was hiding, PLUS one treasure for your nerve.
+    // Curiosity is always net-rewarded; a mimic is never a punishment.
+    if (m.mimicChest) {
+      const mx = m.mimicChest.x, my = m.mimicChest.y;
+      if ((s.grid[my] || [])[mx] === '*') {
+        s.grid[my][mx] = '.';
+        s.opened[`${s.mapId}:${mx},${my}`] = true;
+      }
+      if (E._mimics) E._mimics.delete(`${mx},${my}`);
+      lines.push(soothed
+        ? '🎁 <i>It opens itself, and offers you everything inside.</i>'
+        : '🎁 <i>Everything it was hiding spills out.</i>');
+      const gemsBefore = (s.items.gems || []).length;
+      lines.push(chestLoot(s.dungeonIndex, MM.data.chestGold(s.dungeonIndex)));
+      if ((s.items.gems || []).length > gemsBefore) E.bountyEvent('gemchest');
+      const t = MM.data.treasureForDungeon(s.dungeonIndex);
+      s.items.treasures.push(t.id);
+      lines.push(`…and a ${t.emoji} <b>${t.name}</b>, for your nerve. The shopkeeper would pay <b>~${t.value} gold</b>.`);
     }
     if (s.level > levelsBefore) lines.push(`🎺 <b>LEVEL UP!</b> You are now level ${s.level} (max HP ${s.maxhp})`);
     if (m.boss && task.finale) {
@@ -2773,7 +2819,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     s.gold -= lost;
     s.hp = s.maxhp;
     s.worldPos = null;
-    MM.ui.log(`You collapse... The MathMaker's magic whisks you to safety. (${lost} gold lost)`);
+    MM.ui.log(`The world spins — the MathMaker's magic carries you home. (${lost} gold lost)`);
     E.enterWorld();
     E.save();
     MM.ui.dialog('😵 Rescued!',
@@ -2876,7 +2922,15 @@ var MM = globalThis.MM = globalThis.MM || {};
   }
   function gemLootMsg(gem) {
     MM.sound.fanfare();
-    return `✨ <b>A glimmering chest!</b> Inside: a ${gem.emoji} <b>${gem.name} Gem</b> — <i>${gem.desc}</i>. Take it to Emberlyn in Port Brightwater to fuse it onto your gear!`;
+    // Gems drop from any chest (6% roll) from dungeon 1, but fusing lives at
+    // Emberlyn's in Port Brightwater — which doesn't exist for a mainland kid
+    // until task 13 opens the pier. Naming an unreachable place reads as
+    // broken (playtest 2026-07-12); before the pier, promise the future.
+    const pierOpen = (E.state.tasksDone || []).includes(13);
+    const hint = pierOpen
+      ? 'Take it to Emberlyn in Port Brightwater to fuse it onto your gear!'
+      : 'Tuck it away safe — far across the sea lives an enchanter who can fuse gems onto gear. One day, you\'ll sail there. ⛵';
+    return `✨ <b>A glimmering chest!</b> Inside: a ${gem.emoji} <b>${gem.name} Gem</b> — <i>${gem.desc}</i>. ${hint}`;
   }
 
   // What's inside a chest? Gold usually — but also food, potions, treasures
@@ -2926,8 +2980,30 @@ var MM = globalThis.MM = globalThis.MM || {};
     return `Inside: a ${t.emoji} <b>${t.name}</b>! The shopkeeper would pay <b>~${t.value} gold</b> for this.`;
   }
 
+  // Mimic reveal: the "chest" grins and a completely NORMAL battle starts —
+  // same verbs (Strike/Soothe/Brave all work), same reward path. The mimic
+  // stays in E._mimics until actually beaten or befriended (grantVictory
+  // deletes it), so fleeing and re-bumping re-reveals the same mimic — it
+  // can never quietly turn back into a free chest.
+  E.MIMIC_CHANCE = 0.07; // per eligible chest until one hits; drives pin to 1
+  E.revealMimic = function (x, y) {
+    const s = E.state;
+    const st = E.monsterStats(Math.min(s.dungeonIndex, 20), false);
+    const card = MM.data.MIMIC_CARD;
+    const mon = {
+      name: card.name, sprite: card.sprite, pal: null, verb: card.verb,
+      x, y, hp: st.hp, maxhp: st.hp, atk: st.atk, xp: st.xp,
+      boss: false, stun: 0, behavior: 'guard', mimicChest: { x, y }, home: { x, y },
+    };
+    MM.ui.dialog('🎁 …a chest?',
+      `The chest <b>grins</b>. Chests should not grin.<br><br>` +
+      `<i>It looks absolutely delighted that someone finally knocked.</i>`,
+      () => E.startCombat(mon));
+  };
+
   E.chest = function (x, y) {
     const s = E.state;
+    if (E._mimics && E._mimics.has(`${x},${y}`)) return E.revealMimic(x, y);
     const task = MM.data.TASKS[s.dungeonIndex - 1];
     let reward = MM.data.chestGold(s.dungeonIndex);
     const step = () => {

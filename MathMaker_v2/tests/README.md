@@ -302,6 +302,15 @@ enforces: the door audit + glyph registry, the renderability audit (every
 glyph draws visibly), the never-stranded audit (every island has supplies,
 a dock, and rest), and the sail-destination registry.
 
+- `drive-mimic.js` — playtest round 4: **mimic chests** (25 checks — the
+  dungeon-1-to-3 trust window, the one-per-floor cap, protected story/gem
+  chests never roll, the pet's not-wagging warning, the grin reveal into a
+  completely normal battle, flee-and-rebump re-reveals the same mimic,
+  victory opens the chest for good plus a "for your nerve" treasure,
+  soothing befriends the Mimic and opens the chest all the same, the
+  "Wandering Chests" book page and the 77-kind count, and Calm Mode's
+  static grin standing in for the breathing bob).
+
 Operational note (2026-07-11): do NOT run drives while Dropbox is
 indexing a big file operation (e.g. right after refreshing the play
 copy) — the I/O contention can starve headless Chrome past even 90s

@@ -46,7 +46,7 @@ async function answerCurrent(page) {
   await page.keyboard.press('m');
   await page.waitForSelector('#modalBox h2');
   let body = await page.textContent('#modalBox');
-  check(/Discovered: 0 of 76/.test(body.replace(/\s+/g, ' ')), 'fresh book: 0 of 76 discovered');
+  check(/Discovered: 0 of 77/.test(body.replace(/\s+/g, ' ')), 'fresh book: 0 of 77 discovered');
   check(/\?\?\?/.test(body), 'fresh book: cards show ???');
   check(!/Sparring Ground/.test(body), 'golem page hidden before meeting Miscount');
   check(/pages are still blank/.test(body), 'blank-pages note shown early');
@@ -109,7 +109,7 @@ async function answerCurrent(page) {
   await page.keyboard.press('m');
   await page.waitForSelector('#modalBox h2');
   body = await page.textContent('#modalBox');
-  check(/Discovered: 1 of 76/.test(body.replace(/\s+/g, ' ')), 'counter shows 1 of 76 after first kill');
+  check(/Discovered: 1 of 77/.test(body.replace(/\s+/g, ' ')), 'counter shows 1 of 77 after first kill');
   check(body.includes('⚔ × 1'), 'defeated card shows kill count');
   const desc = await page.evaluate((name) => {
     const cards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]);

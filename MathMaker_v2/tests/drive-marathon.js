@@ -315,6 +315,10 @@ function canonicalize(p) {
   await page.waitForSelector('#profileScreen.hidden', { state: 'attached' });
   await page.waitForTimeout(400);
   await ev(() => { MM.engine.state.difficulty = 'story'; MM.engine.save(); });
+  // Determinism: mimic chests are the first random roll that changes CONTROL
+  // FLOW (a chest bump becoming a battle) — the marathon's scripted chest
+  // clearing must never meet one. drive-mimic.js owns that coverage.
+  await ev(() => { MM.engine.MIMIC_CHANCE = 0; });
 
   // gate: dungeon 1 sealed before meeting the MathMaker
   await ev(() => MM.engine.tryEnterDungeon(1));

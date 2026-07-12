@@ -628,7 +628,20 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (y >= H || x >= W) continue;
         const ch = grid[y][x];
         const spr = MM.sprites.get(MM.maps.tileSprite(ch, x, y, s.mapId, waterFrame), { scale: 3 });
-        ctx.drawImage(spr, vx * TILE, vy * TILE);
+        // Playtest round 4: a mimic chest BREATHES — a slow 1-pixel bob (the
+        // telegraph rule: a surprise you could have spotted, never a gotcha).
+        // Calm Mode swaps motion for a static tell: a dark grin at the seam.
+        const isMimic = ch === '*' && MM.engine._mimics && MM.engine._mimics.has(`${x},${y}`);
+        if (isMimic && !s.calmMode) {
+          const bob = Math.floor(performance.now() / 550) % 2 ? 3 : 0;
+          ctx.drawImage(spr, vx * TILE, vy * TILE + bob);
+        } else {
+          ctx.drawImage(spr, vx * TILE, vy * TILE);
+          if (isMimic) { // calm mode: the lid sits ajar, ever so slightly
+            ctx.fillStyle = '#2a1626';
+            ctx.fillRect(vx * TILE + 12, vy * TILE + 19, TILE - 24, 2);
+          }
+        }
         if (!inDungeon && '1234567890'.includes(ch)) {
           const label = ch === '0' ? '10' : ch;
           ctx.font = '9px "Press Start 2P", monospace';
@@ -1314,7 +1327,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       }).join('');
       return `<div class="slot-label">${MM.data.SLOT_NAMES[slot]}${owned.length ? '' : ' <span class="dim">— nothing yet</span>'}</div>${rows}`;
     }).join('');
-    // Wave 2: loose (unfused) gems — Emberlyn in Port Brightwater fuses them
+    // Wave 2: loose (unfused) gems — Emberlyn in Port Brightwater fuses them.
+    // Before the pier opens (task 13), don't name a place the kid can't
+    // reach and has never heard of — promise the future instead.
+    const pierOpen = (s.tasksDone || []).includes(13);
+    const gemNote = pierOpen ? 'fuse at Emberlyn\'s' : 'for the enchanter across the sea ⛵';
     const gemCounts = {};
     (s.items.gems || []).forEach(id => gemCounts[id] = (gemCounts[id] || 0) + 1);
     const gemRows = Object.keys(gemCounts).length
@@ -1322,7 +1339,7 @@ var MM = globalThis.MM = globalThis.MM || {};
           const g = MM.data.gemById(id);
           return `<div class="shop-row">
             <span class="shop-item">${g.emoji} ${g.name} Gem${n > 1 ? ' × ' + n : ''}<span class="quip">${g.desc}</span></span>
-            <span class="bag-note">fuse at Emberlyn's</span>
+            <span class="bag-note">${gemNote}</span>
           </div>`;
         }).join('')
       : '<div class="bag-empty">No gems yet — glimmering chests sometimes hold them. ✨</div>';
@@ -2135,7 +2152,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (UI.modalOpen() || MM.battle.active()) return;
     MM.track('hallOfHeroes');
     const me = MM.engine.state;
-    const allCards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD]);
+    const allCards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD, MM.data.MIMIC_CARD]);
     const rows = MM.engine.profiles().map(name => {
       const st = name === me.name ? me : MM.engine.peekProfile(name);
       if (!st) return '';
@@ -2354,7 +2371,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!s || UI.modalOpen() || MM.battle.active()) return;
     const b = s.bestiary || { seen: {}, kills: {}, befriended: {} };
     // every card in the book (regulars + bosses per dungeon, + the golem)
-    const allCards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD]);
+    const allCards = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD, MM.data.MIMIC_CARD]);
     // Wave 8b: a card is FILLED IN by either verb. A kid who soothes her way
     // through the whole game must be able to complete the book — soothing is a
     // real way to finish a monster, not a way to skip one.
@@ -2373,6 +2390,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     const golemSection = s.metMiscount
       ? `<h3>Miscount's Sparring Ground</h3>${beastRow(MM.data.GOLEM_CARD, false)}`
       : '';
+    // Playtest round 4: the Mimic's page appears only once a kid has MET one
+    // (seen/beaten/befriended) — a secret the book keeps until then.
+    const b8 = s.bestiary || { seen: {}, kills: {}, befriended: {} };
+    const metMimic = b8.seen[MM.data.MIMIC_CARD.name] || (b8.kills || {})[MM.data.MIMIC_CARD.name] > 0
+      || ((b8.befriended || {})[MM.data.MIMIC_CARD.name] || 0) > 0;
+    const mimicSection = metMimic
+      ? `<h3>Wandering Chests</h3>${beastRow(MM.data.MIMIC_CARD, false)}`
+      : '';
     const blankNote = shownDungeons < 13
       ? `<p class="dim" style="font-size:13px;font-style:italic">...the rest of the pages are still blank. New places, new monsters!</p>`
       : '';
@@ -2390,7 +2415,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         <div class="shop-gold">Discovered: <b>${found}</b> of <b>${allCards.length}</b> monsters
           <span class="dim">(defeat a monster to fill in its card)</span></div>
         ${friendLine}
-        ${sections}${golemSection}${blankNote}${hatFooter}
+        ${sections}${golemSection}${mimicSection}${blankNote}${hatFooter}
       </div>
       <div class="btnrow"><button id="dlgOk" class="primary">Close the book</button></div>`);
     document.getElementById('dlgOk').onclick = () => { closeModal(); UI.refresh(); };
