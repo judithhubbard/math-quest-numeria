@@ -243,15 +243,18 @@ var MM = globalThis.MM = globalThis.MM || {};
     const task = MM.data.TASKS[s.dungeonIndex - 1];
     if (!task) return null;
     const mixed = task.mixed || E.isDeepWingFloor(s);
-    const skill = mixed ? mon.skill : task.skill;
+    // Playtest 2026-07-13 ("the abacus symbol is obscure"): in a SINGLE-topic
+    // dungeon every monster wore the same icon — zero information, pure
+    // clutter (the taskBox and the entry line already name the subject).
+    // Icons now appear only where they DIFFERENTIATE: mixed dungeons' bound
+    // monster types.
+    if (!mixed) return null;
+    const skill = mon.skill;
     if (!skill || !MM.data.SKILL_ICONS[skill]) return null;
     // Telegraph honesty: never promise a topic pickProblem wouldn't actually
-    // serve — a mixed dungeon's bound icon must vanish the instant a parent
-    // switches that topic off (same fallback pickRegularMonsterProblem
-    // takes). Single-topic dungeons don't need the check: capSkill still
-    // redirects a disabled OWN topic, but the icon there just names the
-    // dungeon's subject, not a specific-monster promise.
-    if (mixed && !MM.mastery.cappedSkills(s).includes(skill)) return null;
+    // serve — the bound icon must vanish the instant a parent switches that
+    // topic off (same fallback pickRegularMonsterProblem takes).
+    if (!MM.mastery.cappedSkills(s).includes(skill)) return null;
     return MM.data.SKILL_ICONS[skill];
   };
 

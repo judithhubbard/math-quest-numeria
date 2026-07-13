@@ -1790,6 +1790,27 @@ for (const skill of skills) {
   if (!sawLateJoin) fail('pedagogy: a met late topic never appears in mainland review');
 }
 
+// ---------- Brave pacing rule (2026-07-13): combat stays QUICK under brave ----------
+// Live playtest served 9,208 − 8,587 in a "quick" fight (sticky brave +
+// full-depth jump). Pinned forever: brave combat problems never show an
+// operand ≥ 100 in the multi-digit topics, and always differ from base.
+{
+  const st = { parent: { topics: {} }, mastery: {}, brave: true };
+  for (const sk of ['multidigit_addsub', 'multidigit_mult', 'decimals_ps', 'word_problems']) {
+    st.mastery[sk] = { attempts: 40, correct: 38, recent: Array(10).fill(true) }; // tier 3 kid
+  }
+  let heavy = 0, stepped = 0, draws = 0;
+  for (let i = 0; i < 2000; i++) {
+    const p = MM.mastery.combatProblem(st, 'multidigit_addsub');
+    draws++;
+    const nums = (p.text.match(/[\d,]+/g) || []).map(x => Number(x.replace(/,/g, '')));
+    if (nums.some(n => n >= 100)) { heavy++; if (heavy === 1) console.log('   heavy brave-combat sample:', p.text.replace(/\n/g, ' ')); }
+    if (/then (add|subtract)|[+−] \d+ [+−] \d+/.test(p.text)) stepped++;
+  }
+  if (heavy) fail(`brave pacing: ${heavy}/${draws} brave combat problems showed a 3+ digit operand`);
+  if (!stepped) fail('brave pacing: brave combat problems never gained their extra step');
+}
+
 // ---------- Version stamp (2026-07-13): display never drifts from cache ----------
 {
   // tracker.js isn't require()d headlessly — compare the two SOURCE files

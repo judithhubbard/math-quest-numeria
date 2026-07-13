@@ -943,10 +943,10 @@ var MM = globalThis.MM = globalThis.MM || {};
         : Math.sin(now / 400 + m.x * 2 + m.y) * 2;
       // when the boss goes down, every living friend in the room bounces
       const hop = (cheering && friend) ? -Math.abs(Math.sin(now / 140 + m.x)) * 9 : 0;
-      const spr = MM.sprites.get(m.sprite, {                   // (a) calmed colours
-        palette: friend ? MM.sprites.softPalette(m.sprite, m.pal || {}, 0.45) : (m.pal || {}),
-        scale: 3,
-      });
+      // Playtest 2026-07-13: the heart does the work — the washed-out calmed
+      // palette read as "something's wrong with its colors," not as calm.
+      // Becalmed friends keep their TRUE colors + the heart + the slow sway.
+      const spr = MM.sprites.get(m.sprite, { palette: m.pal || {}, scale: 3 });
       ctx.drawImage(spr, vx * TILE, vy * TILE + bob + hop);
       if (cheering && friend && !s.calmMode) worldSparkle(m.x, m.y - 0.6);
       if (m.boss) {
@@ -1179,9 +1179,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     document.getElementById('btnPotion').textContent = `🧪 Potion ×${s.potions}`;
     const foodCount = Object.values(s.items.food || {}).reduce((a, b) => a + b, 0);
     document.getElementById('btnFood').textContent = `🍗 Food ×${foodCount}`;
-    document.getElementById('statStreak').innerHTML = s.streak >= 3
+    // Sticky-brave visibility (2026-07-13): brave persists across battles
+    // and dungeons — the state must be one glance away OUTSIDE battle too,
+    // or a kid meets mysteriously harder problems with no visible cause.
+    const braveTag = s.brave ? `⚡ <b>Brave is on</b> <span class="dim">— extra steps, double power</span>` : '';
+    const streakTag = s.streak >= 3
       ? `🔥 <b>Streak ${s.streak}!</b> +${s.streak >= 6 ? 4 : 2} dmg${s.streak >= 5 ? ' · crits unlocked!' : ''}`
       : (s.streak > 0 ? `✨ Streak: ${s.streak}` : '');
+    document.getElementById('statStreak').innerHTML = [braveTag, streakTag].filter(Boolean).join('<br>');
 
     renderSpellRow(s);
 

@@ -135,8 +135,11 @@ function canonicalize(p) {
     const s = MM.engine.state;
     return s.monsters.filter(m => !m.boss).map(m => MM.engine.monsterTopicIcon(m));
   });
-  check(mainlandIcons.length > 0 && mainlandIcons.every(ic => ic === mainlandIcons[0]) && mainlandIcons[0] !== null,
-    'single-topic dungeon 1: every regular monster telegraphs the SAME (dungeon) topic');
+  // Playtest 2026-07-13: single-topic dungeons show NO icons — identical
+  // icons on every monster were clutter, not information (the taskBox and
+  // entry line already name the subject). Icons live in mixed dungeons only.
+  check(mainlandIcons.length > 0 && mainlandIcons.every(ic => ic === null),
+    'single-topic dungeon 1: no telegraph icons (they only appear where they differentiate)');
 
   const spireClean = await ev(() => MM.data.MONSTERS[18].types.every(t => !t.skill));
   check(spireClean, 'Clockwork Spire roster (dungeon 19) carries no mon.skill bindings (its own 50/50 picker would make one dishonest)');
