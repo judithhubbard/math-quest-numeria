@@ -393,8 +393,9 @@ a dock, and rest), and the sail-destination registry.
 - `drive-notices.js` — Wave 10 ("The World Notices", reaction-only content,
   37 checks): **the Turning Stones** (screenshots at 0/6/13 tasks done —
   looked at all three; alignment count tracks `s.tasksDone.length` exactly,
-  fills left-to-right, and every stone tile is still plain `.` grass
-  underneath — no new grid glyph); **the reactive cast** (a sample across
+  fills center-outward by walk index (spiral geometry rework in v1.7.0 —
+  see `drive-wonder.js` below), and every stone tile is still plain `.`
+  grass underneath — no new grid glyph); **the reactive cast** (a sample across
   Callie, Percy, Sylvia, Barnaby, Finn, and Miscount's own UI-driving
   greeting, each toggled flag-off/flag-on to prove the new line is absent
   before and present after — the full ~25-line sweep across all seven
@@ -429,6 +430,29 @@ a dock, and rest), and the sail-destination registry.
   the boss vignette is provably nonzero at the boss tile and zero far away
   — live in `tests/test.js` under its own "Wave 11: the Grand Descent"
   block.
+
+- `drive-wonder.js` — v1.7.0 ("story & wonder" pass, 26 checks): the
+  **Turning Stones spiral rework** (screenshots at 0/6/13 tasks done, looked
+  at — 5 corner turns + 8 straight runs, all 13 positions unique and
+  path-adjacent); the **sequence walk** (13 real `tryMove` steps chime in
+  order, the once-ever flourish fires and logs its own line, an
+  out-of-order step is silent, the newest-segment glint arms only once the
+  kid actually crosses the plaza); the **Spiral Stair** (the exact sealed
+  bump line pre-ending, the climb menu post-ending); **Tales of the
+  Guessing Years** (a post-ending Academy visit shows one, pinned via
+  `E.GUESS_TALE_CHANCE`; never shown pre-ending even pinned to 1) and a
+  **golem battle cry** (`MM.battle.GOLEM_CRY_CHANCE` pinned to 1); a
+  **boss wrong-math attack** (`E.WRONG_ATTACK_CHANCE` pinned to 1,
+  screenshot looked at) and its **correction beat** on the kid's next
+  correct strike; an **inn cat moment** plus the door-escort line
+  (`E.CAT_ESCORT_CHANCE` pinned to 1); and the **dual-form ⚡ toggle**
+  exercised on a boss's "…and then" tail (toggling ON attaches the tail to
+  the SAME problem, toggling OFF truncates back to the exact original
+  text) — the combat-form half of the same mechanism is exercised end to
+  end in `drive-stances2.js`'s latch section (rewritten for v1.7.0: an
+  eligible problem's mid-round ⚡ swap now pays double damage for the form
+  actually answered, verified via the `braveSolved` counter rather than
+  raw damage magnitude, which a low roll could false-negative).
 
 Operational note (2026-07-11): do NOT run drives while Dropbox is
 indexing a big file operation (e.g. right after refreshing the play

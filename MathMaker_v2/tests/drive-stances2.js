@@ -2,8 +2,10 @@
 // 1. Brave problems must LOOK hard — facts topics compose into chains, never
 //    plain "3+5" (the report that started this).
 // 2. The ⚡ button explains itself on first touch (kids don't hover).
-// 3. The brave latch: damage pays for the question actually asked — toggling
-//    mid-round can't double an easy problem.
+// 3. The dual-form ⚡ toggle (v1.7.0): an eligible problem's form swaps in
+//    place mid-round (base ⇄ base+step, same operands) and damage follows
+//    whichever form was actually answered; an ineligible (deep/choice)
+//    problem keeps the older pick-time latch instead.
 // 4. A soothed monster STAYS, becalmed: full health, pacified, off-duty if a
 //    guard, no ⚔ tally — and the soothe lands with a chime, not a whack.
 // 5. Each gentle instrument sheds its own calm (bubbles for the pipe).
@@ -107,19 +109,28 @@ function canonicalize(p) {
   await page.waitForTimeout(150);
   const offMsg = await ev(() => document.getElementById('battleMsg').innerText);
   check(/Brave off/.test(offMsg), 'later toggles get the short confirm, not the lecture');
-  await page.click('#stBrave'); // back ON for the latch test below
+  await page.click('#stBrave'); // back ON — v1.7.0: this SWAPS the shown problem in place
   await page.waitForTimeout(150);
-  // THE LATCH: this round's problem was picked with brave OFF — answering it
-  // now (brave just toggled ON) must deal NORMAL damage, not double
-  const hpBefore = await ev(() => MM.battle.active() ? MM.engine.state.monsters.find(m => m.stun === 999).hp : -1);
-  const range = await ev(() => MM.engine.strikeRange());
+  // v1.7.0 DUAL-FORM TOGGLE (supersedes the old "pick-time latch" for
+  // ELIGIBLE problems — see mastery.combatProblem/combatDualForm): the SAME
+  // question just grew its extra step, right now, no reroll — and damage
+  // follows the form actually answered, so this must pay DOUBLE. An
+  // INELIGIBLE problem (deep/choice kinds) still keeps the old latch.
+  const eligible = await ev(() => !!(MM.battle.current && MM.battle.current._dualEligible));
+  const braveSolvedBefore = await ev(() => MM.engine.state.braveSolved || 0);
   await answerBattleOnce();
   await page.waitForTimeout(900);
-  const hpAfter = await ev(() => MM.engine.state.monsters.find(m => m.stun === 999).hp);
-  const dealt = hpBefore - hpAfter;
-  // normal roll max is range.max (+2 streak at most here, no crit below streak 5)
-  check(dealt > 0 && dealt <= range.max + 2,
-    `the latch holds: a problem picked before ⚡ pays normal damage (dealt ${dealt}, normal max ~${range.max + 2})`);
+  const braveSolvedAfter = await ev(() => MM.engine.state.braveSolved || 0);
+  // braveSolved increments exactly when playerStrike scores the hit as
+  // brave (double damage) — a magnitude-independent, crit-proof way to
+  // confirm doubling actually happened for the form that was answered.
+  if (eligible) {
+    check(braveSolvedAfter === braveSolvedBefore + 1,
+      `dual-form toggle: the in-round ⚡ swap pays DOUBLE damage for the form actually answered (braveSolved ${braveSolvedBefore} -> ${braveSolvedAfter})`);
+  } else {
+    check(braveSolvedAfter === braveSolvedBefore,
+      `dual-form toggle: an ineligible problem keeps the old latch — normal damage until next question (braveSolved unchanged at ${braveSolvedAfter})`);
+  }
   // the latch strike may have finished the monster — clear whichever panel is up
   for (let i = 0; i < 10 && await ev(() => MM.battle.active()); i++) {
     if (await page.$('#victOk')) { await page.click('#victOk'); break; }

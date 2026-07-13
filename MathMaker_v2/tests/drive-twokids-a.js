@@ -275,11 +275,18 @@ function canonicalize(p) {
     if (await page.$('#modalBox #answerInput, #modalBox .choice')) await solveModalOnce();
     else { await page.click('#modalBox .btnrow button').catch(() => {}); await page.waitForTimeout(100); }
   }
-  // a second visit the SAME day must not offer the pat again (no farming)
+  // a second visit the SAME day still finds the cat (v1.7.0: a moment from
+  // CAT_MOMENTS, pure delight) — but must never offer the +1-stamina pat
+  // again (no farming)
+  const staminaBeforeSecond = await ev(() => MM.engine.state.stamina);
   await ev(() => MM.engine.inn(false));
   await page.waitForTimeout(150);
   const secondVisitTitle = await page.textContent('#modalBox h2').catch(() => '');
-  check(!/inn cat/i.test(secondVisitTitle || ''), 'the cat pat is once per real day, not once per visit');
+  const secondVisitBody = await ev(() => (document.getElementById('modalBox') || {}).innerText || '');
+  const staminaSecond = await ev(() => MM.engine.state.stamina);
+  check(/inn cat/i.test(secondVisitTitle || ''), 'a second same-day visit still finds the cat (a moment, not a snub)');
+  check(!/Give it a pat/.test(secondVisitBody), 'the cat pat is once per real day, not once per visit');
+  check(staminaSecond === staminaBeforeSecond, `the moment grants nothing (stamina ${staminaBeforeSecond} -> ${staminaSecond})`);
 
   console.log('=== CHECKS ===');
   console.log(checks.join('\n'));

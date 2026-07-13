@@ -2269,7 +2269,7 @@ The recurring systems (bounties, badges, bestiary, sparring, gauntlet,
 enchant hunting) are what stretch the top of that range — they make the six
 new dungeons revisitable rather than one-shot.
 
-## v1.7.0 queue — story & wonder pass (design session; queued from live playtest 2026-07-13)
+## v1.7.0 queue — story & wonder pass (design session; queued from live playtest 2026-07-13) ✅ SHIPPED (2026-07-13, implementer pass — see "v1.7.0 SHIPPED" writeup at the end of this file for the six-item scope actually implemented, test results, and every deviation)
 
 # QUEUED: Turning Stones spiral layout fix (user report 2026-07-13)
 # Apply during the Wave 11 review pass (agent owns the tree now; this
@@ -2600,3 +2600,270 @@ SUPERSEDES the facts-only dual-form spec:
 Tests: brave combat never emits a 3-digit operand in multidigit topics
 (4k-draw sweep); every topic's brave-combat form differs from its base;
 sidebar indicator tracks s.brave; boss tails unchanged.
+
+---
+
+## v1.7.0 SHIPPED (2026-07-13, implementer pass)
+
+Scope actually implemented — the six items assigned by the design session
+(the queue section above holds the full original work order; not every
+sub-item there was in scope for this pass, e.g. music replacement,
+music/sound ⚙️ toggles, version stamp, 1g discount minimum, and the
+gentle-way soundscape were already shipped in v1.6.0 and untouched here):
+
+1. **Turning Stones spiral rework.** 13 stones now follow the queue's exact
+   rectangular-spiral walk (R1,U1,L2,D2,R3,U3 offsets), center-out carving
+   1,1,2,3,5,8,13 + 6 unnumbered curve stones, arc/line orientation derived
+   from each stone's actual path neighbors (a "turn" glyph rotated to
+   connect the two real edges it bridges, a "straight" glyph for runs),
+   the interactive sequence walk (in-order stepping chimes via
+   `MM.sound.tone`, a full walk is a once-ever flourish + persisted
+   `seenSpiralWalk`, out-of-order is silent), and the newest-turned stone
+   glinting once on the next plaza crossing (`E.checkSpiralGlint`,
+   mirrors the gate-glint recipe).
+2. **Spiral Stair visible from day one, sealed.** Turned out to already be
+   true in the shipped code — `'H'` has drawn `spiralTower` unconditionally
+   on the world map since Wave 9, and bumping it always called
+   `E.spiralMenu()`, which already gated on `endingDone`. This item reduced
+   to: replace `MM.data.SPIRAL_SEALED`'s text with the exact approved bump
+   line (now a function of `s`, for the optional task-10+ "seems deeper
+   lately" evolution), and add one new Sylvia rotating aside. Unlock timing
+   was never touched.
+3. **Miscount's Tales of the Guessing Years + golem battle cries.**
+   `MM.data.MISCOUNT_GUESS_TALES` (4 tales, verbatim) rotate occasionally
+   (`E.GUESS_TALE_CHANCE = 0.35`) before the Academy's slates, gated on
+   `s.endingDone`. `MM.data.GOLEM_BATTLE_CRIES` (3 cries) occasionally
+   replace a non-boss golem's enter-flavor (`MM.battle.GOLEM_CRY_CHANCE =
+   0.12`) — deliberately keyed on `mon.sprite === 'golem'`, not just the
+   literal "Homework Golem," since the story bible's canon is that every
+   golem in Numeria is one of Miscount's old wrong answers, dungeon
+   regulars/bosses included (bosses are still excluded from the cry itself,
+   per the hard "bosses stay sincere" rule — only non-boss golems can cry).
+4. **Wrong-math boss attacks.** `E.bossFalsehood()` generates a small
+   arithmetic fact and an absurdly wrong answer (truth × 4..12, or truth ±
+   200..900, with a deterministic fallback if either path ever lands inside
+   the forbidden ±30%/off-by-one zone) — rendered in the boss's own theme
+   accent color, in the battle message and as a floater, on roughly half of
+   boss counterattacks (`E.WRONG_ATTACK_CHANCE = 0.5`). The kid's next
+   correct strike appends the correction beat ("…and 7 × 8 = 56. The
+   record, corrected.") via `bt.pendingCorrection`. Presentation only —
+   `applyMonsterHit`'s damage roll is untouched.
+5. **Inn cat moments.** `MM.data.CAT_MOMENTS` (6 moments) fires on every
+   inn visit where the once-daily pat isn't on offer (`s.catPettedDate ===
+   today`), with `s.lastCatMoment` avoiding an immediate repeat and
+   `E.CAT_ESCORT_CHANCE = 0.3` appending the door-escort line. The beetle
+   (`s.seenCatBeetle`) stays the separate once-ever rare, untouched.
+6. **Dual-form ⚡ toggle + boss "…and then" tails.** `MM.problems.braveStep`
+   (combat) and the new `MM.problems.tailStep` (bosses) each compute a
+   base+extended sibling pair from ONE draw; `MM.mastery.combatProblem` /
+   `bossDualForm` (backing `pickBossProblem`/`pickMixedGate`/
+   `pickHalfMixGate`) stamp `_dualBase`/`_dualExtended`/`_dualEligible` onto
+   whichever form is active. `battle.js`'s `swapProblemForm` swaps
+   `bt.problem` to its sibling in place on every mid-round ⚡ click (same
+   operands — nothing to fish), preserving typed input if it's still a
+   digit-prefix of the new integer answer; damage now reads
+   `bt.activeIsExtended` (updated live by every toggle) for eligible
+   problems, and falls back to the pre-existing pick-time latch
+   (`bt.braveAtPick`) for ineligible ones (deep/choice kinds — the music
+   staff, decimal compares), whose toggle message says "takes effect next
+   question," per the queue's own exemption.
+
+### Deviations from this spec, and why
+
+- **The spiral's anchor shifted from the courtyard-adjacent row the design
+  doc assumed to `(CX,CY) = (17,11)`, south of the player's own spawn
+  `(19,8)`, not north of it.** The queue's own instruction was "shift the
+  anchor C to make the geometry work, don't reshape the walk" — and the
+  geometry genuinely doesn't work anywhere else. Stone 12's column is
+  forced to 19 (so its due-north outward ray hits the Spiral Stair tile at
+  `(19,3)`), and on that column the spiral's own footprint spans 4
+  consecutive rows (the `dx=2` stones at `dy∈{1,0,-1,-2}`) — checked
+  exhaustively against the raw overworld, every row from 3 through 10
+  collides with the castle `(19,4)`, the tower `(19,3)`, or the player
+  spawn `(19,8)` on that shared column. The nearest collision-free anchor
+  is `CY=11`, three tiles south of spawn. The story reads fine either way
+  (a kid crosses the plaza just as often walking south from the castle
+  toward the dungeons as walking up to it), and the outward ray now runs
+  literally through the spawn tile and the castle before reaching the
+  tower — a nice unplanned image ("past your own front door, past the
+  castle, to the tower") rather than a problem.
+- **Turn/straight shape derivation.** The design doc says an aligned
+  stone's carving "connects its path neighbors (quarter-turn arc where the
+  walk turns, straight segment where it runs)" — implemented exactly as a
+  small per-stone `{shape, angle}` pair computed once in `data.js` from the
+  walk's own in/out directions (8 turn-shape stones share one of 4 possible
+  rotations of the existing arc glyph; the other 5 use a plain line rotated
+  to match the run's axis), rather than deriving it live in `ui.js` on
+  every frame — cheaper, and trivially unit-testable.
+- **Numeral legibility over strict "crooked until tended."** The original
+  Wave 10 design rotated a stone's carved number WITH its arc (`stoneTrueAngle
+  (i) = i*90%360`), which was never actually "upright once turned" for most
+  stones even under the old design (only i=0 and i=4 landed on 0°) — and
+  under the new geometric angles (0/90/180/270 depending on the actual
+  turn), an aligned numeral could land sideways or upside-down, undermining
+  the "the kid who counts them is reading the exact sequence" fair-play
+  promise the ending exam depends on. Numerals are now drawn UNROTATED
+  once aligned (always legible), and still skewed with the stone while
+  unaligned — the flavor detail survives, the load-bearing readability does
+  too.
+- **Stroke weight/color bumped after a screenshot-and-look pass.** The
+  first render (2px, `#e0d8ec` lavender) read as scattered fragments, not a
+  connected curl, at the game's actual 48px tile size — exactly the "does
+  it read as a spiral at a glance" failure this whole rework exists to fix.
+  Aligned strokes are now 3.5px, near-white (`#fff6d8`), round-capped.
+  Unaligned (skewed, untended) strokes are untouched.
+- **`MM.data.stoneTrueAngle` was removed, not deprecated-in-place** — it
+  had exactly one caller (the old `ui.js` render block, now rewritten) and
+  keeping a dead export around serves nobody.
+- **Facts-topic combat brave form: `braveStep`-derived, not the
+  independently-drawn tier-3 chain generator.** This is the largest
+  substantive deviation, and it's a resolution the v1.7.0 queue text itself
+  anticipates but doesn't fully spell out: item E bullet 1 (already shipped
+  in v1.6.0) has facts topics draw `MM.problems.generate(skill, 3)` — a
+  fresh, independent random chain — when brave is on at pick time; item E
+  bullet 3 (this pass's job) requires "dual-form in-place ⚡ toggling
+  applies to the combat forms UNIFORMLY (base quick ⇄ quick+step; SAME
+  OPERANDS)." Those two are incompatible for facts specifically: an
+  independently-drawn chain's operands can never match the base quick
+  problem's, so an in-place toggle for facts topics is structurally
+  impossible under the old mechanism. Resolution: `braveStep` was extended
+  to handle all four operators inline (previously + and − only), so a
+  facts base draw like `"6 + 9 = ?"` extends to `"6 + 9 + 7 = ?"` and
+  `"6 × 7 = ?"` extends to `"6 × 7 × 3 = ?"` — visually indistinguishable
+  from the old curated chains, just always derived from the SAME draw
+  instead of a second independent one. The trade: facts' brave-combat form
+  no longer occasionally draws the missing-addend "▢" box variant (that
+  variant is drawn from a materially different structure that can't share
+  operands with a 2-term base problem) — box-style practice is untouched
+  everywhere else (Miscount's Academy, the exam). `braveStep`'s "abort and
+  return unchanged if a subtraction step would go negative" fallback was
+  also replaced with "add instead" (always succeeds) — required so the new
+  facts usage doesn't occasionally emit a bare, unextended two-term sum,
+  which `drive-stances2.js`'s existing "brave facts problems are NEVER
+  plain two-term sums" check depends on staying true at 100%, not "almost
+  always."
+- **Two pre-existing tests encoded the OLD "brave draws an independently
+  random full-depth problem" contract and had to be rewritten, not just
+  left alone:** `tests/test.js`'s "P3: Brave draws harder, and never at a
+  gate" block (asserted `combatProblem(...).quick === false` under brave —
+  now checks `_dualEligible` + the extended text differing from `_dualBase`
+  instead) and `tests/drive-twokids-b.js`'s "brave draws a harder problem"
+  check (same pattern). `tests/drive-stances2.js`'s "THE LATCH" section
+  changed from asserting NORMAL damage on a problem picked before ⚡ toggled
+  on, to asserting DOUBLE damage — because for an eligible problem the
+  mid-round toggle now genuinely changes what's being answered, so the OLD
+  latch's very premise (damage frozen at pick time) no longer holds for
+  eligible problems. That check now reads `s.braveSolved`'s delta rather
+  than raw damage magnitude, since a low-end damage roll doubled can
+  numerically resemble a normal high roll and vice versa — a crit-proof,
+  magnitude-independent way to prove doubling actually happened.
+- **Boss tail eligibility list matches the queue's own exemption
+  (`number`/`remainder`/`clock` tail; `choice` keeps the latch) exactly**,
+  implemented as a single new `MM.problems.tailStep(q)` rather than folding
+  into `braveStep` — boss problems are full-depth and can be any of the
+  four kinds (`braveStep` only ever handles `kind:'number'`), and keeping
+  the boss-only fraction/remainder/clock-tail logic out of the combat-only
+  `braveStep` keeps each function's contract simple to reason about and
+  test in isolation.
+- **The correction beat's message lives in `#probFeedback` (the same DOM
+  region the "✓ Correct!" line already uses), not a separate banner** — it
+  needs to sit visually adjacent to the strike that earned it ("her agency
+  does the fixing," per the queue's own framing), and `#probFeedback` is
+  the one place in the battle screen that's already about "what just
+  happened with this answer."
+- **The boss falsehood is drawn in BOTH the battle message (DOM, in the
+  boss's accent color via an inline style) and as a floating canvas text**
+  — the DOM copy makes it screenshot-assertable and accessible-by-text for
+  the drive/tests; the floater keeps it visually anchored over the boss,
+  matching every other in-battle number callout (damage, crits, brave
+  lightning).
+
+### New prose (pasted in full; all reviewed against STORY_BIBLE.md's tone
+rules before shipping)
+
+**Spiral Stair sealed line** (pre-ending bump, exact per the queue):
+> A door with no keyhole, at the base of a winding tower. Carved above it:
+> the same curling line as the courtyard stones. It isn't ready. Or you
+> aren't. Hard to say which.
+
+**Spiral Stair late-game evolution** (task 10+, appended to the line above):
+> The carving seems deeper lately.
+
+**Sylvia's new rotating aside** (task 10+, ~15% chance per mainland visit,
+silent once the Stair opens):
+> "That carving over the tower door," Sage Sylvia says, not quite looking
+> at it. "It seems deeper lately. As if something is being carved from the
+> inside." She does not explain further. She never does, with that tower.
+
+**Golem battle cries** (rare, non-boss golems only):
+> The golem draws itself up and bellows a number from deep in its stony
+> memory: "SEVEN!" It has no idea why. It has never had any idea why.
+>
+> Before you can act, the golem roars: "CARRY NOTHING!" — an old, wrong
+> instinct, worn smooth with repetition.
+>
+> The golem thumps its chest and declares, with total confidence: "IT IS
+> ALWAYS TWELVE!" It is not always twelve.
+
+**Once-ever spiral-walk flourish log line:**
+> Something in the courtyard settles into place, just for a moment.
+
+**Inn cat moments** (one per non-pat visit):
+> She outranks me. [asleep on the ledger — full line: "The inn cat is
+> asleep directly on top of the guest ledger, pinning three unanswered
+> reservations under one paw. 'She outranks me,' the innkeeper says, and
+> does not move her."]
+>
+> Someone has left a basket by the hearth, and the inn cat is curled in the
+> middle of what may or may not be four kittens. "The census is
+> inconclusive," the innkeeper reports. "She keeps rearranging them."
+>
+> A crate arrived this morning, already emptied — and the inn cat has
+> wedged herself into it anyway, several sizes too small, looking extremely
+> satisfied about it.
+>
+> The inn cat sits square in front of the hearth, watching the fire the way
+> some people watch a good story — utterly absorbed, tail twitching at the
+> good parts.
+>
+> The inn cat has claimed the warm-up slate as a cushion. The innkeeper
+> gently slides your first question out from under her; she does not wake,
+> and does not stop purring.
+>
+> The inn cat looks directly at you, decides you are not, at this time,
+> interesting, and returns to staring at the middle distance with
+> tremendous dignity.
+
+**Inn cat door escort** (~30% of non-pat visits, appended):
+> As you head off to bed, the inn cat trots you to the door — tail up like
+> a flag — and peels off the moment you're through it, mission apparently
+> accomplished.
+
+**Boss correction beat** (template, names vary per equation):
+> …and 7 × 8 = 56. The record, corrected.
+
+**Miscount's Tales of the Guessing Years** (verbatim from the queue,
+user-approved, unedited):
+> "I once answered 'seven' to everything for a full week. It worked
+> twice." He holds up two fingers. "That was the worst part. It working
+> twice. That's the whole trap, you see — a guess pays just often enough."
+>
+> "I told the king the new bridge wanted 'about a hundred' planks. It
+> wanted forty. We had a very tall bonfire that winter, and a very cross
+> carpenter."
+>
+> "I guessed a soup once. Doubled the salt because it felt right." He
+> shudders, with respect. "That soup could have stood sentry duty."
+>
+> "I called the stars 'roughly a thousand.' Sylvia has been counting the
+> ones I missed ever since. She sends me the number every winter. It has
+> five digits, and it grows."
+
+### Evidence
+
+`node tests/test.js` — all unit blocks pass, including the new v1.7.0
+geometry/sequence-walk/pedagogy-guard/migration/prose-exact blocks. All 29
+drives (28 pre-existing + the new `tests/drive-wonder.js`) + the detached
+marathon — final results and log paths are in the implementer's report to
+the design session (not duplicated here to avoid drift; see `tests/logs/`
+for the raw logs, named `<drive>-v170-*.log` and `marathon-v170.log`).

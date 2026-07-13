@@ -165,14 +165,18 @@ const SHOTS = path.join(__dirname, 'shots-touch');
   const muteSafe = await ev(() => { try { MM.sound.correct(); MM.sound.fanfare(); MM.sound.hit(true); return true; } catch (e) { return false; } });
   check(muteSafe, 'every sound call is a safe no-op while muted');
 
-  // ---------- background music: right track for the moment, toggleable ----------
+  // ---------- background music: right MOOD for the moment, quiet-first ----------
+  // v1.7.0 (real recordings): arrival is deliberately QUIET — a 30-60s gap
+  // before the mood's first piece — so the drive asserts the mood picker,
+  // not audible playback. And battles have NO pool at all: silent by design.
   await ev(() => { MM.music.poke(); MM.engine.state.soundOff = false; MM.engine.state.musicOff = false; MM.engine.enterWorld(); });
   await page.waitForTimeout(300);
-  check(await ev(() => MM.music.currentTrack() === 'world'), 'overworld plays the world track');
+  check(await ev(() => { const m = MM.music._state(); return m.mood === 'world' && m.playing === null; }),
+    'the overworld sets the world mood — and arrival is quiet first (weather, not wallpaper)');
   await ev(() => MM.engine.enterDungeon(1));
   await page.waitForTimeout(300);
-  check(await ev(() => MM.music.currentTrack() === 'dungeon'), 'a dungeon switches to the dungeon track');
-  // a battle takes the battle track — and a rough patch says one kind thing
+  check(await ev(() => MM.music._state().mood === 'dungeon'), 'a dungeon switches to the dungeon mood');
+  // a battle starts NO music — and a rough patch says one kind thing
   await ev(() => {
     const s = MM.engine.state;
     for (const t of MM.data.TASKS.slice(0, 10)) {           // seed a rough patch in every
@@ -185,7 +189,8 @@ const SHOTS = path.join(__dirname, 'shots-touch');
   });
   await page.waitForFunction(() => MM.battle.active());
   await page.waitForTimeout(400);
-  check(await ev(() => MM.music.currentTrack() === 'battle'), 'a battle switches to the battle track');
+  check(await ev(() => { const m = MM.music._state(); return m.mood === 'dungeon' && MM.music.currentTrack() === null; }),
+    'a battle starts no music — battles are silent by design, the SFX own the fight');
   // answer WRONG once: the worked solution + one kind line appear
   await page.waitForSelector('#battleProblem #answerInput:not([disabled]), #battleProblem .choice:not([disabled])');
   if (await page.$('#battleProblem #answerInput:not([disabled])')) {
@@ -216,10 +221,11 @@ const SHOTS = path.join(__dirname, 'shots-touch');
   check(struggle.bad && !struggle.healthy, 'the ⚠ marks a sustained-struggle topic and never a healthy one');
   await ev(() => { const f = document.getElementById('fleeBtn'); if (f) f.click(); });
   await page.waitForFunction(() => !MM.battle.active(), null, { timeout: 8000 }).catch(() => {});
-  // musicOff: the track stops; soundOff stays independent
-  await ev(() => { MM.engine.state.musicOff = true; });
+  // musicOff: even a queued gentle moment (the strongest start there is —
+  // it skips the quiet gap) may not play while the switch is off
+  await ev(() => { MM.engine.state.musicOff = true; MM.music.moment('gentle'); });
   await page.waitForTimeout(300);
-  check(await ev(() => MM.music.currentTrack() === null), 'musicOff silences the track picker (SFX untouched)');
+  check(await ev(() => MM.music.currentTrack() === null), 'musicOff holds even against a queued gentle moment (SFX untouched)');
 
   // ---------- big text + mid-dungeon resume narration ----------
   await ev(() => { const s = MM.engine.state; s.bigText = true; MM.engine.save(); });

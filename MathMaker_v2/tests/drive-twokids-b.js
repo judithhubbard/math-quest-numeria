@@ -315,7 +315,11 @@ function canonicalize(p) {
   check(braveMiss.calm.streak === braveMiss.bold.streak && braveMiss.calm.hp === braveMiss.bold.hp,
     `a BRAVE miss costs exactly a normal miss — no extra penalty (streak ${braveMiss.bold.streak}, hp ${braveMiss.bold.hp}, same as normal)`);
 
-  // brave draws a harder problem: full-depth, not the quick slot
+  // brave adds one extra step to the SAME quick problem (v1.7.0 dual-form
+  // redesign — supersedes the old "brave draws an independently-random
+  // full-depth problem" rule; a mid-round ⚡ toggle needs both forms to
+  // share one draw's operands, so the extended form is always derived FROM
+  // the base, never drawn separately)
   const braveProb = await ev(() => {
     const s = MM.engine.state;
     s.brave = false;
@@ -323,10 +327,10 @@ function canonicalize(p) {
     s.brave = true;
     const b = MM.mastery.combatProblem(s, 'addsub_facts');
     s.brave = false;
-    return { quick: !!q.quick, braveQuick: !!b.quick, braveTier: b.tier };
+    return { quick: !!q.quick, braveQuick: !!b.quick, eligible: !!b._dualEligible, baseText: b._dualBase && b._dualBase.text, extText: b.text };
   });
-  check(braveProb.quick && !braveProb.braveQuick,
-    `brave swaps the quick problem for a full-depth one (tier ${braveProb.braveTier})`);
+  check(braveProb.quick && braveProb.braveQuick && braveProb.eligible && braveProb.extText !== braveProb.baseText,
+    `brave adds one extra step to the SAME quick problem (base "${braveProb.baseText}" -> brave "${braveProb.extText}")`);
 
   // the stance row shows the stakes while brave is on
   await ev(() => {

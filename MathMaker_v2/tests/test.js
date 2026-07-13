@@ -1821,23 +1821,30 @@ for (const skill of skills) {
   else if (trSrc[1] !== swSrc[1]) fail(`version drift: tracker.js ${trSrc[1]} !== sw.js ${swSrc[1]}`);
 }
 
-// ---------- Music pass (2026-07-12): track structure audit ----------
-// The composer can't hear headless Chrome — but structure is checkable:
-// every note lands inside its loop, names a real frequency, and stays
-// UNDER the effects volume (music is background by design-rule).
+// ---------- Music pass (v1.7.0): real-recording roster audit ----------
+// Nobody can hear headless Node — but the manifest is checkable: every
+// track names a real committed file, carries its attribution (the CC
+// licenses REQUIRE it), sits in a known mood pool, every pool has at
+// least one piece, and there is no 'battle' pool at all (battles are
+// silent by design — SFX own the fight).
 {
   require('../js/music.js');
+  const fsm = require('fs');
   const tracks = MM.music.TRACKS;
-  for (const [name, t] of Object.entries(tracks)) {
-    if (!t.tempo || !t.loop || !t.notes.length) fail(`music: track '${name}' malformed`);
-    for (const [beat, note, dur, vol, type] of t.notes) {
-      if (beat < 0 || beat >= t.loop) fail(`music '${name}': note at beat ${beat} outside its ${t.loop}-beat loop`);
-      if (dur <= 0) fail(`music '${name}': zero/negative duration at beat ${beat}`);
-      if (!(vol > 0 && vol <= 0.05)) fail(`music '${name}': volume ${vol} breaks the background rule (0 < v <= 0.05)`);
-      if (type !== 'sine' && type !== 'triangle') fail(`music '${name}': harsh oscillator '${type}'`);
-    }
+  const MOODS = ['world', 'dungeon', 'isles', 'gentle'];
+  if (!Array.isArray(tracks) || !tracks.length) fail('music: TRACKS manifest missing or empty');
+  const ids = new Set();
+  for (const t of tracks) {
+    if (!t.id || !t.src || !t.mood || !t.title) fail(`music: track '${t.id || t.src}' malformed (needs id/src/mood/title)`);
+    if (ids.has(t.id)) fail(`music: duplicate track id '${t.id}'`);
+    ids.add(t.id);
+    if (!MOODS.includes(t.mood)) fail(`music '${t.id}': unknown mood '${t.mood}' (battles are silent — no battle pool)`);
+    if (!fsm.existsSync(__dirname + '/../' + t.src)) fail(`music '${t.id}': file ${t.src} is not in the repo`);
+    if (!/public domain|CC0|CC BY/i.test(t.title)) fail(`music '${t.id}': title carries no license/attribution — CC tracks may not ship without one`);
   }
-  if (!tracks.world || !tracks.dungeon || !tracks.battle) fail('music: a moment is missing its track');
+  for (const m of MOODS) {
+    if (!tracks.some(t => t.mood === m)) fail(`music: the '${m}' pool is empty — that mood would be silent forever`);
+  }
 }
 
 // ---------- Wave 8a (P5): rust ordering ----------
@@ -1985,16 +1992,22 @@ for (const skill of skills) {
   if (MM.mastery.tierFor(fresh, 'geometry') !== 1) fail('fixture: expected tier 1');
   if (MM.mastery.braveTierFor(fresh, 'geometry') !== 2) fail('brave: tier 1 must lift to 2');
 
-  // combat problems: normally QUICK (tier-less); brave swaps in a FULL-DEPTH one
+  // combat problems: normally QUICK (tier-less); brave ADDS ONE EXTRA STEP to
+  // the SAME quick draw, uniformly across every topic including facts — the
+  // v1.7.0 dual-form ⚡ toggle redesign (mastery.combatDualForm/combatProblem)
+  // supersedes the old "brave draws an independently-random full-depth
+  // problem" rule, because a mid-round toggle needs BOTH forms to share one
+  // draw's operands (nothing to fish). See the dual-form block below.
   const calm = { mastery: {}, parent: { topics: {} }, brave: false };
   const bold = { mastery: {}, parent: { topics: {} }, brave: true };
-  let quicks = 0, deep = 0;
+  let quicks = 0, stepped = 0;
   for (let i = 0; i < 200; i++) {
     if (MM.mastery.combatProblem(calm, 'addsub_facts').quick) quicks++;
-    if (!MM.mastery.combatProblem(bold, 'addsub_facts').quick) deep++;
+    const p = MM.mastery.combatProblem(bold, 'addsub_facts');
+    if (p.quick && p._dualEligible && p.text !== p._dualBase.text) stepped++;
   }
   if (quicks !== 200) fail(`brave off: combat must draw QUICK problems (got ${quicks}/200)`);
-  if (deep !== 200) fail(`brave on: combat must draw FULL-DEPTH problems (got ${deep}/200)`);
+  if (stepped < 195) fail(`brave on: combat must gain its extra step almost every draw (got ${stepped}/200)`);
 
   // THE PILLAR: gates are never bumped. gateTier ignores brave unless the caller
   // explicitly says "this is a boss" — a harder problem for no reward is a trap,
@@ -2006,6 +2019,46 @@ for (const skill of skills) {
   const gateBoss = MM.mastery.gateTier(fresh2, 'geometry', true);    // a boss
   if (gateNoFlag !== 2) fail(`brave must NOT lift a door/chest/seal (got tier ${gateNoFlag}, expected the normal 2)`);
   if (gateBoss !== 3) fail(`brave SHOULD lift a boss problem (got tier ${gateBoss}, expected 3)`);
+}
+
+// ---------- v1.7.0: the dual-form ⚡ toggle ----------
+{
+  const st = { mastery: {}, parent: { topics: {} }, brave: false };
+  // combat: base and extended share the SAME first two operands (anti-fishing)
+  let sweepOk = true;
+  for (let i = 0; i < 50; i++) {
+    const p = MM.mastery.combatProblem(st, 'multidigit_addsub');
+    if (!p._dualEligible) continue;
+    const baseNums = (p._dualBase.text.match(/\d+/g) || []).slice(0, 2);
+    const extNums = (p._dualExtended.text.match(/\d+/g) || []).slice(0, 2);
+    if (baseNums.join(',') !== extNums.join(',')) sweepOk = false;
+  }
+  if (!sweepOk) fail('dual-form: base and extended combat forms must share the same first two operands');
+  // eligible combat problem: extended form actually differs from base
+  const combatP = MM.mastery.combatProblem(st, 'addsub_facts');
+  if (!combatP._dualEligible) fail('dual-form: addsub_facts combat problems must be toggle-eligible');
+  if (combatP._dualExtended.text === combatP._dualBase.text) fail('dual-form: extended combat form must differ from base');
+  // ineligible (deep) combat kinds fall back gracefully (no _dualEligible, no crash)
+  const deepP = MM.mastery.combatProblem(st, 'time_reading');
+  if (deepP._dualEligible) fail('dual-form: time_reading (clock/choice quick problems) should not claim eligibility');
+
+  // boss tail: at a tier-3 kid, a brave boss problem's extended (tailed) form
+  // must differ from its own base (untailed) form — the tier lift alone caps
+  // at 3 and can otherwise deliver nothing new, per the "…and then" tail fix.
+  const tier3 = { mastery: {}, parent: { topics: {} }, brave: true };
+  for (let i = 0; i < 20; i++) MM.mastery.record(tier3, 'multidigit_mult', true);
+  let tailOk = true, tailPresentCount = 0;
+  for (let i = 0; i < 50; i++) {
+    const b = MM.mastery.pickBossProblem(tier3, 4, true); // dungeon 4 = multidigit_mult
+    if (!b._dualEligible) continue;
+    tailPresentCount++;
+    if (b._dualExtended.text === b._dualBase.text) tailOk = false;
+    const baseNums = (b._dualBase.text.match(/\d+/g) || []);
+    const extNums = (b._dualExtended.text.match(/\d+/g) || []).slice(0, baseNums.length);
+    if (baseNums.join(',') !== extNums.join(',')) tailOk = false;
+  }
+  if (!tailPresentCount) fail('dual-form: boss problems at tier 3 never produced an eligible (tailed) form in 50 draws');
+  if (!tailOk) fail('dual-form: boss tail must differ from base while keeping the same leading operands');
 }
 
 // ---------- P3: the boss floor ----------
@@ -2318,10 +2371,65 @@ for (const skill of skills) {
   if (s.academyTotal !== 0) fail('migration: academyTotal should default to 0');
   if (!s.castleFurnish || s.castleFurnish.rug !== false || !Array.isArray(s.castleFurnish.statues)) fail('migration: castleFurnish should default sensibly');
   if (!Array.isArray(s.petHats) || s.petHats.length) fail('migration: petHats should default to an empty array');
+  // v1.7.0: every new persisted flag defaults sanely for a pre-v1.7.0 save
+  if (s.spiralWalkNext !== 0) fail('migration: spiralWalkNext should default to 0');
+  if (s.seenSpiralWalk !== false) fail('migration: seenSpiralWalk should default to false');
+  if (s.seenStairGlimmer !== false) fail('migration: seenStairGlimmer should default to false');
+  if (s.spiralGlintPending !== null) fail('migration: spiralGlintPending should default to null');
+  if (s.lastCatMoment !== null) fail('migration: lastCatMoment should default to null');
   MM.engine.state = null;
 }
 
-// ---------- Wave 10 (P1): the Turning Stones — data completeness ----------
+// ---------- v1.7.0: boss wrong-math attacks — the pedagogy guard ----------
+{
+  let heavy = 0;
+  for (let i = 0; i < 500; i++) {
+    const lie = MM.engine.bossFalsehood();
+    const [, truthNum] = lie.truthText.match(/= (-?\d+)$/);
+    const [, wrongNum] = lie.text.match(/= (-?\d+)$/);
+    const truth = +truthNum, wrong = +wrongNum;
+    if (wrong === truth) { heavy++; continue; }
+    const within30 = Math.abs(wrong - truth) <= Math.max(1, Math.abs(truth)) * 0.3;
+    const offByOne = Math.abs(wrong - truth) === 1;
+    if (within30 || offByOne) heavy++;
+  }
+  if (heavy) fail(`boss falsehood: ${heavy}/500 wrong-attack equations were within the pedagogy guard's forbidden zone (±30% or off-by-one)`);
+}
+
+// ---------- v1.7.0: Miscount's Tales of the Guessing Years ----------
+{
+  const tales = MM.data.MISCOUNT_GUESS_TALES;
+  if (!Array.isArray(tales) || tales.length !== 4) fail(`guess tales: expected 4 tales, got ${tales && tales.length}`);
+  const exact = [
+    '"I once answered \'seven\' to everything for a full week. It worked twice." He holds up two fingers. "That was the worst part. It working twice. That\'s the whole trap, you see — a guess pays just often enough."',
+    '"I told the king the new bridge wanted \'about a hundred\' planks. It wanted forty. We had a very tall bonfire that winter, and a very cross carpenter."',
+    '"I guessed a soup once. Doubled the salt because it felt right." He shudders, with respect. "That soup could have stood sentry duty."',
+    '"I called the stars \'roughly a thousand.\' Sylvia has been counting the ones I missed ever since. She sends me the number every winter. It has five digits, and it grows."',
+  ];
+  if (JSON.stringify(tales) !== JSON.stringify(exact)) fail('guess tales: prose must match the approved text EXACTLY, character for character');
+  const golemCries = MM.data.GOLEM_BATTLE_CRIES;
+  if (!Array.isArray(golemCries) || golemCries.length !== 3) fail(`golem cries: expected 3 cries, got ${golemCries && golemCries.length}`);
+  if (!/SEVEN/.test(golemCries.join(''))) fail('golem cries: missing "SEVEN!"');
+  if (!/CARRY NOTHING/.test(golemCries.join(''))) fail('golem cries: missing "CARRY NOTHING!"');
+  if (!/ALWAYS TWELVE/.test(golemCries.join(''))) fail('golem cries: missing "IT IS ALWAYS TWELVE!"');
+}
+
+// ---------- v1.7.0: the Spiral Stair sealed line + inn cat moments ----------
+{
+  const preEnding = MM.data.SPIRAL_SEALED({ tasksDone: [] });
+  if (!/A door with no keyhole, at the base of a winding tower/.test(preEnding)) fail('Spiral Stair: pre-ending sealed line does not match the approved text');
+  if (!/It isn't ready\. Or you aren't\. Hard to say which\./.test(preEnding)) fail('Spiral Stair: sealed line missing its exact closing sentence');
+  const deepEnding = MM.data.SPIRAL_SEALED({ tasksDone: Array(10).fill(1) });
+  if (!/seems deeper lately/.test(deepEnding)) fail('Spiral Stair: task-10+ sealed line should gain the "seems deeper lately" evolution');
+  const towerCh = ow[3][19];
+  if (towerCh !== 'H') fail(`Spiral Stair: expected the tower glyph 'H' at (19,3) on a fresh overworld, found '${towerCh}'`);
+
+  const cat = MM.data.CAT_MOMENTS;
+  if (!Array.isArray(cat) || cat.length !== 6) fail(`cat moments: expected 6 moments, got ${cat && cat.length}`);
+  if (!MM.data.CAT_ESCORT_LINE || typeof MM.data.CAT_ESCORT_LINE !== 'string') fail('cat moments: missing the door-escort line');
+}
+
+// ---------- v1.7.0: the Turning Stones — spiral-walk geometry ----------
 {
   const stones = MM.data.TURNING_STONES;
   if (!Array.isArray(stones) || stones.length !== 13) fail(`Turning Stones: expected 13 stones, got ${stones && stones.length}`);
@@ -2336,23 +2444,83 @@ for (const skill of skills) {
   }
   if (labels.slice(7).some(l => l !== null)) fail('Turning Stones: curve stones carry no number');
   if (labels.includes('21')) fail('Turning Stones: 21 must never appear on a stone — it would spoil the ending exam\'s answer');
-  const xs = new Set(stones.map(s => s.x));
-  if (xs.size !== 13) fail('Turning Stones: x coordinates must be unique');
-  if (!stones.every(s => s.y === 7)) fail('Turning Stones: every stone should sit on row 7');
-  // every stone tile must be ordinary walkable grass on the raw overworld —
-  // NOT a new glyph (the whole point of the overlay recipe)
+  // 13 UNIQUE positions (a spiral revisits x and y individually, so only the
+  // (x,y) PAIR is guaranteed unique) ...
+  const posKey = new Set(stones.map(s => `${s.x},${s.y}`));
+  if (posKey.size !== 13) fail('Turning Stones: all 13 (x,y) positions must be unique');
+  // ...each CONSECUTIVE pair adjacent (the walk property — a spiral, not a
+  // teleporting scatter of stones)...
+  for (let i = 1; i < stones.length; i++) {
+    const dx = Math.abs(stones[i].x - stones[i - 1].x), dy = Math.abs(stones[i].y - stones[i - 1].y);
+    if (dx > 1 || dy > 1 || (dx === 0 && dy === 0)) {
+      fail(`Turning Stones: stone ${i - 1}->${i} are not adjacent ((${stones[i - 1].x},${stones[i - 1].y}) -> (${stones[i].x},${stones[i].y}))`);
+    }
+  }
+  // ...every tile plain walkable grass on the raw overworld, NOT a new glyph
+  // (the overlay recipe's whole point) — this also proves no NPC/POI
+  // collision, since every POI in this game is a non-'.' glyph.
   stones.forEach(st => {
     const ch = ow[st.y][st.x];
     if (ch !== '.') fail(`Turning Stones: tile (${st.x},${st.y}) is '${ch}', not plain grass — the overlay recipe requires it stay ordinary walkable ground`);
   });
-  // alignment reads s.tasksDone.length live — sanity-check the helper
-  // functions never throw and stay in range
-  for (let i = 0; i < 13; i++) {
-    const a = MM.data.stoneTrueAngle(i);
-    if (a < 0 || a >= 360 || a % 90 !== 0) fail(`Turning Stones: stoneTrueAngle(${i}) = ${a}, expected a multiple of 90`);
-    const sk = MM.data.stoneSkew(i);
-    if (typeof sk !== 'number' || Number.isNaN(sk)) fail(`Turning Stones: stoneSkew(${i}) is not a number`);
+  // stone 13's outward direction (the walk's own last step, continued) must
+  // ray straight into the Spiral Stair's tile ('H' on the mainland world map)
+  const last = stones[stones.length - 1], prev = stones[stones.length - 2];
+  const rdx = last.x - prev.x, rdy = last.y - prev.y;
+  const towers = MM.maps.find(ow, 'H');
+  if (towers.length !== 1) fail(`Turning Stones: expected exactly one 'H' (Spiral Stair) tile on the mainland, found ${towers.length}`);
+  else {
+    let hit = false;
+    for (let t = 1, x = last.x, y = last.y; t <= 20; t++) {
+      x += rdx; y += rdy;
+      if (x === towers[0].x && y === towers[0].y) { hit = true; break; }
+      if (x < 0 || y < 0 || x >= ow[0].length || y >= ow.length) break;
+    }
+    if (!hit) fail(`Turning Stones: stone 13's outward ray from (${last.x},${last.y}) dir (${rdx},${rdy}) never reaches the Stair tile (${towers[0].x},${towers[0].y})`);
   }
+  // shape/angle fields exist and are well-formed for every stone
+  for (const st of stones) {
+    if (st.shape !== 'turn' && st.shape !== 'straight') fail(`Turning Stones: stone ${st.i} has an invalid shape '${st.shape}'`);
+    if (typeof st.angle !== 'number' || st.angle < 0 || st.angle >= 360 || st.angle % 90 !== 0) {
+      fail(`Turning Stones: stone ${st.i} angle ${st.angle} must be a multiple of 90`);
+    }
+    const sk = MM.data.stoneSkew(st.i);
+    if (typeof sk !== 'number' || Number.isNaN(sk)) fail(`Turning Stones: stoneSkew(${st.i}) is not a number`);
+  }
+}
+
+// ---------- v1.7.0: the sequence walk (chimes, flourish, silence) ----------
+{
+  const tones = [];
+  const realTone = MM.sound.tone;
+  MM.sound.tone = (...a) => tones.push(a[0]);
+  MM.engine.state = { name: 'spiraltest', spiralWalkNext: 0, seenSpiralWalk: false, endingDone: false, seenStairGlimmer: false, px: 0, py: 0 };
+  const s = MM.engine.state;
+  for (let i = 0; i < 13; i++) MM.engine.spiralStoneStep(i);
+  if (tones.length !== 13) fail(`spiral walk: expected 13 chimes for a full in-order walk, got ${tones.length}`);
+  if (!s.seenSpiralWalk) fail('spiral walk: a full in-order walk must set seenSpiralWalk');
+  if (s.spiralWalkNext !== 0) fail('spiral walk: completing the walk resets spiralWalkNext to 0 (ready to walk again)');
+  // once-EVER: walking it again does NOT re-fire (seenSpiralWalk stays, no crash)
+  tones.length = 0;
+  for (let i = 0; i < 13; i++) MM.engine.spiralStoneStep(i);
+  if (tones.length !== 13) fail('spiral walk: a SECOND in-order walk should still chime every stone (only the flourish is once-ever)');
+  // out of order: silence, no reset MESSAGE (silent state reset only)
+  s.spiralWalkNext = 0;
+  tones.length = 0;
+  MM.engine.spiralStoneStep(5); // stone 0 never touched — 5 !== expected 0
+  if (tones.length !== 0) fail('spiral walk: an out-of-order step must stay silent');
+  if (s.spiralWalkNext !== 0) fail('spiral walk: an out-of-order step resets the attempt');
+  // the Stair glimmer: only armed when the walk completes WHILE endingDone
+  s.endingDone = false; s.seenStairGlimmer = false; s.spiralWalkNext = 0;
+  MM.engine.stairGlintUntil = null;
+  for (let i = 0; i < 13; i++) MM.engine.spiralStoneStep(i);
+  if (s.seenStairGlimmer) fail('spiral walk: the Stair glimmer must NOT arm pre-ending');
+  s.endingDone = true; s.seenStairGlimmer = false; s.spiralWalkNext = 0;
+  for (let i = 0; i < 13; i++) MM.engine.spiralStoneStep(i);
+  if (!s.seenStairGlimmer) fail('spiral walk: the Stair glimmer must arm on the first in-order walk completed post-ending');
+  if (!MM.engine.stairGlinting()) fail('spiral walk: stairGlinting() should read true right after the glimmer arms');
+  MM.sound.tone = realTone;
+  MM.engine.state = null;
 }
 
 // ---------- Wave 10 (P3): the fence east of the farm ----------

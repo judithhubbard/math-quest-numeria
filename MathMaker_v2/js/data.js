@@ -1135,6 +1135,21 @@ var MM = globalThis.MM = globalThis.MM || {};
     for (let i = 0; i < dateStr.length; i++) h = (h * 31 + dateStr.charCodeAt(i)) >>> 0;
     return MM.data.CAT_SPOTS[h % MM.data.CAT_SPOTS.length];
   };
+  // v1.7.0 (a kid's own report, 2026-07-13: "the daily-only cat taught me to
+  // stop checking"): the +1 stamina pat stays once/day (it's the economy),
+  // but every OTHER inn visit still finds the cat doing something — pure
+  // delight, no reward, so there is always a reason to look in on her.
+  MM.data.CAT_MOMENTS = [
+    'The inn cat is asleep directly on top of the guest ledger, pinning three unanswered reservations under one paw. <i>"She outranks me,"</i> the innkeeper says, and does not move her.',
+    'Someone has left a basket by the hearth, and the inn cat is curled in the middle of what may or may not be four kittens. <i>"The census is inconclusive,"</i> the innkeeper reports. <i>"She keeps rearranging them."</i>',
+    'A crate arrived this morning, already emptied — and the inn cat has wedged herself into it anyway, several sizes too small, looking extremely satisfied about it.',
+    'The inn cat sits square in front of the hearth, watching the fire the way some people watch a good story — utterly absorbed, tail twitching at the good parts.',
+    'The inn cat has claimed the warm-up slate as a cushion. The innkeeper gently slides your first question out from under her; she does not wake, and does not stop purring.',
+    'The inn cat looks directly at you, decides you are not, at this time, interesting, and returns to staring at the middle distance with tremendous dignity.',
+  ];
+  // ~30% of non-pat visits also end with the door escort, appended to
+  // whichever moment fired above.
+  MM.data.CAT_ESCORT_LINE = 'As you head off to bed, the inn cat trots you to the door — tail up like a flag — and peels off the moment you\'re through it, mission apparently accomplished.';
   // ---------- Wave 8b (P4): Miscount's Academy ----------
   // He teaches now. These are the lines he says handing over a slate, and the
   // ones he says when the kid finds the slip. Bible rule: Miscount is PROUD of
@@ -1196,6 +1211,28 @@ var MM = globalThis.MM = globalThis.MM || {};
     '"Three of the valley children come out on Thursdays now." He is trying not to look proud and it is going extremely badly for him. "One of them argued with me about a remainder. She was <b>right</b>. It was the best day of my life."',
     '"I keep the golems on, you know. Not for you — you don\'t need them." Miscount pats one fondly. "For the next one who turns up not knowing they can do it yet."',
     '"Spar? Always." He rolls up his sleeves. "And afterwards you can tell me if my <i>explaining</i> is any good. That\'s the part I\'m still learning."',
+  ];
+
+  // v1.7.0: Miscount's Tales of the Guessing Years — post-ending Academy
+  // visits only (pre-ending he is still tender about it), shown occasionally
+  // before the day's slates. TONE RULE: the comedy is SELF-TOLD — only
+  // Miscount laughs at his own guessing years; nobody else may, and it never
+  // mocks guessers-in-general. Prose is user-approved verbatim; do not edit.
+  MM.data.MISCOUNT_GUESS_TALES = [
+    '"I once answered \'seven\' to everything for a full week. It worked twice." He holds up two fingers. "That was the worst part. It working twice. That\'s the whole trap, you see — a guess pays just often enough."',
+    '"I told the king the new bridge wanted \'about a hundred\' planks. It wanted forty. We had a very tall bonfire that winter, and a very cross carpenter."',
+    '"I guessed a soup once. Doubled the salt because it felt right." He shudders, with respect. "That soup could have stood sentry duty."',
+    '"I called the stars \'roughly a thousand.\' Sylvia has been counting the ones I missed ever since. She sends me the number every winter. It has five digits, and it grows."',
+  ];
+
+  // v1.7.0: rare golem battle cries — the comedy register of the guessing-
+  // years tales above (golems ARE Miscount's old homework, canonically), so
+  // the joke lands on the golem's past, never the kid. Bosses never use
+  // these — bosses stay sincere.
+  MM.data.GOLEM_BATTLE_CRIES = [
+    'The golem draws itself up and bellows a number from deep in its stony memory: <b>"SEVEN!"</b> It has no idea why. It has never had any idea why.',
+    'Before you can act, the golem roars: <b>"CARRY NOTHING!"</b> — an old, wrong instinct, worn smooth with repetition.',
+    'The golem thumps its chest and declares, with total confidence: <b>"IT IS ALWAYS TWELVE!"</b> It is not always twelve.',
   ];
 
   // ---------- Wave 7: the Gallery of Ten ----------
@@ -1307,7 +1344,17 @@ var MM = globalThis.MM = globalThis.MM || {};
   };
 
   // 5c. The Spiral Stair — entrance flavor.
-  MM.data.SPIRAL_SEALED = 'A narrow stair, half-built, coiled tight as a shell — and going nowhere yet. <span class="dim">Perhaps once the crown is truly yours.</span>';
+  // v1.7.0: the tower is now visible on the mainland overworld from a FRESH
+  // profile (it always was, technically — 'H' has drawn 'spiralTower'
+  // unconditionally since Wave 9 — but this bump line replaces the old
+  // "narrow stair, half-built" text with the queue's exact, user-approved
+  // line, and gives it a late-game evolution once the courtyard spiral is
+  // well underway). UNLOCK TIMING UNCHANGED — endingDone still opens it.
+  MM.data.SPIRAL_SEALED = function (s) {
+    const deep = !!(s && s.tasksDone && s.tasksDone.length >= 10);
+    return 'A door with no keyhole, at the base of a winding tower. Carved above it: the same curling line as the courtyard stones. It isn\'t ready. Or you aren\'t. Hard to say which.' +
+      (deep ? ' <span class="dim">The carving seems deeper lately.</span>' : '');
+  };
   MM.data.SPIRAL_INTRO = 'A staircase coiled tight as a shell, climbing further than the tower has any right to hold. <span class="dim">Numeria writes itself along the spiral — you\'ve known that since the credits. Now you get to climb it.</span>';
   MM.data.SPIRAL_LANDING_LINES = [
     'The stair widens into a landing — a good place to catch your breath and look back down at everything you\'ve climbed.',
@@ -1354,43 +1401,77 @@ var MM = globalThis.MM = globalThis.MM || {};
     return rows[rows.length - 1].line;
   };
 
-  // ---------- Wave 10 (P1): the Turning Stones ----------
-  // A courtyard of 13 arc-carved paving stones on the mainland overworld,
-  // just south of the castle (world row 7, columns 13-25 — directly on the
-  // walk from the player's spawn up to the castle door, so a kid crosses it
-  // on every single turn-in without needing to seek it out). NOT new grid
-  // glyphs — every tile underneath is ordinary walkable grass ('.'); the
-  // stones are a pure canvas overlay drawn in drawWorld (ui.js), the same
+  // ---------- Turning Stones (P1), v1.7.0 spiral-walk rework ----------
+  // Wave 10 shipped these as a horizontal ROW ("all in a horizontal row" —
+  // user report 2026-07-13, correctly: a row of arc-carved tiles does not
+  // read as a spiral, the spec was wrong). Now: 13 stones along a
+  // rectangular-spiral walk curling OUTWARD from a center stone, the exact
+  // R1,U1,L2,D2,R3,U3 offsets from the queue, verbatim. Still a pure canvas
+  // overlay on ordinary walkable grass ('.') — no new grid glyphs, same
   // "read live state off fixed tiles" recipe as the dungeon-entrance number
-  // labels and the gear-gate pips. They never gate movement, never speak,
-  // never react to a bump.
+  // labels and the gear-gate pips. Never gates movement, never speaks.
   //
   // Sizes: the seven squares of the classic spiral diagram (1, 1, 2, 3, 5,
-  // 8, 13), each CARVED with its number so the sequence is literally
-  // readable once its stone has turned — reading the courtyard left to
-  // right IS the ending exam's question. ASCENT ONLY (design review
-  // 2026-07-13: the first draft mirrored the sizes back down to fill 13
-  // stones, and a kid who studied that would read "…13, 8" and answer the
-  // exam's "what comes next?" with 8 — the foreshadowing must never teach
-  // the wrong answer). Stones 8-13 are unnumbered, uniform curve segments
-  // that continue the spiral's sweep — tasks 8-13 turn those. 21 never
-  // appears anywhere; that is the exam's own discovery.
+  // 8, 13), carved CENTER-OUT so the sequence grows as the spiral grows —
+  // reading them in walk order IS the ending exam's question. ASCENT ONLY
+  // (design review 2026-07-13: a mirrored set would let a kid read
+  // "…13, 8" and answer the exam's "what comes next?" with 8 — the
+  // foreshadowing must never teach the wrong answer). Stones 8-13 are
+  // unnumbered curve segments continuing the sweep. 21 never appears
+  // anywhere; that is the exam's own discovery.
   MM.data.TURNING_STONES = (() => {
     const sizes = [1, 1, 2, 3, 5, 8, 13];
-    const y = 7, baseX = 13;
-    return Array.from({ length: 13 }, (_, i) => ({
-      x: baseX + i, y, i,
-      size: i < 7 ? sizes[i] : 6,
-      label: i < 7 ? String(sizes[i]) : null,
-    }));
+    const OFFSETS = [
+      [0, 0], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1],
+      [1, 1], [2, 1], [2, 0], [2, -1], [2, -2],
+    ];
+    // Anchor: CX=17 is FORCED — stone 12 must land at column 19 (directly
+    // below the castle/tower column) so its outward direction (due north,
+    // the walk's own last step) rays straight through the castle to the
+    // Spiral Stair's tile at (19,3). CY=11 is the nearest row south of the
+    // player's own spawn (19,8) whose whole 4×4 footprint clears the
+    // castle, the tower, and the spawn tile — checked exhaustively against
+    // the raw overworld (see the unit test); every row from 7 (the old row)
+    // through 10 collides with the castle, the tower, or the spawn point on
+    // the shared column 19, because four consecutive offsets (dx=2) all
+    // fall on that column.
+    const CX = 17, CY = 11;
+    // direction codes, clockwise from East (matches ctx.rotate() in ui.js's
+    // y-down coordinate system): E=0 S=90 W=180 N=270
+    const DIR = { E: 0, S: 90, W: 180, N: 270 };
+    const OPPOSITE = { E: 'W', W: 'E', N: 'S', S: 'N' };
+    const dirOf = (dx, dy) => (dx === 1 ? 'E' : dx === -1 ? 'W' : dy === 1 ? 'S' : 'N');
+    // The default unrotated "turn" glyph (drawn by ui.js) bridges an EAST
+    // arm to a SOUTH arm. turnAngle finds the multiple-of-90 rotation that
+    // carries that {E,S} pair onto whichever two edges THIS stone's turn
+    // actually uses, so the carving genuinely connects its path neighbors.
+    function turnAngle(inCh, outCh) {
+      const entry = DIR[OPPOSITE[inCh]], exit = DIR[outCh];
+      for (const t of [0, 90, 180, 270]) {
+        const a = (0 + t) % 360, b = (90 + t) % 360;
+        if ((a === entry && b === exit) || (a === exit && b === entry)) return t;
+      }
+      return 0; // unreachable for a well-formed orthogonal turn
+    }
+    return OFFSETS.map(([dx, dy], i) => {
+      const inD = i > 0 ? dirOf(dx - OFFSETS[i - 1][0], dy - OFFSETS[i - 1][1]) : null;
+      const outD = i < OFFSETS.length - 1 ? dirOf(OFFSETS[i + 1][0] - dx, OFFSETS[i + 1][1] - dy) : null;
+      const turning = !!(inD && outD && inD !== outD);
+      const axisD = outD || inD; // whichever exists, for a straight/end stone
+      return {
+        x: CX + dx, y: CY + dy, i,
+        size: i < 7 ? sizes[i] : 6,
+        label: i < 7 ? String(sizes[i]) : null,
+        shape: turning ? 'turn' : 'straight',
+        angle: turning ? turnAngle(inD, outD) : (axisD === 'E' || axisD === 'W' ? 0 : 90),
+      };
+    });
   })();
-  // A stone's "true angle" (once its task is done) rotates a quarter turn
-  // per position, so aligned stones trace a continuous curve — the classic
-  // spiral-arc look. An UNALIGNED stone sits at a fixed skew instead: a
-  // deterministic offset derived from its own index, never from Date.now()
-  // or a frame counter, so it never moves on its own (Calm-Mode-safe by
-  // construction — there is nothing to turn off).
-  MM.data.stoneTrueAngle = i => (i * 90) % 360;
+  MM.data.TURNING_STONES_CENTER = { x: 17, y: 11 };
+  // An UNALIGNED stone sits at a fixed skew instead of its true geometric
+  // angle: a deterministic offset derived from its own index, never from
+  // Date.now() or a frame counter, so it never moves on its own
+  // (Calm-Mode-safe by construction — there is nothing to turn off).
   MM.data.stoneSkew = i => ((i * 47) % 60) - 30; // degrees, always non-zero-ish
 
   MM.data.weaponById = id => MM.data.WEAPONS.find(w => w.id === id) || MM.data.WEAPONS[0];
@@ -1450,6 +1531,10 @@ var MM = globalThis.MM = globalThis.MM || {};
         // ending's own reveal takes over the job of explaining them).
         if (s.tasksDone.length >= 1 && s.tasksDone.length < 13 && Math.random() < 0.2) {
           return '"The courtyard stones. They turn, you know. One more every time you set something right." Sage Sylvia says it like a fact of nature, not a secret. "My grandmother said they were a picture, seen from high enough."';
+        }
+        // v1.7.0: the tower's late-game evolution — no one explains it.
+        if (s.tasksDone.length >= 10 && Math.random() < 0.15) {
+          return '"That carving over the tower door," Sage Sylvia says, not quite looking at it. "It seems deeper lately. As if something is being carved from the inside." She does not explain further. She never does, with that tower.';
         }
         if (s.taskIndex > 10) return '"You did what no sword could do: you showed a lost student the way home. Numeria will remember, hero. And so, I think, will Miscount."';
         if (s.taskIndex >= 8) return '"Every problem you have solved, every step you have shown your work — Miscount feels them like sunlight through fog. You are closer than you know. When you face him, be brave. And be kind."';

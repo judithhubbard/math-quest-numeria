@@ -164,7 +164,7 @@ function canonicalize(p) {
   await ev(() => { MM.engine.state.endingDone = false; });
   await goto(19, 4);
   await bump('ArrowUp'); // bump 'H' (the tower sits just north of the castle)
-  check(/going nowhere/i.test((await page.textContent('#modalBox')).replace(/\s+/g, ' ')),
+  check(/no keyhole/i.test((await page.textContent('#modalBox')).replace(/\s+/g, ' ')),
     'the Spiral is sealed before the ending');
   await dlgOk();
   await ev(() => { MM.engine.state.endingDone = true; });

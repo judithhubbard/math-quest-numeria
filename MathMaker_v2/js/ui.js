@@ -658,6 +658,16 @@ var MM = globalThis.MM = globalThis.MM || {};
         'Every problem can be worked out,',
         'one careful step at a time.',
         '',
+        // the music: CC attribution belongs where the music was heard —
+        // performer names here, full piece-by-piece list in README §Music
+        '🎼 The music of Numeria was played by',
+        'Robin Alciatore · Kimiko Ishizaka',
+        'Laurens Goedhart · Joni Ikäläinen',
+        'Thérèse Dussaut',
+        'and performers via Musopen',
+        'and Wikimedia Commons,',
+        'who shared their recordings freely.',
+        '',
         'Thank you for tending Numeria.',
       ];
       const top = H - ct * 42;
@@ -825,40 +835,54 @@ var MM = globalThis.MM = globalThis.MM || {};
           ctx.fillStyle = '#7ee0e8';
           ctx.fillText(expLabel, vx * TILE + TILE / 2, vy * TILE + 11);
         }
-        // Wave 10 (P1): the Turning Stones — a canvas overlay on fixed,
-        // ordinary grass tiles, never new grid glyphs (the courtyard's tile
-        // audit has nothing to classify). Alignment count is
-        // s.tasksDone.length, read live — zero new persisted state. An
-        // unaligned stone's skew is a pure function of its own index, never
-        // of time or a frame counter, so there is nothing for Calm Mode to
-        // turn off — it never moved to begin with.
+        // Turning Stones (P1), v1.7.0 spiral-walk rework — a canvas overlay
+        // on fixed, ordinary grass tiles, never new grid glyphs (the
+        // courtyard's tile audit has nothing to classify). Alignment count
+        // is s.tasksDone.length, read live — zero new persisted state. An
+        // ALIGNED stone's carving connects its path neighbors (straight run
+        // or corner turn, per stone.shape/stone.angle — the walk's own
+        // geometry); an UNALIGNED stone keeps the old deterministic skew —
+        // flavor only, a pure function of its own index, never of time or a
+        // frame counter, so there is nothing for Calm Mode to turn off.
         if (s.mapId === 'world') {
           const stone = MM.data.TURNING_STONES.find(st => st.x === x && st.y === y);
           if (stone) {
             const aligned = s.tasksDone.length > stone.i;
-            const angle = aligned ? MM.data.stoneTrueAngle(stone.i) : MM.data.stoneSkew(stone.i);
             const cx = vx * TILE + TILE / 2, cy = vy * TILE + TILE / 2;
             const r = TILE * (0.14 + 0.018 * stone.size);
             ctx.save();
             ctx.translate(cx, cy);
-            ctx.rotate(angle * Math.PI / 180);
-            ctx.strokeStyle = aligned ? '#e0d8ec' : '#8a8578';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = aligned ? '#fff6d8' : '#8a8578';
+            // aligned strokes draw thicker + brighter (design pass, screenshot
+            // review 2026-07-13): at TILE=48 a 2px lavender line on green read
+            // as scattered fragments, not a connected curl — a kid's own
+            // complaint this whole rework exists to fix. 3.5px near-white
+            // reads as one continuous line at normal viewing size.
+            ctx.lineWidth = aligned ? 3.5 : 2;
+            ctx.lineCap = 'round';
+            ctx.rotate((aligned ? stone.angle : MM.data.stoneSkew(stone.i)) * Math.PI / 180);
             ctx.beginPath();
-            ctx.arc(-r * 0.4, -r * 0.4, r, 0, Math.PI / 2);
+            if (aligned && stone.shape === 'straight') { ctx.moveTo(-r, 0); ctx.lineTo(r, 0); }
+            else { ctx.arc(-r * 0.4, -r * 0.4, r, 0, Math.PI / 2); }
             ctx.stroke();
-            // the seven sequence stones carry their carved number, rotating
-            // WITH the stone — askew while untended, upright once turned, so
-            // the sequence literally straightens out as the kingdom heals
+            ctx.restore();
+            // the seven sequence stones carry their carved number, drawn
+            // UNROTATED once aligned so it is always legible — "upright
+            // once turned" is the promise the ending exam's fair-play
+            // deducibility depends on; only an UNTENDED stone's numeral
+            // stays crooked, matching its skew.
             if (stone.label) {
+              ctx.save();
+              ctx.translate(cx, cy);
+              if (!aligned) ctx.rotate(MM.data.stoneSkew(stone.i) * Math.PI / 180);
               ctx.font = '8px "Press Start 2P", monospace';
               ctx.textAlign = 'center';
               ctx.fillStyle = '#141221';
               ctx.fillText(stone.label, 1, 4);
               ctx.fillStyle = aligned ? '#fdfaf3' : '#a8a294';
               ctx.fillText(stone.label, 0, 3);
+              ctx.restore();
             }
-            ctx.restore();
             // all thirteen aligned: a faint golden shimmer — a STATIC tint,
             // never an animation, so it needs no Calm Mode gate either.
             if (s.tasksDone.length >= 13) {
@@ -867,7 +891,25 @@ var MM = globalThis.MM = globalThis.MM || {};
               ctx.fillRect(vx * TILE, vy * TILE, TILE, TILE);
               ctx.globalAlpha = 1;
             }
+            // v1.7.0: the newest-turned stone glints once, on the kid's next
+            // plaza crossing (same "notice the CHANGE" recipe as the gear-
+            // gate glint) — armed by E.checkSpiralGlint on every step.
+            if (MM.engine.spiralStoneGlinting && MM.engine.spiralStoneGlinting(stone.i)) {
+              ctx.globalAlpha = 0.30 + 0.25 * Math.sin(now / 120);
+              ctx.fillStyle = '#ffd94a';
+              ctx.fillRect(vx * TILE, vy * TILE, TILE, TILE);
+              ctx.globalAlpha = 1;
+            }
           }
+        }
+        // v1.7.0: the Spiral Stair's entrance glints once, the first time
+        // the in-order courtyard walk is completed after the ending — same
+        // recipe, a distant change told by a shimmer, not a popup.
+        if (!inDungeon && s.mapId === 'world' && ch === 'H' && MM.engine.stairGlinting && MM.engine.stairGlinting()) {
+          ctx.globalAlpha = 0.30 + 0.25 * Math.sin(now / 120);
+          ctx.fillStyle = '#ffd94a';
+          ctx.fillRect(vx * TILE, vy * TILE, TILE, TILE);
+          ctx.globalAlpha = 1;
         }
         // Wave 7 (gear-plate readability): pips say WHICH gate. A gate wears
         // its own • / •• / ••• ; the plate wears the pips of whichever gate is

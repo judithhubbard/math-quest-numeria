@@ -67,7 +67,10 @@ const SHOTS = path.join(__dirname, 'shots-notices');
     return MM.data.TURNING_STONES.map(st => s.tasksDone.length > st.i);
   });
   check(stones6.filter(Boolean).length === 6, `6 tasks done: exactly 6 stones align (got ${stones6.filter(Boolean).length})`);
-  check(stones6.slice(0, 6).every(Boolean) && stones6.slice(6).every(a => !a), 'alignment fills left-to-right, matching turn-in order');
+  // v1.7.0: the stones now sit on a rectangular-spiral WALK, not a row — the
+  // ORDER that aligns is still stone index (center-outward, matching turn-in
+  // order), just no longer literally "left to right" on screen.
+  check(stones6.slice(0, 6).every(Boolean) && stones6.slice(6).every(a => !a), 'alignment fills center-outward, matching turn-in order (walk index, not screen position)');
 
   // 13 tasks done: the complete spiral, plus the static golden shimmer.
   await ev(() => { MM.engine.state.tasksDone = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]; MM.engine.save(); });

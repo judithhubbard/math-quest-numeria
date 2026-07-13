@@ -1596,29 +1596,90 @@ var MM = globalThis.MM = globalThis.MM || {};
   }
   generateExam.count = EXAM_SLATES.length;
 
-  // Brave-combat step (2026-07-13): take a QUICK problem and add exactly one
-  // small extra step — the ⚡ contract ("harder for double damage") without
-  // ever breaking combat pacing. Bare "A op B = ?" texts extend inline
-  // ("40 + 30 + 20 = ?"); other integer-answer texts gain a "…then add N"
-  // tail; non-integer kinds (choice/clock/fraction answers) return unchanged
-  // — their brave lift lives at bosses, never mid-fight.
+  // Brave-combat step (2026-07-13, extended v1.7.0 for the mid-round ⚡
+  // dual-form toggle): take a QUICK problem and add exactly one small extra
+  // step — the ⚡ contract ("harder for double damage") without ever
+  // breaking combat pacing. Bare "A op B = ?" texts (all four operators,
+  // v1.7.0 — used to be + and − only) extend INLINE, e.g. "6 + 9 + 7 = ?" /
+  // "6 × 7 × 3 = ?" / "42 ÷ 6 × 4 = ?" (division always continues with ×,
+  // never a second ÷ — chaining division risks an ugly non-integer,
+  // multiplying the quotient never does); other integer-answer texts gain a
+  // "…then add N" tail; non-integer kinds (choice/clock/fraction answers)
+  // return unchanged — their brave lift lives at bosses (see tailStep).
+  //
+  // v1.7.0 robustness: the dual-form toggle needs this to succeed on nearly
+  // every draw (facts topics now route through here too — see
+  // mastery.combatProblem — and drive-stances2.js's "never a plain two-term
+  // sum under brave" sweep depends on it). The old "if the subtraction would
+  // go negative, give up and return unchanged" fallback is gone; it now
+  // simply adds instead, which is always safe (step > 0).
   function braveStep(q) {
     if (!q || q.kind !== 'number' || !q.answer || q.answer.d !== 1) return q;
     const base = q.answer.n;
-    const inline = q.text.match(/^(\d+) ([+−]) (\d+) = \?$/);
-    const step = R.int(2, 9) * (inline && /0$/.test(inline[1]) ? 10 : 1);
-    const add = base < 15 ? true : R.chance(0.6); // subtraction never goes negative
-    const ans = add ? base + step : base - step;
-    if (ans < 0) return q;
+    const inline = q.text.match(/^(\d+) ([+−×÷]) (\d+) = \?$/);
     if (inline) {
-      return { ...q, text: `${inline[1]} ${inline[2]} ${inline[3]} ${add ? '+' : '−'} ${step} = ?`,
-        answer: frac(ans, 1),
+      const [, aStr, op, bStr] = inline;
+      if (op === '×') {
+        const step = R.int(2, 4), ans = base * step;
+        return { ...q, text: `${aStr} × ${bStr} × ${step} = ?`, answer: frac(ans, 1),
+          solution: `${q.solution} Then ${base} × ${step} = ${ans}.` };
+      }
+      if (op === '÷') {
+        const step = R.int(2, 5), ans = base * step;
+        return { ...q, text: `${aStr} ÷ ${bStr} × ${step} = ?`, answer: frac(ans, 1),
+          solution: `${q.solution} Then ${base} × ${step} = ${ans}.` };
+      }
+      const step = R.int(2, 9) * (/0$/.test(aStr) ? 10 : 1);
+      let add = base < 15 ? true : R.chance(0.6);
+      let ans = add ? base + step : base - step;
+      if (ans < 0) { add = true; ans = base + step; } // never abort — add instead
+      return { ...q, text: `${aStr} ${op} ${bStr} ${add ? '+' : '−'} ${step} = ?`, answer: frac(ans, 1),
         solution: `${q.solution} Then ${base} ${add ? '+' : '−'} ${step} = ${ans}.` };
     }
+    const step = R.int(2, 9);
+    let add = base < 15 ? true : R.chance(0.6);
+    let ans = add ? base + step : base - step;
+    if (ans < 0) { add = true; ans = base + step; }
     return { ...q, text: `${q.text}\n⚡ …then ${add ? 'add' : 'subtract'} ${step}.`,
       answer: frac(ans, 1),
       solution: `${q.solution} Then ${base} ${add ? '+' : '−'} ${step} = ${ans}.` };
   }
 
-  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError, braveStep };
+  // v1.7.0: the boss "…and then" tail. A full-depth GATE/BOSS problem gains
+  // one extra operation on the answer, so a tier-3 brave boss problem is
+  // NEVER identical to its base form (the tier lift alone caps at 3 and can
+  // stop delivering anything new). Wider coverage than braveStep: number
+  // (integer OR fraction answers), remainder (quotient-chain), and clock
+  // kinds all tail; choice kinds (the music staff, decimal comparisons)
+  // return UNCHANGED — those keep the old latch + "takes effect next
+  // question" contract, per the queue's own exemption list.
+  function tailStep(q) {
+    if (!q) return q;
+    if (q.kind === 'number') {
+      if (q.answer.d === 1) return braveStep(q); // reuse: same inline/tail logic
+      // fraction answer: add a whole number over the same denominator
+      const step = R.int(2, 6);
+      const ans = frac(q.answer.n + step * q.answer.d, q.answer.d);
+      return { ...q, text: `${q.text}\n⚡ …then add ${step}.`, answer: ans,
+        solution: `${q.solution} Then + ${step} = ${fstr(ans)}.` };
+    }
+    if (q.kind === 'remainder') {
+      const step = R.int(2, 6);
+      const ans = { q: q.answer.q + step, r: q.answer.r };
+      const ansTxt = ans.r === 0 ? String(ans.q) : `${ans.q} r ${ans.r}`;
+      return { ...q, text: `${q.text}\n⚡ …then add ${step} to the quotient.`, answer: ans,
+        solution: `${q.solution} Then + ${step} to the quotient = ${ansTxt}.` };
+    }
+    if (q.kind === 'clock') {
+      const step = R.int(5, 40);
+      let total = ((q.answer.h % 12) * 60 + q.answer.m + step) % 720;
+      let h = Math.floor(total / 60), m = total % 60;
+      if (h === 0) h = 12;
+      return { ...q, text: `${q.text}\n⚡ …then add ${step} minutes.`, answer: { h, m },
+        solution: `${q.solution} Then + ${step} min = ${h}:${String(m).padStart(2, '0')}.` };
+    }
+    return q; // choice (staff, decimal compares): unchanged — keeps the latch
+  }
+
+  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError, braveStep, tailStep };
 })();

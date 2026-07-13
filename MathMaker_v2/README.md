@@ -449,13 +449,18 @@ small, renewable reasons to open the game on any random Tuesday:
   tended," which only ever counts up.** Missing a week costs nothing; there
   is no streak to lose. Milestones at 10, 50, and 100 days are celebrated
   and shown on your Hall of Heroes plaque.
-- **The Spiral Stair** — a tower beside the castle, climbing as far as
-  you're willing to go. Every floor is a small room with a couple of
+- **The Spiral Stair** — a tower beside the castle, visible from your very
+  first day in Numeria (bump it early and it just tells you so: *"A door
+  with no keyhole... It isn't ready. Or you aren't. Hard to say which."*).
+  Once it opens (same timing as always — after the ending), it climbs as
+  far as you're willing to go: every floor is a small room with a couple of
   problems and a tangle or two; every fifth floor is a landing — a
   breather, a chest, and a checkpoint. Beacon always brings you back to
   the tower's own entrance, and you can jump straight to your highest
   landing any time — nothing is ever lost, and this is deliberately *not*
-  a roguelike.
+  a roguelike. Walk the courtyard spiral in order, center outward, after
+  the ending, and the Stair's own door glimmers once — the courtyard was
+  the on-ramp all along.
 - **Furnish the castle** — a rug, a garden bed, a library shelf, statues of
   bosses you've beaten, and — at long last — **tiny hats for the pet**,
   all bought at fixed spots around the castle, all permanent, all
@@ -536,17 +541,22 @@ enforced.
 ### ⚡ Brave problems
 
 A sticky **⚡ Brave** toggle sits in every battle — and the first time you touch
-it, the battle itself tells you the deal. Turn it on and every problem comes
-harder than you'd normally get (in the facts topics that means *chains* —
-`6 + 9 + 7`, `36 ÷ 4 × 5` — never plain small sums) — and every correct answer
-hits for **double damage**, in gold lightning. The double only ever pays for a
-question that was actually asked the hard way.
+it, the battle itself tells you the deal. Turn it on and your CURRENT question
+grows one extra step, right where you're standing (in the facts topics that
+means a *chain* — `6 + 9 + 7`, `6 × 7 × 3` — never plain small sums), and every
+correct answer hits for **double damage**, in gold lightning. Touch ⚡ again
+mid-question and it swaps straight back to the plain form — nothing is ever
+re-rolled, so there's nothing to fish for; the damage simply pays for whichever
+form you actually answered.
 
 Get one wrong and *nothing extra happens*. It's an ordinary miss. Bravery is
 never a trap. Your lifetime count of brave problems solved is kept on your report
 card and your plaque in the Hall of Heroes — pride that outlives the fight.
 
-(Bosses stay real fights: no brave strike can take more than a third of one.)
+Bosses stay real fights: no brave strike can take more than a third of one, and
+a brave boss question always gains an **"…and then"** tail (one extra step
+tacked onto the answer) — so even a kid who's already mastered the tier still
+gets something genuinely harder for the double, never a free lunch.
 
 ### 📝 Miscount's Academy
 
@@ -567,15 +577,19 @@ visibly notices what you've done, in small ways that never gate anything
 and never require you to go looking for them.
 
 - **The courtyard, out front of the castle.** Thirteen worn paving stones,
-  laid in a row you cross every single time you walk up to turn in a task.
-  Each one turns a little straighter every time you set something right —
-  by the time all thirteen line up, they've traced a complete spiral. Sage
-  Sylvia has a line about them if you ask; the MathMaker has exactly one
-  dry remark ("the floor out front has opinions about geometry"). Neither
-  of them explains it further. Nobody has to notice the stones at all —
-  the ending works just fine without them — but a kid who *does* count
-  them has, quietly, already been handed the answer to the game's very
-  last question.
+  set in a curling spiral walk you cross every single time you head up to
+  turn in a task. Each one turns a little straighter every time you set
+  something right — by the time all thirteen line up, they've traced a
+  complete spiral, curling outward toward a sealed tower beside the castle.
+  Sage Sylvia has a line about them if you ask; the MathMaker has exactly
+  one dry remark ("the floor out front has opinions about geometry").
+  Neither of them explains it further. Nobody has to notice the stones at
+  all — the ending works just fine without them — but a kid who *does*
+  count them has, quietly, already been handed the answer to the game's
+  very last question. Step on them in order, center outward, and each one
+  chimes; get all thirteen in a row and something small and lovely happens,
+  exactly once, forever. Getting it wrong makes no sound at all — nothing
+  is ever spelled out, and nothing is ever missable-with-regret.
 - **The cast remembers you.** Callie, Percy, the captain, Miscount, Sylvia,
   Barnaby, and old Fisher Finn each pick up new lines once the lighthouse
   is lit, the Spire ticks again, the Halls sing, or a harbor gets rebuilt —
@@ -603,6 +617,30 @@ flecks, and the like) — pure atmosphere, never anything to click on — and
 the room around a boss darkens a shade the moment you walk in, so you
 always know when you've arrived somewhere important. None of this changes
 how anything plays; it's paint, not a puzzle.
+
+### 🌀 Story & wonder
+
+- **Tales of the Guessing Years.** Once you've finished the game, dropping by
+  Miscount's Academy occasionally gets you one of his own stories about the
+  bad old days — the week he answered "seven" to everything (it worked
+  twice — "that was the worst part"), the bridge that wanted forty planks and
+  got a hundred guessed at it, a soup that could have stood sentry duty.
+  Nobody else is ever allowed to laugh about it but him.
+- **Golems occasionally remember what they used to be.** Every golem in
+  Numeria is canonically one of Miscount's old wrong answers — very rarely,
+  one bellows it before a fight ("SEVEN!" "CARRY NOTHING!" "IT IS ALWAYS
+  TWELVE!"). It has no idea why. It has never had any idea why.
+- **Bosses sometimes attack with wrong math.** About half the time, a boss's
+  counterattack flashes a wildly wrong equation in its own color — never
+  anything a kid could mistake for a real mistake (it's always miles off,
+  never a plausible slip), just disorder asserting a falsehood. Your own next
+  correct strike quietly sets the record straight: *"…and 7 × 8 = 56. The
+  record, corrected."*
+- **The inn cat, every visit.** The +1 stamina pat is still once a day, but
+  every other visit still finds her doing something — asleep on the ledger
+  ("she outranks me"), a basket of maybe-kittens, wedged in a box several
+  sizes too small, watching the fire like television. About a third of the
+  time she walks you to the door on the way out, tail up like a flag.
 
 ### A few playtest fixes
 
@@ -674,6 +712,8 @@ accuracy. Answers accept equivalent forms: `3/4`, `6/8`, `0.75`, `1 3/4`,
 | `js/engine.js` | Movement, monster AI, battle hooks, doors/chests, town, save/load |
 | `js/ui.js` | Animated world rendering, problem modal + scratchpad, shop, report card, WebAudio sounds |
 | `js/main.js` | Boot + player profiles |
+| `js/music.js` | Background music: mood pools, weather-not-wallpaper pacing, battle ducking |
+| `audio/` | The recordings themselves — public-domain / Creative-Commons performances (see §Music) |
 | `assets/` | Press Start 2P pixel font (SIL Open Font License — see OFL.txt) |
 
 No dependencies, no build step — plain HTML/CSS/JS. All sprite art is
@@ -686,3 +726,33 @@ purpose: browsers block XHR asset loading from `file://` URLs, so a framework
 build would break the double-click-to-play, works-offline property. The
 effects that make battles exciting (tweens, particles, shake, floating text)
 are small enough to own directly — see `battle.js`.
+
+## Music
+
+The background music is real recordings — public-domain and Creative-Commons
+performances, auditioned by ear and chosen for even, repeating *texture*
+(rippling figuration, slow chords, hypnotic ostinato) rather than
+foreground melody. Music is weather, not wallpaper: one piece plays
+through, then minutes of plain ambience before the next; arriving somewhere
+new is quiet first. Battles are silent by design — the sound effects are
+feedback and always read over the music, which peaks at ~35% volume. Both
+the ⚙️ menu and the parent panel can switch music off on its own.
+
+Performances (all files re-encoded to mp3; each remains under its original
+license):
+
+| Piece | Performer / source | License |
+|---|---|---|
+| Satie — Gymnopédie No. 1 | Robin Alciatore, via Musopen | Public domain |
+| Bach — Prelude in C major, WTC I | Kimiko Ishizaka, *Open Well-Tempered Clavier* | CC0 |
+| Satie — Gnossienne No. 1 | via Wikimedia Commons | CC BY-SA 3.0 |
+| Albéniz — Leyenda (Asturias) | via Musopen | Public domain |
+| Debussy — Clair de Lune | Laurens Goedhart, 2011 | CC BY 3.0 |
+| Tárrega — Gran Vals | Joni Ikäläinen | CC0 |
+| Tárrega — Recuerdos de la Alhambra | via Wikimedia Commons | CC BY-SA 3.0 |
+| Schumann — Träumerei (Kinderszenen) | via Musopen | Public domain |
+| Ravel — Pavane pour une infante défunte | Thérèse Dussaut | CC BY-SA 2.0 |
+| El Noi de la Mare (Catalan traditional) | guitar, via Wikimedia Commons | Public domain |
+
+Thank you to every performer who released their playing for reuse — a
+kids' game has music because you did.
