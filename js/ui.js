@@ -6,6 +6,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   const UI = MM.ui = {};
   const TILE = 48;
   const VIEW_W = 15, VIEW_H = 11;
+  // Wave 11 (P1): only wall/floor sprites take a theme tint — everything
+  // else (doors, chests, levers...) keeps its own fixed colors.
+  const DESCENT_TINT_SPRITES = { wall: 1, wallWorked: 1, wallGrand: 1, floor: 1 };
 
   let canvas, ctx, modalEl, modalBox;
   let messages = [];
@@ -76,10 +79,17 @@ var MM = globalThis.MM = globalThis.MM || {};
     // crit adds a third, higher and softer still. No percussion at all:
     // calming something must never sound like hitting it.
     soothe(crit) {
-      beep(659, 0.28, 'sine', 0, 0.07);
-      beep(880, 0.34, 'sine', 0.12, 0.06);
-      if (crit) beep(1319, 0.45, 'sine', 0.26, 0.05);
+      beep(1760, 0.05, 'sine', 0, 0.05); // the tiny POP (user palette 2026-07-13)
+      beep(659, 0.28, 'sine', 0.03, 0.07);
+      beep(880, 0.34, 'sine', 0.15, 0.06);
+      if (crit) beep(1319, 0.45, 'sine', 0.29, 0.05);
     },
+    // The frightened flail (2026-07-13): the monster's counterattack in the
+    // gentle way — a quick soft ruffle, NO bass thump, clearly "that cost
+    // you" but nothing like a blow landing. Strike-way keeps thud().
+    fret() { noise(0.1, 1800, 0, 0.16); beep(520, 0.12, 'sine', 0.02, 0.05); },
+    // The final becalming: a low purr warble under the victory notes.
+    purr() { beep(96, 0.5, 'sine', 0, 0.06); beep(101, 0.5, 'sine', 0.02, 0.05); },
     battleStart(boss) {
       beep(196, 0.14, 'square', 0, 0.08); beep(196, 0.14, 'square', 0.16, 0.08);
       beep(boss ? 147 : 262, 0.35, 'square', 0.32, 0.1);
@@ -239,15 +249,36 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
   }
   UI.worldBurst = worldBurst; // exposed for engine.js (badges/level-ups/bounties)
+  // Celebration sparkles (playtest 2026-07-13: the teal body-height bursts
+  // at cheering friends read as SPITTING WATER): warm colors, RISING drift,
+  // occasional tiny heart, spawned above the celebrant's head.
+  function worldSparkle(tileX, tileY) {
+    const s = MM.engine.state;
+    if (s && s.calmMode) return;
+    const px = tileX * TILE + TILE / 2, py = tileY * TILE + TILE / 2;
+    worldParticles.push({
+      x: px + (Math.random() - 0.5) * 24, y: py + (Math.random() - 0.5) * 10,
+      vx: (Math.random() - 0.5) * 0.6, vy: -0.8 - Math.random() * 0.8,
+      life: 1, color: Math.random() < 0.35 ? '#ff9ad5' : '#ffd94a',
+      size: 9 + Math.random() * 4, glyph: Math.random() < 0.3 ? '🤍' : '✦', rise: true,
+    });
+  }
   function drawWorldParticles(camX, camY) {
     if (!worldParticles.length) return;
     for (let i = worldParticles.length - 1; i >= 0; i--) {
       const p = worldParticles[i];
-      p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 0.035;
+      p.x += p.vx; p.y += p.vy; p.vy += p.rise ? -0.01 : 0.15; p.life -= p.rise ? 0.022 : 0.035;
       if (p.life <= 0) { worldParticles.splice(i, 1); continue; }
       ctx.globalAlpha = Math.max(0, p.life);
-      ctx.fillStyle = p.color;
-      ctx.fillRect(p.x - camX * TILE - p.size / 2, p.y - camY * TILE - p.size / 2, p.size, p.size);
+      if (p.glyph) {
+        ctx.font = `${p.size}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = p.color;
+        ctx.fillText(p.glyph, p.x - camX * TILE, p.y - camY * TILE);
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - camX * TILE - p.size / 2, p.y - camY * TILE - p.size / 2, p.size, p.size);
+      }
     }
     ctx.globalAlpha = 1;
   }
@@ -701,6 +732,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     // entrance digits, and no NPC pass): the empty-island bug, thrice.
     const inDungeon = !MM.maps.isOverworld(s.mapId);
     const waterFrame = Math.floor(now / 600) % 2;
+    // Wave 11: the Grand Descent — every dungeon's THEMES entry now tints
+    // its own wall/floor sprites (P1), and the boss's room gets a static
+    // vignette (P4). Both are pure functions of dungeonIndex/floorIndex, so
+    // they're computed once per frame here rather than per tile.
+    const descentTheme = inDungeon ? MM.data.THEMES[(s.dungeonIndex || 1) - 1] : null;
+    const descentIdx = inDungeon ? s.dungeonIndex : null;
+    const descentFloor = s.floorIndex || 0;
 
     let camX = Math.max(0, Math.min(W - VIEW_W, s.px - Math.floor(VIEW_W / 2)));
     let camY = Math.max(0, Math.min(H - VIEW_H, s.py - Math.floor(VIEW_H / 2)));
@@ -716,7 +754,16 @@ var MM = globalThis.MM = globalThis.MM || {};
         const x = camX + vx, y = camY + vy;
         if (y >= H || x >= W) continue;
         const ch = grid[y][x];
-        const spr = MM.sprites.get(MM.maps.tileSprite(ch, x, y, s.mapId, waterFrame), { scale: 3 });
+        const sprName = MM.maps.tileSprite(ch, x, y, s.mapId, waterFrame);
+        // Wave 11 (P1): recolor wall/floor toward this dungeon's THEME —
+        // the same monster-`pal` swap mechanism, just a different palette
+        // source (S.themePalette derives it from THEMES instead of a
+        // hand-authored roster entry).
+        const sprOpts = { scale: 3 };
+        if (descentTheme && DESCENT_TINT_SPRITES[sprName]) {
+          sprOpts.palette = MM.sprites.themePalette(sprName, descentTheme);
+        }
+        const spr = MM.sprites.get(sprName, sprOpts);
         // Playtest round 4: a mimic chest BREATHES — a slow 1-pixel bob (the
         // telegraph rule: a surprise you could have spotted, never a gotcha).
         // Calm Mode swaps motion for a static tell: a dark grin at the seam.
@@ -729,6 +776,34 @@ var MM = globalThis.MM = globalThis.MM || {};
           if (isMimic) { // calm mode: the lid sits ajar, ever so slightly
             ctx.fillStyle = '#2a1626';
             ctx.fillRect(vx * TILE + 12, vy * TILE + 19, TILE - 24, 2);
+          }
+        }
+        // Wave 11 (P4): boss-room dignity — a static tint, no motion, no new
+        // sprite; deepens the floor toward the theme's sky1 within 3 tiles
+        // of the boss's SPAWN marker (not its current, possibly-chasing
+        // position — see MM.maps.bossSpawnPos).
+        if (descentIdx && ch !== '#') {
+          const vAlpha = MM.maps.bossVignetteAlpha(descentIdx, descentFloor, x, y);
+          if (vAlpha > 0) {
+            ctx.globalAlpha = vAlpha;
+            ctx.fillStyle = descentTheme.sky1;
+            ctx.fillRect(vx * TILE, vy * TILE, TILE, TILE);
+            ctx.globalAlpha = 1;
+          }
+        }
+        // Wave 11 (P3): deterministic decor overlays — one motif per
+        // mainland dungeon, hash-placed, only ever on plain open floor
+        // ('.'), so it can never sit on a POI cell. Drawn like the
+        // hatted-slime/thief-coin emoji overlays elsewhere in this loop:
+        // sans-serif font (the pixel font has no emoji glyphs).
+        if (descentIdx) {
+          const motif = MM.maps.decorMotif(descentIdx, x, y, ch);
+          if (motif) {
+            ctx.font = '13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.globalAlpha = descentIdx === 10 ? 0.45 : 0.85; // d10: FADED royal banners
+            ctx.fillText(motif, vx * TILE + TILE / 2, vy * TILE + TILE / 2 + 5);
+            ctx.globalAlpha = 1;
           }
         }
         if (!inDungeon && '1234567890'.includes(ch)) {
@@ -868,12 +943,12 @@ var MM = globalThis.MM = globalThis.MM || {};
         : Math.sin(now / 400 + m.x * 2 + m.y) * 2;
       // when the boss goes down, every living friend in the room bounces
       const hop = (cheering && friend) ? -Math.abs(Math.sin(now / 140 + m.x)) * 9 : 0;
-      const spr = MM.sprites.get(m.sprite, {                   // (a) calmed colours
-        palette: friend ? MM.sprites.softPalette(m.sprite, m.pal || {}, 0.45) : (m.pal || {}),
-        scale: 3,
-      });
+      // Playtest 2026-07-13: the heart does the work — the washed-out calmed
+      // palette read as "something's wrong with its colors," not as calm.
+      // Becalmed friends keep their TRUE colors + the heart + the slow sway.
+      const spr = MM.sprites.get(m.sprite, { palette: m.pal || {}, scale: 3 });
       ctx.drawImage(spr, vx * TILE, vy * TILE + bob + hop);
-      if (cheering && friend && !s.calmMode) worldBurst(m.x, m.y, '#7ee0e8', 1);
+      if (cheering && friend && !s.calmMode) worldSparkle(m.x, m.y - 0.6);
       if (m.boss) {
         const crown = MM.sprites.get('crown', { scale: 2 });
         ctx.drawImage(crown, vx * TILE + TILE / 2 - crown.width / 2, vy * TILE + bob - 8);
@@ -1104,9 +1179,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     document.getElementById('btnPotion').textContent = `🧪 Potion ×${s.potions}`;
     const foodCount = Object.values(s.items.food || {}).reduce((a, b) => a + b, 0);
     document.getElementById('btnFood').textContent = `🍗 Food ×${foodCount}`;
-    document.getElementById('statStreak').innerHTML = s.streak >= 3
+    // Sticky-brave visibility (2026-07-13): brave persists across battles
+    // and dungeons — the state must be one glance away OUTSIDE battle too,
+    // or a kid meets mysteriously harder problems with no visible cause.
+    const braveTag = s.brave ? `⚡ <b>Brave is on</b> <span class="dim">— extra steps, double power</span>` : '';
+    const streakTag = s.streak >= 3
       ? `🔥 <b>Streak ${s.streak}!</b> +${s.streak >= 6 ? 4 : 2} dmg${s.streak >= 5 ? ' · crits unlocked!' : ''}`
       : (s.streak > 0 ? `✨ Streak: ${s.streak}` : '');
+    document.getElementById('statStreak').innerHTML = [braveTag, streakTag].filter(Boolean).join('<br>');
 
     renderSpellRow(s);
 
@@ -1206,7 +1286,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     messages.push(msg);
     if (messages.length > 10) messages.shift();
     const el = document.getElementById('log');
-    if (el) el.innerHTML = messages.map(m => `<div>${m}</div>`).join('');
+    if (el) {
+      el.innerHTML = messages.map(m => `<div>${m}</div>`).join('');
+      el.scrollTop = el.scrollHeight; // the log scrolls itself; newest always visible
+    }
   };
 
   // ---------- shared problem form (used by battle + modals) ----------
@@ -1649,6 +1732,16 @@ var MM = globalThis.MM = globalThis.MM || {};
         { label: `⚔️ Hero${mark('hero')}`, onClick: pick('hero', 'Hero'), primary: s.difficulty === 'hero' },
         { label: `🔥 Legend${mark('legend')}`, onClick: pick('legend', 'Legend'), primary: s.difficulty === 'legend' },
         { label: s.stance === 'soothe' ? '⚔️ Change my way: boldly' : '🕊 Change my way: gently', onClick: switchWay },
+        // 2026-07-13: sound controls live where a player looks (the user
+        // couldn't find the parent-panel copies — two doors, one state)
+        { label: s.musicOff ? '🎵 Music: off → on' : '🎵 Music: on → off', onClick: () => {
+          s.musicOff = !s.musicOff; MM.engine.save();
+          UI.log(s.musicOff ? '🎵 Music off — the sound effects stay.' : '🎵 Music on.');
+        } },
+        { label: s.soundOff ? '🔊 Sound: off → on' : '🔊 Sound: on → off', onClick: () => {
+          s.soundOff = !s.soundOff; MM.engine.save();
+          UI.log(s.soundOff ? '🔇 All sound off.' : '🔊 Sound on.');
+        } },
         { label: 'Cancel', onClick: () => {} },
       ]);
   };

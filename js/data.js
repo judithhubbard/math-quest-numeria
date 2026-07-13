@@ -39,7 +39,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   MM.data.SKILL_ICONS = {
     addsub_facts: '➕',
     muldiv_facts: '✖️',
-    multidigit_addsub: '🧮',
+    multidigit_addsub: '📝', // was 🧮 — kids don't know abacuses (playtest)
     multidigit_mult: '🔢',
     long_division: '➗',
     decimals_ps: '📏',

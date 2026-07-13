@@ -176,7 +176,16 @@ var MM = globalThis.MM = globalThis.MM || {};
   // tier-less by construction.
   function combatProblem(state, skill) {
     if (!isBrave(state)) return MM.problems.generateQuick(skill);
-    return MM.problems.generate(skill, braveTierFor(state, skill));
+    // Brave COMBAT (redesigned 2026-07-13, live playtest: a "quick" fight
+    // served 9,208 − 8,587): the pacing rule — combat is quick, full depth
+    // lives at gates — holds even under brave. Facts topics draw their
+    // authored chains (quick-shaped by construction); every other topic
+    // gets its QUICK problem plus one extra small step. Full-depth-plus-
+    // tail stays where thinking time is free: bosses.
+    if (skill === 'addsub_facts' || skill === 'muldiv_facts') {
+      return MM.problems.generate(skill, 3); // the chain tier
+    }
+    return MM.problems.braveStep(MM.problems.generateQuick(skill));
   }
   function braveTierFor(state, skill) {
     // The two FACTS topics are compressed — "one tier up" inside single-digit

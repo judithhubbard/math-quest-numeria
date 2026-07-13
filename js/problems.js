@@ -1031,24 +1031,32 @@ var MM = globalThis.MM = globalThis.MM || {};
     addsub_facts: () => addsub_facts(R.chance(0.5) ? 1 : 2),
     muldiv_facts: () => muldiv_facts(R.chance(0.5) ? 1 : 2),
     multidigit_addsub() {
+      // Pedagogy calibration (user, 2026-07-13, from dungeon 3): a QUICK
+      // problem must LOOK as fast as it is. "300 + 500" is mentally 3+5 but
+      // READS as three-digit addition — the ×100 scale is gone; everything
+      // below is visibly seconds-fast: friendly tens, or a 2-digit nudged
+      // by a single digit without crossing a ten.
       const style = R.int(1, 3);
-      if (style === 1) { // friendly tens and hundreds
-        const m = R.pick([10, 100]);
+      if (style === 1) { // friendly tens only
         let a = R.int(2, 9), b = R.int(1, 9);
         if (R.chance(0.5)) {
-          return num(`${a * m} + ${b * m} = ?`, (a + b) * m,
-            `${a} + ${b} = ${a + b}, so ${a * m} + ${b * m} = ${fmt((a + b) * m)}.`);
+          return num(`${a * 10} + ${b * 10} = ?`, (a + b) * 10,
+            `${a} + ${b} = ${a + b}, so ${a * 10} + ${b * 10} = ${(a + b) * 10}.`);
         }
         if (b > a) { const t = a; a = b; b = t; }
-        if (a === b) a++;
-        return num(`${a * m} − ${b * m} = ?`, (a - b) * m,
-          `${a} − ${b} = ${a - b}, so ${a * m} − ${b * m} = ${fmt((a - b) * m)}.`);
+        if (a === b) { if (a < 9) a++; else b--; } // never push a ten into "100"
+        return num(`${a * 10} − ${b * 10} = ?`, (a - b) * 10,
+          `${a} − ${b} = ${a - b}, so ${a * 10} − ${b * 10} = ${(a - b) * 10}.`);
       }
-      if (style === 2) { // 2-digit ± 1-digit
-        const a = R.int(21, 89), b = R.int(3, 9);
-        return R.chance(0.5)
-          ? num(`${a} + ${b} = ?`, a + b, `${a} + ${b} = ${a + b}.`)
-          : num(`${a} − ${b} = ?`, a - b, `${a} − ${b} = ${a - b}.`);
+      if (style === 2) { // 2-digit ± 1-digit, never crossing a ten
+        const tens = R.int(2, 8), ones = R.int(2, 8);
+        const a = tens * 10 + ones;
+        if (R.chance(0.5)) {
+          const b = R.int(1, 9 - ones);
+          return num(`${a} + ${b} = ?`, a + b, `${a} + ${b} = ${a + b}.`);
+        }
+        const b = R.int(1, ones);
+        return num(`${a} − ${b} = ?`, a - b, `${a} − ${b} = ${a - b}.`);
       }
       // 2-digit ± 2-digit with NO regrouping (clean columns)
       const t1 = R.int(2, 8), o1 = R.int(1, 8);
@@ -1588,5 +1596,29 @@ var MM = globalThis.MM = globalThis.MM || {};
   }
   generateExam.count = EXAM_SLATES.length;
 
-  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError };
+  // Brave-combat step (2026-07-13): take a QUICK problem and add exactly one
+  // small extra step — the ⚡ contract ("harder for double damage") without
+  // ever breaking combat pacing. Bare "A op B = ?" texts extend inline
+  // ("40 + 30 + 20 = ?"); other integer-answer texts gain a "…then add N"
+  // tail; non-integer kinds (choice/clock/fraction answers) return unchanged
+  // — their brave lift lives at bosses, never mid-fight.
+  function braveStep(q) {
+    if (!q || q.kind !== 'number' || !q.answer || q.answer.d !== 1) return q;
+    const base = q.answer.n;
+    const inline = q.text.match(/^(\d+) ([+−]) (\d+) = \?$/);
+    const step = R.int(2, 9) * (inline && /0$/.test(inline[1]) ? 10 : 1);
+    const add = base < 15 ? true : R.chance(0.6); // subtraction never goes negative
+    const ans = add ? base + step : base - step;
+    if (ans < 0) return q;
+    if (inline) {
+      return { ...q, text: `${inline[1]} ${inline[2]} ${inline[3]} ${add ? '+' : '−'} ${step} = ?`,
+        answer: frac(ans, 1),
+        solution: `${q.solution} Then ${base} ${add ? '+' : '−'} ${step} = ${ans}.` };
+    }
+    return { ...q, text: `${q.text}\n⚡ …then ${add ? 'add' : 'subtract'} ${step}.`,
+      answer: frac(ans, 1),
+      solution: `${q.solution} Then ${base} ${add ? '+' : '−'} ${step} = ${ans}.` };
+  }
+
+  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError, braveStep };
 })();

@@ -243,15 +243,18 @@ var MM = globalThis.MM = globalThis.MM || {};
     const task = MM.data.TASKS[s.dungeonIndex - 1];
     if (!task) return null;
     const mixed = task.mixed || E.isDeepWingFloor(s);
-    const skill = mixed ? mon.skill : task.skill;
+    // Playtest 2026-07-13 ("the abacus symbol is obscure"): in a SINGLE-topic
+    // dungeon every monster wore the same icon — zero information, pure
+    // clutter (the taskBox and the entry line already name the subject).
+    // Icons now appear only where they DIFFERENTIATE: mixed dungeons' bound
+    // monster types.
+    if (!mixed) return null;
+    const skill = mon.skill;
     if (!skill || !MM.data.SKILL_ICONS[skill]) return null;
     // Telegraph honesty: never promise a topic pickProblem wouldn't actually
-    // serve — a mixed dungeon's bound icon must vanish the instant a parent
-    // switches that topic off (same fallback pickRegularMonsterProblem
-    // takes). Single-topic dungeons don't need the check: capSkill still
-    // redirects a disabled OWN topic, but the icon there just names the
-    // dungeon's subject, not a specific-monster promise.
-    if (mixed && !MM.mastery.cappedSkills(s).includes(skill)) return null;
+    // serve — the bound icon must vanish the instant a parent switches that
+    // topic off (same fallback pickRegularMonsterProblem takes).
+    if (!MM.mastery.cappedSkills(s).includes(skill)) return null;
     return MM.data.SKILL_ICONS[skill];
   };
 
@@ -4296,7 +4299,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       leaveLabel: 'Never mind',
       onAnswer(correct, kidAnswer) {
         recordAnswer('word_problems', correct, { text: prob.text, kidAnswer });
-        const discount = correct ? Math.floor(c * 0.1) : 0;
+        // never 0 (playtest 2026-07-13): a 5g loaf floored 10% to zero gold
+        // off — the "question for a discount" promise must always pay ≥ 1
+        const discount = correct ? Math.max(1, Math.floor(c * 0.1)) : 0;
         const paid = c - discount;
         s.gold -= paid;
         let msg = correct
