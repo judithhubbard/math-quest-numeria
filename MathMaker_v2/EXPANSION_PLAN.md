@@ -2100,7 +2100,7 @@ hears what's new in the first second.
   than new pixel art or cutscenes — proportionate to something ~1% of
   players will ever see once, ever.
 
-## Wave 11 — The Grand Descent (visual escalation; SONNET agent, screenshots ARE the review)
+## Wave 11 — The Grand Descent (visual escalation; SONNET agent, screenshots ARE the review) ✅ SHIPPED (2026-07-13)
 
 THE FINDING (design-session audit): MM.data.THEMES gives every dungeon a
 color identity — but it styles ONLY the battle backdrop. The dungeon
@@ -2151,6 +2151,91 @@ tryMove/battle/economy untouched — if a gameplay file needs an edit
 beyond tileSprite/drawWorld context threading, STOP and report instead.
 **Include every screenshot path in the final report** for the design
 session's own review pass.
+
+**Deviations from this spec, and why:**
+- **The palette derivation and the wall-tier selection ended up split
+  across two files, not both living "in tileSprite"** — `tileSprite`
+  (maps.js) stays a PURE function of `(ch, x, y, mapId, waterFrame)` with
+  no engine-state dependency (every existing caller, including the
+  headless render/door audits and two other drives, calls it exactly that
+  way and expects a plain sprite-name string back), so it owns tier
+  SELECTION only (`MM.maps.wallTierSprite(MM.maps.dungeonIndexOf(mapId))`
+  — a new pure `dungeonIndexOf` helper that regexes `mapId`'s `d<idx>`
+  prefix, since dungeon mapIds are `'d<idx>'` or `'d<idx>f<floor>'` and the
+  render audit's own convention already relies on that shape). The actual
+  PALETTE (the hex colors) is computed one level up, in `ui.js`'s
+  `drawWorld`, using `s.dungeonIndex` directly (simpler and more reliable
+  than re-parsing it from the mapId string a second time) and passed as
+  `MM.sprites.get`'s `opts.palette` — the same place an NPC's `pal` already
+  gets attached. "Keyed off dungeonIndex, context already threaded" is true
+  end-to-end; it just isn't all literally inside the one function named
+  `tileSprite`.
+- **Two new wall sprites (`wallWorked`, `wallGrand`) needed a second design
+  pass after the first draft screenshotted too similarly to the existing
+  `wall`.** The first version reused `wall`'s exact 4-row coursing rhythm
+  with only the joint position varied, and side-by-side crops showed d1 and
+  d5 were nearly indistinguishable in silhouette (only the theme tint
+  differed) — exactly the "tiers not real enough" failure mode the wave's
+  own acceptance section warns about. Redesigned `wallWorked` as a true
+  2-row running-bond brick course (finer, busier than `wall`'s chunky 2x4
+  grid) and kept `wallGrand` as two huge dressed stones plus a highlight
+  band (already sufficiently distinct). Re-screenshotted every mainland
+  dungeon after the redesign; d1 (rough)/d5 (fine brick)/d9 (huge blocks +
+  band) are now unmistakably different silhouettes even before the tint is
+  considered.
+- **The boss vignette's alpha was raised from an initial 0.22 to 0.34**
+  after the same screenshot-and-look pass — 0.22 was only barely
+  perceptible in a direct pixel sample (a ~6-8/255 channel shift) and
+  failed the wave's own "arrival readable at a glance" bar. 0.34 reads
+  clearly as a distinct room in a screenshot at normal viewing size without
+  looking like a rendering glitch.
+- **The boss-room vignette reads the boss's spawn position off the FLOOR'S
+  OWN UNMUTATED TEMPLATE (`MM.maps.dungeonFloors(idx)[floorIndex]`,
+  re-parsed and searched for the `'b'` marker), never the live grid or a
+  living boss's current (chasing) position** — `E.enterDungeon` overwrites
+  the `'b'` marker tile to `'.'` the instant it spawns the boss, and a
+  living boss's `x`/`y` moves as it chases the player (`behavior: 'chase'`
+  applies to bosses too), so neither the live grid nor `s.monsters` can
+  answer "where does this room's boss belong" after the fight starts. This
+  needed no gameplay-file edit — `dungeonFloors` and `parse`/`find` already
+  existed and are pure data lookups — but it's worth flagging as the one
+  place this wave went spelunking through dungeon geometry that isn't
+  `tileSprite` itself. Memoized per `(idx, floorIndex)` since floor shapes
+  never change shape.
+- **Decor glyph choices for d1-10 were picked freely** ("choose the simpler
+  option and note it" per the sizing guidance) since the spec named motifs
+  in prose, not exact glyphs: 🌰 acorns (d1), 🕸️ cobwebs (d2), 🪔 lantern
+  hooks (d3), 🛤️ mine-cart rail fragments (d4), 🌿 fern fronds (d5), 💎
+  crystal glints (d6), 🪙 coin flecks (d7), ½/⅓/¼ fraction-rune carvings
+  (d8, a hash-picked one of three rather than a single glyph — "carvings"
+  read as plural), 🪶 owl feathers (d9), 🚩 faded royal banners (d10, drawn
+  at half the usual opacity for "faded" — the only per-dungeon opacity
+  override). All confirmed to actually render as real glyphs (not tofu/
+  fallback boxes) via zoomed screenshot crops before finalizing — 🪙's flat
+  grey-silver design initially looked like a rendering failure until a
+  crop confirmed it's a real (if unexpectedly monochrome-looking) coin
+  glyph, not a fallback.
+- **Density is a single global hash threshold (~1-in-41 eligible floor
+  tiles), not a per-region cap** — true "≤2 per 8x8" would need a
+  region-bucketed placement pass; a flat per-tile probability tuned so the
+  EXPECTED count in an 8x8 patch is ~1.5 was judged close enough for an
+  atmosphere pass and was verified acceptable by eye across all 10
+  screenshots (6-13 hits per full dungeon floor, none clustered enough to
+  read as clutter or hide a POI glyph among them — decor is category-
+  excluded from POI cells by construction, not just by tuning).
+- **Unit coverage intentionally exceeds the letter of the acceptance
+  section**: "50 regenerations" for the decor-POI check became an
+  exhaustive scan of every glyph of every floor of every mainland dungeon
+  (hundreds of tiles per floor, all 10 dungeons, both floors where
+  present) — strictly more coverage for no extra design risk, since the
+  underlying function is a pure lookup with no hidden per-call randomness
+  to sample against.
+- **No gameplay file needed touching, so none was** — the hard STOP rule
+  never triggered. The full diff is `js/maps.js` (tile→sprite pure logic +
+  new geometry/decor helpers), `js/sprites.js` (two new wall sprite DEFS +
+  `S.themePalette`), and `js/ui.js`'s `drawWorld` (palette wiring + two new
+  overlay passes). `js/engine.js`, `js/battle.js`, and every economy/
+  problem-generation file are byte-for-byte untouched.
 
 ## Sizing guidance for the implementing model
 

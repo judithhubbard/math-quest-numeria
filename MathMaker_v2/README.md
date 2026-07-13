@@ -590,6 +590,20 @@ and never require you to go looking for them.
   chasing — if you never see one, you haven't missed anything, and the
   game will never tell you that you did.
 
+### 🏛 The Grand Descent
+
+The dungeons now visibly get deeper the further you go. Every dungeon's
+walls and floors are tinted in that dungeon's own colors, and the
+mainland's stonework escalates in three stages as you progress — rough
+cave walls in the first few dungeons, cut-block "worked stone" partway
+through, and large dressed "grand keep" stone by the time you reach the
+Fraction Fortress and beyond. Each mainland dungeon also carries its own
+small, quiet decorations scattered underfoot (acorns, cobwebs, coin
+flecks, and the like) — pure atmosphere, never anything to click on — and
+the room around a boss darkens a shade the moment you walk in, so you
+always know when you've arrived somewhere important. None of this changes
+how anything plays; it's paint, not a puzzle.
+
 ### A few playtest fixes
 
 A real play session turned up some friction, since fixed: every locked door

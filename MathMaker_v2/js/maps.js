@@ -1317,6 +1317,106 @@ var MM = globalThis.MM = globalThis.MM || {};
   };
   MM.maps.gateOpenNow = (ch, mapId) => MM.maps.GEAR_LETTERS[MM.maps.gearRotation(mapId)] === ch;
 
+  // ---------- Wave 11: the Grand Descent ----------
+  // Pure glyph/geometry logic, same reasoning as the rest of this section:
+  // no DOM, no engine state, so the render audit and the design session's
+  // drive can both exercise it headlessly.
+
+  // A dungeon mapId is always 'd<idx>' or 'd<idx>f<floor>' (see
+  // E.enterDungeon) — the render audit's own convention ('d<idx>f<fi>' even
+  // for single-floor dungeons) parses the same way. Overworld ids never
+  // start with 'd' followed by a digit, so this doubles as "am I a dungeon?"
+  MM.maps.dungeonIndexOf = function (mapId) {
+    const m = typeof mapId === 'string' && /^d(\d+)/.exec(mapId);
+    return m ? parseInt(m[1], 10) : null;
+  };
+
+  // P2: three wall tiers escalate depth on the mainland. d1-3 stay the
+  // original rough cave (it already reads as "rough"); d4-7 get the new
+  // cut-block "worked stone"; d8-13 (the three mainland-adjacent expansions
+  // included, per the wave's own "expansion 11-13 reuse grand keep" note)
+  // get the new large-dressed "grand keep" stone. Isle dungeons (14+) and
+  // the post-game Spiral Stair (22) keep the rough-cave silhouette — they
+  // already carry a stronger visual identity from their own custom tiles —
+  // and rely on the theme TINT (below) alone.
+  MM.maps.wallTierSprite = function (idx) {
+    if (idx == null) return 'wall';
+    if (idx <= 3) return 'wall';
+    if (idx <= 7) return 'wallWorked';
+    if (idx <= 13) return 'wallGrand';
+    return 'wall';
+  };
+
+  // P4: boss-room dignity needs the boss MARKER's spawn tile, not a living
+  // boss's current (chasing) position — read it off the floor's own
+  // unmutated template (dungeonFloors), never the live grid (E.enterDungeon
+  // overwrites the 'b' marker to '.' the moment it spawns the boss). Floor
+  // shapes never change, so this is safe to memoize.
+  MM.maps._bossSpawnCache = {};
+  MM.maps.bossSpawnPos = function (idx, floorIndex) {
+    const key = idx + ':' + floorIndex;
+    if (key in MM.maps._bossSpawnCache) return MM.maps._bossSpawnCache[key];
+    const floors = MM.maps.dungeonFloors(idx);
+    const raw = floors && floors[floorIndex];
+    let pos = null;
+    if (raw) {
+      const grid = MM.maps.parse(raw, '#');
+      pos = MM.maps.find(grid, 'b')[0] || null;
+    }
+    MM.maps._bossSpawnCache[key] = pos;
+    return pos;
+  };
+  MM.maps.BOSS_VIGNETTE_RADIUS = 3;
+  MM.maps.BOSS_VIGNETTE_ALPHA = 0.34;
+  // A pure "how tinted is this tile" query — drawWorld and the test suite
+  // share it so the radius rule only lives in one place.
+  MM.maps.bossVignetteAlpha = function (idx, floorIndex, x, y) {
+    const pos = MM.maps.bossSpawnPos(idx, floorIndex);
+    if (!pos) return 0;
+    const d = Math.max(Math.abs(x - pos.x), Math.abs(y - pos.y));
+    return d <= MM.maps.BOSS_VIGNETTE_RADIUS ? MM.maps.BOSS_VIGNETTE_ALPHA : 0;
+  };
+
+  // P3: deterministic decor overlays — one motif per mainland dungeon
+  // (d1-10), drawn ON ordinary floor tiles, never a new grid glyph (nothing
+  // enters the walkability/door audits) and never persisted state (no
+  // s.opened entry). Placement is a pure hash of (x, y, dungeonIndex) —
+  // never Date.now() or a frame counter — so it is static by construction
+  // and needs no Calm Mode gate; it never moved to begin with. A fraction
+  // rune's exact glyph (½ / ⅓ / ¼) is likewise a pure hash pick, not a
+  // per-render random choice.
+  MM.maps.DECOR_MOTIFS = {
+    1: ['🌰'],           // Meadow Cave — dropped acorns
+    2: ['🕸️'],           // Rat Cellar — cobwebs
+    3: ['🪔'],           // Old Mine — lantern hooks
+    4: ['🛤️'],           // Forest Ruin — mine-cart rail fragments
+    5: ['🌿'],           // River Catacombs — fern fronds
+    6: ['💎'],           // Crystal Grotto — crystal glints
+    7: ['🪙'],           // Merchant's Vault — coin flecks
+    8: ['½', '⅓', '¼'],  // Fraction Fortress — fraction-rune carvings
+    9: ['🪶'],           // Wizard's Tower — owl feathers
+    10: ['🚩'],          // Tower of Trials — faded royal banners (drawn dim)
+  };
+  function decorHash(x, y, salt) {
+    let h = (x * 374761393 + y * 668265263 + salt * 2654435761 + 0x9e3779b9) >>> 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+    h = (h ^ (h >>> 16)) >>> 0;
+    return h >>> 0;
+  }
+  // ~1-in-41 eligible floor tile carries decor — keeps rooms readable at
+  // roughly ≤2 per 8x8 patch (per-tile odds ≈ 1.5 expected hits in 64
+  // tiles). `ch` is the LIVE grid glyph: decor only ever considers plain
+  // open floor ('.'), so it can never land on a POI cell — every door,
+  // chest, key, lock, lever, stairs, chute, secret, slab, plaque, exit,
+  // monster marker, pad, gate, and plate glyph is something other than '.'.
+  MM.maps.decorMotif = function (idx, x, y, ch) {
+    const set = MM.maps.DECOR_MOTIFS[idx];
+    if (!set || ch !== '.') return null;
+    const h = decorHash(x, y, idx);
+    if (h % 41 !== 0) return null;
+    return set[h % set.length];
+  };
+
   MM.maps.tileSprite = function (ch, x, y, mapId, waterFrame) {
     const inDungeon = !MM.maps.isOverworld(mapId);
     // map-specific glyphs first — 'u' is Miscount on the west map but murk
@@ -1386,7 +1486,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       case 'I': return 'inn';
       case 'n': return 'board';
       case 'W': return 'pier';
-      case '#': return 'wall';
+      // Wave 11 (P2): mainland wall tiers escalate by dungeonIndex — see
+      // wallTierSprite. Overworld/castle '#' never reaches this switch (the
+      // castle intercepts its own '#' above; the overworld maps have none).
+      case '#': return inDungeon ? MM.maps.wallTierSprite(MM.maps.dungeonIndexOf(mapId)) : 'wall';
       case 'D': return 'doorMagic';
       case '*': return 'chest';
       case 'X': return 'ladder';

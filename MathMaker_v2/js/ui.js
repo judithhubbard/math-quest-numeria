@@ -6,6 +6,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   const UI = MM.ui = {};
   const TILE = 48;
   const VIEW_W = 15, VIEW_H = 11;
+  // Wave 11 (P1): only wall/floor sprites take a theme tint — everything
+  // else (doors, chests, levers...) keeps its own fixed colors.
+  const DESCENT_TINT_SPRITES = { wall: 1, wallWorked: 1, wallGrand: 1, floor: 1 };
 
   let canvas, ctx, modalEl, modalBox;
   let messages = [];
@@ -701,6 +704,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     // entrance digits, and no NPC pass): the empty-island bug, thrice.
     const inDungeon = !MM.maps.isOverworld(s.mapId);
     const waterFrame = Math.floor(now / 600) % 2;
+    // Wave 11: the Grand Descent — every dungeon's THEMES entry now tints
+    // its own wall/floor sprites (P1), and the boss's room gets a static
+    // vignette (P4). Both are pure functions of dungeonIndex/floorIndex, so
+    // they're computed once per frame here rather than per tile.
+    const descentTheme = inDungeon ? MM.data.THEMES[(s.dungeonIndex || 1) - 1] : null;
+    const descentIdx = inDungeon ? s.dungeonIndex : null;
+    const descentFloor = s.floorIndex || 0;
 
     let camX = Math.max(0, Math.min(W - VIEW_W, s.px - Math.floor(VIEW_W / 2)));
     let camY = Math.max(0, Math.min(H - VIEW_H, s.py - Math.floor(VIEW_H / 2)));
@@ -716,7 +726,16 @@ var MM = globalThis.MM = globalThis.MM || {};
         const x = camX + vx, y = camY + vy;
         if (y >= H || x >= W) continue;
         const ch = grid[y][x];
-        const spr = MM.sprites.get(MM.maps.tileSprite(ch, x, y, s.mapId, waterFrame), { scale: 3 });
+        const sprName = MM.maps.tileSprite(ch, x, y, s.mapId, waterFrame);
+        // Wave 11 (P1): recolor wall/floor toward this dungeon's THEME —
+        // the same monster-`pal` swap mechanism, just a different palette
+        // source (S.themePalette derives it from THEMES instead of a
+        // hand-authored roster entry).
+        const sprOpts = { scale: 3 };
+        if (descentTheme && DESCENT_TINT_SPRITES[sprName]) {
+          sprOpts.palette = MM.sprites.themePalette(sprName, descentTheme);
+        }
+        const spr = MM.sprites.get(sprName, sprOpts);
         // Playtest round 4: a mimic chest BREATHES — a slow 1-pixel bob (the
         // telegraph rule: a surprise you could have spotted, never a gotcha).
         // Calm Mode swaps motion for a static tell: a dark grin at the seam.
@@ -729,6 +748,34 @@ var MM = globalThis.MM = globalThis.MM || {};
           if (isMimic) { // calm mode: the lid sits ajar, ever so slightly
             ctx.fillStyle = '#2a1626';
             ctx.fillRect(vx * TILE + 12, vy * TILE + 19, TILE - 24, 2);
+          }
+        }
+        // Wave 11 (P4): boss-room dignity — a static tint, no motion, no new
+        // sprite; deepens the floor toward the theme's sky1 within 3 tiles
+        // of the boss's SPAWN marker (not its current, possibly-chasing
+        // position — see MM.maps.bossSpawnPos).
+        if (descentIdx && ch !== '#') {
+          const vAlpha = MM.maps.bossVignetteAlpha(descentIdx, descentFloor, x, y);
+          if (vAlpha > 0) {
+            ctx.globalAlpha = vAlpha;
+            ctx.fillStyle = descentTheme.sky1;
+            ctx.fillRect(vx * TILE, vy * TILE, TILE, TILE);
+            ctx.globalAlpha = 1;
+          }
+        }
+        // Wave 11 (P3): deterministic decor overlays — one motif per
+        // mainland dungeon, hash-placed, only ever on plain open floor
+        // ('.'), so it can never sit on a POI cell. Drawn like the
+        // hatted-slime/thief-coin emoji overlays elsewhere in this loop:
+        // sans-serif font (the pixel font has no emoji glyphs).
+        if (descentIdx) {
+          const motif = MM.maps.decorMotif(descentIdx, x, y, ch);
+          if (motif) {
+            ctx.font = '13px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.globalAlpha = descentIdx === 10 ? 0.45 : 0.85; // d10: FADED royal banners
+            ctx.fillText(motif, vx * TILE + TILE / 2, vy * TILE + TILE / 2 + 5);
+            ctx.globalAlpha = 1;
           }
         }
         if (!inDungeon && '1234567890'.includes(ch)) {

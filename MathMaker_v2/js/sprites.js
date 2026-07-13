@@ -159,6 +159,60 @@ var MM = globalThis.MM = globalThis.MM || {};
         'kkkkkkkkkkkkkkkk',
       ],
     },
+    // Wave 11 (P2): the mainland's second wall tier — "worked stone", d4-7.
+    // Same K/k/h channel names as `wall` (deliberate — it lets S.themePalette
+    // recolor all three wall tiers with one generic function, exactly like a
+    // monster's `pal` swap works across a whole roster). A true running-bond
+    // brick course — 2-row-tall bricks, joints offset by half a brick every
+    // other course — reads as fine CUT masonry, deliberately busier/denser
+    // than `wall`'s one static 2x4 grid of rough blocks.
+    wallWorked: {
+      colors: { K: '#4a4258', k: '#332c44', h: '#5c5470' },
+      map: [
+        'kKhKKKKKkKKKKKKK',
+        'kkkkkkkkkkkkkkkk',
+        'KKKKkKKKKKKhkKKK',
+        'kkkkkkkkkkkkkkkk',
+        'kKKKKKKKkKKKhKKK',
+        'kkkkkkkkkkkkkkkk',
+        'KKKKkhKKKKKKkKKK',
+        'kkkkkkkkkkkkkkkk',
+        'kKKKKKhKkKKKKKKK',
+        'kkkkkkkkkkkkkkkk',
+        'KKKKkKKKKKKKkKKh',
+        'kkkkkkkkkkkkkkkk',
+        'kKKKKKKKkKKKKKKK',
+        'kkkkkkkkkkkkkkkk',
+        'KKKKkKKKKhKKkKKK',
+        'kkkkkkkkkkkkkkkk',
+      ],
+    },
+    // Wave 11 (P2): the mainland's third wall tier — "grand keep", d8-13.
+    // Large dressed stones (one vertical joint splitting each row into two
+    // big blocks, a mortar seam top/bottom) plus a carved band (two solid
+    // highlight rows) partway down — the "royal" tier reads distinct from
+    // wallWorked's brick coursing even before any theme tint is applied.
+    wallGrand: {
+      colors: { K: '#4a4258', k: '#332c44', h: '#5c5470' },
+      map: [
+        'kkkkkkkkkkkkkkkk',
+        'KKKKKKKKkKKKKKKK',
+        'KKKhKKKKkKKKKKKK',
+        'KKKKKKKKkKKKKKKK',
+        'KKKKKKKKkKKKhKKK',
+        'KKKKKKKKkKKKKKKK',
+        'KKKKKKKKkKKKKKKK',
+        'hKKKhKKKhKKKhKKK',
+        'hKKKhKKKhKKKhKKK',
+        'KKKKKKKKkKKKKKKK',
+        'KKKKKKKKkKKKKKKK',
+        'KKKhKKKKkKKKKKKK',
+        'KKKKKKKKkKKKKKKK',
+        'KKKKKKKKkKKKhKKK',
+        'KKKKKKKKkKKKKKKK',
+        'kkkkkkkkkkkkkkkk',
+      ],
+    },
     floor: {
       colors: { F: '#57506a', f: '#4a445c', d: '#3f394f' },
       map: [
@@ -1883,6 +1937,38 @@ var MM = globalThis.MM = globalThis.MM || {};
       const rgb = hexToRgb(merged[ch]);
       if (!rgb) { out[ch] = merged[ch]; continue; }  // pass through anything odd untouched
       out[ch] = '#' + rgb.map((v, i) => hex2(v + (SOFT_TARGET[i] - v) * a)).join('');
+    }
+    return out;
+  };
+
+  // ---------- Wave 11: the Grand Descent (P1) ----------
+  // Every dungeon already has a THEME (sky1/sky2/ground/accent) for its
+  // battle backdrop; this gives the CRAWL a matching color identity, using
+  // the exact same palette-swap plumbing a monster's `pal` already uses —
+  // no new rendering path, just a new palette. Same three discipline points
+  // as softPalette: (1) a COMPLETE {char: hex} palette (its own cache key,
+  // not a flag S.get would ignore), (2) blends EVERY color the sprite
+  // defines, (3) sorted keys so the same (sprite, theme) always produces the
+  // same cache string. Two different blend targets, not one flat wash: the
+  // sprite's "highlight" channel (the fleck/carved-band char) leans toward
+  // the theme's ACCENT color, everything else leans toward its GROUND color
+  // — so a dungeon reads as "these colors", not just "darker" or "lighter".
+  const THEME_HIGHLIGHT_CHAR = { wall: 'h', wallWorked: 'h', wallGrand: 'h', floor: 'd' };
+  S.themePalette = function (name, theme, amount) {
+    const def = S.DEFS[name];
+    if (!def || !theme) return {};
+    const a = amount == null ? 0.42 : amount;
+    const groundRgb = hexToRgb(theme.ground);
+    const accentRgb = hexToRgb(theme.accent);
+    const hiChar = THEME_HIGHLIGHT_CHAR[name];
+    const out = {};
+    for (const ch of Object.keys(def.colors).sort()) {
+      const rgb = hexToRgb(def.colors[ch]);
+      if (!rgb) { out[ch] = def.colors[ch]; continue; }
+      const isHi = ch === hiChar;
+      const target = isHi ? accentRgb : groundRgb;
+      const amt = isHi ? Math.min(1, a * 0.85) : a;
+      out[ch] = target ? '#' + rgb.map((v, i) => hex2(v + (target[i] - v) * amt)).join('') : def.colors[ch];
     }
     return out;
   };

@@ -1336,6 +1336,98 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   }
 }
 
+// ---------- Wave 11: the Grand Descent ----------
+{
+  // P1: palette derivation must be TOTAL over every THEMES entry — no index
+  // gaps. For every dungeon 1..THEMES.length, deriving a wall/floor palette
+  // must produce a complete, valid {char: hex} map covering every char the
+  // base sprite defines (no missing/blank colors, which would render a
+  // transparent hole per S.get's `if (!col) continue`).
+  const HEX_RE = /^#[0-9a-f]{6}$/i;
+  const WALL_NAMES = ['wall', 'wallWorked', 'wallGrand'];
+  for (let idx = 1; idx <= MM.data.THEMES.length; idx++) {
+    const theme = MM.data.THEMES[idx - 1];
+    for (const name of [...WALL_NAMES, 'floor']) {
+      const pal = MM.sprites.themePalette(name, theme);
+      const wantKeys = Object.keys(MM.sprites.DEFS[name].colors).sort();
+      const gotKeys = Object.keys(pal).sort();
+      if (JSON.stringify(wantKeys) !== JSON.stringify(gotKeys)) {
+        fail(`descent: themePalette('${name}', THEMES[${idx - 1}]) missing/extra keys: want ${wantKeys}, got ${gotKeys}`);
+      }
+      for (const ch of wantKeys) {
+        if (!HEX_RE.test(pal[ch])) fail(`descent: themePalette('${name}', THEMES[${idx - 1}])['${ch}'] = '${pal[ch]}' is not a valid hex color`);
+      }
+    }
+  }
+
+  // P2: wall-tier assignment is a total function of dungeonIndex, and the
+  // three tiers really are three different, real sprites.
+  const TIER_CASES = [
+    [1, 'wall'], [2, 'wall'], [3, 'wall'],
+    [4, 'wallWorked'], [5, 'wallWorked'], [6, 'wallWorked'], [7, 'wallWorked'],
+    [8, 'wallGrand'], [9, 'wallGrand'], [10, 'wallGrand'],
+    [11, 'wallGrand'], [12, 'wallGrand'], [13, 'wallGrand'],
+    [14, 'wall'], [18, 'wall'], [21, 'wall'], [22, 'wall'],
+  ];
+  for (const [idx, want] of TIER_CASES) {
+    const got = MM.maps.wallTierSprite(idx);
+    if (got !== want) fail(`descent: wallTierSprite(${idx}) = '${got}', want '${want}'`);
+    if (!MM.sprites.DEFS[got]) fail(`descent: wallTierSprite(${idx}) => '${got}' has no sprite def`);
+  }
+  for (const name of WALL_NAMES) for (const p of MM.sprites.validate()) {
+    if (p.includes(name)) fail(`descent sprite: ${p}`);
+  }
+
+  // Wall/floor sprite CACHE KEYS must actually differ between d1, d5, d9
+  // (tier name difference) and between two same-tier dungeons (d1 vs d2 —
+  // proves the theme TINT, not just the tier, is real).
+  {
+    const keyFor = (name, idx) => name + '|3||' + JSON.stringify(MM.sprites.themePalette(name, MM.data.THEMES[idx - 1]));
+    const k1 = keyFor(MM.maps.wallTierSprite(1), 1);
+    const k5 = keyFor(MM.maps.wallTierSprite(5), 5);
+    const k9 = keyFor(MM.maps.wallTierSprite(9), 9);
+    if (k1 === k5 || k5 === k9 || k1 === k9) fail('descent: d1/d5/d9 wall sprite cache keys are not all distinct — tiers/tints not real');
+    const k1floor = keyFor('floor', 1);
+    const k2floor = keyFor('floor', 2);
+    if (k1floor === k2floor) fail('descent: d1/d2 floor cache keys match — same-tier dungeons must still be tinted differently');
+  }
+
+  // P3: decor never lands on a POI cell. Exhaustively scan every glyph of
+  // every floor of every mainland dungeon (1-10) — far more than the
+  // "50 regenerations" floor the wave asks for — and assert decorMotif is
+  // never truthy for anything but plain open floor ('.').
+  {
+    let checked = 0;
+    for (let idx = 1; idx <= 10; idx++) {
+      const floors = MM.maps.dungeonFloors(idx);
+      floors.forEach((raw, fi) => {
+        const grid = MM.maps.parse(raw, '#');
+        for (let y = 0; y < grid.length; y++) {
+          for (let x = 0; x < grid[y].length; x++) {
+            const ch = grid[y][x];
+            checked++;
+            if (ch !== '.' && MM.maps.decorMotif(idx, x, y, ch)) {
+              fail(`descent: decor landed on POI cell d${idx} f${fi} (${x},${y}) glyph '${ch}'`);
+            }
+          }
+        }
+      });
+    }
+    if (checked < 50) fail('descent: decor-on-POI scan checked suspiciously few tiles');
+  }
+
+  // P4: boss-room vignette tiles must actually differ from ordinary floor —
+  // every mainland dungeon's floor 0 has a boss marker.
+  for (let idx = 1; idx <= 10; idx++) {
+    const pos = MM.maps.bossSpawnPos(idx, 0);
+    if (!pos) { fail(`descent: dungeon ${idx} floor 0 has no boss marker to vignette`); continue; }
+    const atBoss = MM.maps.bossVignetteAlpha(idx, 0, pos.x, pos.y);
+    const farAway = MM.maps.bossVignetteAlpha(idx, 0, pos.x + 20, pos.y + 20);
+    if (!(atBoss > 0)) fail(`descent: dungeon ${idx} boss tile itself isn't vignetted`);
+    if (farAway !== 0) fail(`descent: dungeon ${idx} vignette leaked far from the boss`);
+  }
+}
+
 // ---------- never stranded (Wave 6.5, user question) ----------
 // Every island overworld must offer a supplies source ('S' — shop or
 // dockside cart) and a dock ('W') so a kid can always restock potions and

@@ -109,6 +109,25 @@ over the furniture. Every `tileSprite()`-level check stayed green throughout
 (they only prove a glyph maps to *some* sprite); only looking at a screenshot
 caught it. A permanent unit check now asserts no castle glyph is an NPCS key.
 
+Wave 11 ("The Grand Descent", visual-only) adds: theme-palette derivation
+proven TOTAL over every one of `MM.data.THEMES`' 22 entries (every dungeon
+1-22, wall AND floor, every char the base sprite defines present with a
+valid hex color — no index gaps, no transparent-hole colors); the wall-tier
+assignment (`MM.maps.wallTierSprite`) proven correct at every tier boundary
+(d1-3 rough, d4-7 worked, d8-13 grand, d14+ back to rough) and that all
+three tier sprites pass `MM.sprites.validate()`; wall/floor sprite cache
+keys proven genuinely distinct between d1/d5/d9 (tier) and between two
+same-tier dungeons like d1/d2 (tint alone); an exhaustive decor-never-on-a-
+POI-cell scan (every glyph of every floor of every mainland dungeon, not a
+sample); and the boss-room vignette proven nonzero exactly at the boss's
+spawn tile and zero far away, for every mainland dungeon's floor 0. This is
+the first wave with literally zero gameplay-file edits — only
+`js/maps.js`, `js/sprites.js`, and `js/ui.js`'s `drawWorld` changed, and
+the unit suite's existing render/door/reachability audits (which already
+exercise every map through `tileSprite()`) stayed green throughout without
+a single one needing to change, which is itself a check that nothing about
+walkability moved.
+
 ## Browser drives (need Playwright + Chrome)
 
 One-time setup in any folder:
@@ -389,6 +408,27 @@ a dock, and rest), and the sail-destination registry.
   pinned — the golden bird's feather treasure, the inn cat's beetle log
   line, and the hatted-slimes pair's screenshot, +2 gold, and log line on
   the bump that splits them apart without a fight).
+
+- `drive-descent.js` — Wave 11 ("The Grand Descent", visual-only — zero
+  gameplay changes): walks a maxed-out hero straight into every mainland
+  dungeon (d1-10), the mainland-adjacent expansion d13, and one isle
+  dungeon (d14, Tidepool Grotto), screenshotting all 12 (into
+  `tests/shots-descent/`, actually opened and looked at, per the wave's own
+  "screenshots ARE the review" instruction — not just asserted on). Live
+  checks per dungeon: the wall tier actually rendered matches the expected
+  tier bucket (`wall` d1-3/isles, `wallWorked` d4-7, `wallGrand` d8-13), at
+  least one live floor tile carries that dungeon's decor motif, the boss's
+  spawn tile carries a non-zero vignette alpha that doesn't leak past its
+  3-tile radius, and the derived theme palette is non-empty; plus one
+  cross-dungeon check that d1/d5/d9's wall-sprite-name + palette combo are
+  all pairwise distinct (the tier + tint together, not just one or the
+  other). The corresponding unit checks — palette derivation is total over
+  every `MM.data.THEMES` entry (all 22, one per dungeon, no gaps), decor
+  never lands on a POI cell (an exhaustive scan of every glyph of every
+  floor of every mainland dungeon, not just a 50-sample spot-check), and
+  the boss vignette is provably nonzero at the boss tile and zero far away
+  — live in `tests/test.js` under its own "Wave 11: the Grand Descent"
+  block.
 
 Operational note (2026-07-11): do NOT run drives while Dropbox is
 indexing a big file operation (e.g. right after refreshing the play
