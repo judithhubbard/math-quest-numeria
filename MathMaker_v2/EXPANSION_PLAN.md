@@ -2100,6 +2100,58 @@ hears what's new in the first second.
   than new pixel art or cutscenes — proportionate to something ~1% of
   players will ever see once, ever.
 
+## Wave 11 — The Grand Descent (visual escalation; SONNET agent, screenshots ARE the review)
+
+THE FINDING (design-session audit): MM.data.THEMES gives every dungeon a
+color identity — but it styles ONLY the battle backdrop. The dungeon
+crawl uses one shared wall/floor sprite pair for all 21 dungeons, so a
+kid ten dungeons deep walks corridors identical to dungeon 1. This wave
+makes the descent LOOK like a descent. Zero gameplay changes — every
+edit is paint.
+
+1. **Theme-tinted rooms (P1, the core).** Derive per-dungeon wall/floor
+   palettes FROM THE EXISTING THEMES TABLE (accent + ground per index) —
+   data-driven, never a hand-list, so dungeon 22 would style itself.
+   Monster-style palette swaps on the wall/floor sprites (the pal
+   mechanism sprites already support), keyed off dungeonIndex in
+   tileSprite — the context is already threaded. Isle dungeons keep
+   their stronger identities; this floor-tints them too but their
+   custom tiles stay.
+2. **Three wall TIERS across the mainland (P2, the escalation).**
+   d1-3: rough cave (current wall reads this way already); d4-7: worked
+   stone (author ONE new 16×16 wall variant: cut blocks, mortar lines);
+   d8-10: grand keep (ONE more variant: large dressed stone, a carved
+   band). Assign by dungeonIndex; expansion 11-13 reuse grand keep with
+   their own theme tints. Two new sprites total — sizing is deliberate.
+3. **Deterministic decor overlays (P3, the life).** 1-2 decor motifs
+   per mainland dungeon drawn ON floor tiles at hash(x,y)-chosen spots
+   (the Turning Stones / world-numerals overlay recipe — NO new grid
+   glyphs, nothing enters the walkability audit): moss tufts (d1),
+   rat-gnawed bones... no — kind world: dropped acorns (d1), cobwebs
+   (d2), lantern hooks (d3), mine-cart rails fragments (d4), fern
+   fronds (d5), crystal glints (d6), coin flecks (d7), fraction-rune
+   carvings (d8), owl feathers (d9), faded royal banners (d10). Static,
+   Calm-Mode safe by construction, ≤2 per ~8×8 area so floors stay
+   readable. Decor NEVER overlaps a POI tile's cell (D/Z/Y/*/K/L/etc.).
+4. **Boss-room dignity (P4, small).** Within 3 tiles of the boss
+   marker's spawn, the floor tint deepens one step toward the theme's
+   sky1 — arrival readable at a glance, no motion, no new sprites.
+
+Acceptance — tests/drive-descent.js: screenshot EVERY mainland dungeon
+d1-10 plus d13 and one isle dungeon (12+ screenshots), and LOOK at every
+one with the Read tool — this wave lives or dies on eyes, not assertions
+(the furnishing-glyph lesson: render audits prove classification, not
+appearance). Assert: wall/floor sprite cache keys differ between d1, d5,
+d9 (the tiers + tints are real), decor never lands on a POI cell across
+50 regenerations, boss-vignette tiles differ from ordinary floor. Unit:
+palette derivation is total over all 21 THEMES entries (no index gaps).
+The full 27-drive suite + detached marathon green; evidence discipline
+(tests/logs/*-w11.log, paste marathon final lines). NO gameplay diffs:
+tryMove/battle/economy untouched — if a gameplay file needs an edit
+beyond tileSprite/drawWorld context threading, STOP and report instead.
+**Include every screenshot path in the final report** for the design
+session's own review pass.
+
 ## Sizing guidance for the implementing model
 
 - One wave = one focused session (Wave 5 items are each ≤ half a session).
