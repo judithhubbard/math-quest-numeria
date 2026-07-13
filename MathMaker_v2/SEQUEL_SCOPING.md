@@ -301,3 +301,43 @@ Ecosystem fit: magical fish are CLUE-GIVERS feeding the modeling loop
 (the fish names the next observable); hauls are the kid's own
 statistics data (dot plots). One system, three curriculum strands,
 inherently calm — no combat, no timer; another gift to the anxious kid.
+# QUEUED: SEQUEL_SCOPING.md additions (fold in at Wave 11 review; agent owns tree)
+
+## Story & emotion (2026-07-13 session 3)
+- The Cartographer: charts DESTROYED, not lost — after one catastrophic
+  failed prediction she concluded "if you cannot know perfectly, do not
+  sail." Perfectionism as the villain-shaped wound; redemption thesis =
+  "roughly right and honest about uncertainty beats certain and wrong"
+  (the statistics unit AS the emotional arc). Brackets Miscount: he
+  guessed without working; she refused to guess at all; the game IS the
+  healthy middle (work it out, commit, revise).
+- Emotional beats attach to CHART MILESTONES: charted regions visibly
+  reconnect (mail boats, reunions, trade lines drawn on the kid's map).
+
+## Answers of record
+- LENGTH: ~30-35h main arc (11 units × 2-4h island clusters) + the
+  renewable layer (daily disputes, fishing/statistics, endless deep
+  water). Depth-per-island over island count; do not out-bulk Numeria.
+- CHARACTERS: a CREW of 3-5 travels with you (navigator/cook/
+  quartermaster/lookout/magistrate seagull — one curriculum strand and
+  one emotional thread each); fixes mid-game story sag structurally.
+  Cameos by correspondence (Miscount teacher-to-teacher, Sylvia's
+  telescope notes).
+- PLAYING OTHERS: 2-3 short palette-shifted MEMORY VIGNETTES (sail the
+  doomed voyage as the young Cartographer) at emotional pivots. Single
+  scene, no progression bleed. Never a second track.
+- MATH FOCUS: modeling is the SPINE (appears everywhere, like Numeria's
+  quick combat problems), the 11 units are the breadth as island verbs.
+  Hard ceiling: deep water ends at lines/gentle curves; beyond = wonder,
+  looked at never tested.
+- LEVELS: RINGS — concentric named sea regions ("charted 4/7"), the
+  chart itself is the level structure; islands are the Mario-sense
+  levels; nonlinear within a ring; XP/hero levels carry via Passport.
+- ALSO: befriended sea creatures FEED the modeling loop (a soothed
+  whale surfaces data points — the gentle verb becomes chart
+  knowledge); the residual sentence pattern is the game's most
+  important kindness; interaction-primitive budget (drag pins, pour,
+  cut, place, walk-to — no minigame sprawl); process inheritance from
+  wave 1 (drives-first, evidence discipline, self-narration,
+  gauge↔lever, screenshots-are-review); parent panel shows the 6th
+  grade map day one with the practice-not-teaching line.
