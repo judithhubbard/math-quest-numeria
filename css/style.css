@@ -372,6 +372,20 @@ body.big-text #modalBox h2 { font-size: 23px; }
 .shop-item .quip { display: block; font-size: 11.5px; color: #9d92c9; font-style: italic; margin-top: 1px; }
 .shop-stat { width: 64px; color: #b4a9df; }
 .miss-quip { font-size: 12.5px; color: #9d92c9; font-style: italic; margin-top: 4px; }
+
+/* v1.7.0: boss wrong-math attacks — a wildly-wrong equation, presentation
+   only, in the boss's own accent color (set inline per-battle). "Jagged" via
+   a slight alternating skew per character rather than motion (Calm Mode
+   needs no gate — this is text, not an animation). */
+.boss-lie {
+  display: inline-block; margin-top: 4px; font-weight: 700; letter-spacing: 1px;
+  text-shadow: 1px 1px 0 rgba(0,0,0,0.45); transform: skewX(-4deg);
+}
+/* the correction beat: the kid's own next correct strike names the truth —
+   calm, warm, never scolding; error and fix sit right next to each other. */
+.boss-correction {
+  margin-top: 6px; font-size: 14px; color: #a8e6cf; font-style: italic;
+}
 .badge-dim { opacity: 0.22; filter: grayscale(1); }
 .badge-on { text-shadow: 0 0 6px #ffd94a66; }
 

@@ -2,7 +2,7 @@
 // Cache-first over the full static set so the game plays OFFLINE after the
 // first visit. VERSION is bumped at each release deploy; the old cache is
 // dropped on activate, so players get each tagged release cleanly.
-const VERSION = 'v1.6.0';
+const VERSION = 'v1.7.0';
 const CACHE = 'mathquest-' + VERSION;
 const ASSETS = [
   '.', 'index.html', 'manifest.json',
@@ -22,5 +22,19 @@ self.addEventListener('activate', (e) => {
   ).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', (e) => {
-  e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request)));
+  // Music (audio/) is NOT in ASSETS — addAll is atomic, and ~26MB of mp3s on
+  // a flaky connection would fail the whole offline install. Instead each
+  // track is cached the first time it actually plays, so a piece once heard
+  // keeps working offline; one never heard just stays silent (music.js drops
+  // a failed load from its pool — silence is honest).
+  const isAudio = new URL(e.request.url).pathname.includes('/audio/');
+  e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
+    // status 200 only: media elements send Range requests, and Cache.put
+    // rejects a 206 partial — a partial is streamed through uncached.
+    if (isAudio && res && res.status === 200) {
+      const copy = res.clone();
+      e.waitUntil(caches.open(CACHE).then((c) => c.put(e.request, copy)));
+    }
+    return res;
+  })));
 });

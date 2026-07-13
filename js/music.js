@@ -1,166 +1,184 @@
-// Math Quest: Numeria — background music (design session, 2026-07-12).
-// Hand-composed WebAudio loops in the same no-assets idiom as the sound
-// effects: every note is an oscillator, nothing is downloaded, the game
-// still plays from a double-clicked index.html.
+// Math Quest: Numeria — background music, v1.7.0: real recordings.
+// Public-domain / Creative-Commons PERFORMANCES (credits in README §Music;
+// the full audition record lives outside the repo), played as plain
+// <audio> elements — the one path that works from a double-clicked
+// index.html (fetch/decodeAudioData is blocked on file://; <audio src> is
+// not). The composed WebAudio loops this file used to hold are retired
+// (family verdict 2026-07-13: composition-without-ears was the wrong
+// strategy).
 //
 // Design rules:
-//  - QUIET. Music sits far under the effects (vol ~0.02-0.045) — a warm
-//    background, never a foreground. Parents in the room matter.
-//  - No urgency. Even the battle loop is a light pulse, not a war drum —
-//    the game has no timers, and the music must not smuggle pressure in.
-//  - Pentatonic everywhere (C major / A minor pentatonic), so nothing can
-//    clash with the effect beeps, which land on the same scale family.
-//  - Autoplay-safe: nothing schedules until the first user gesture has
-//    created/resumed the shared AudioContext (MM.music.poke() from input
-//    handlers); a suspended context schedules nothing and throws nothing.
-//  - Switchable off on its own (s.musicOff, parent panel) and silenced
-//    with everything else by s.soundOff.
+//  - WEATHER, NOT WALLPAPER: one piece plays through, then MINUTES of
+//    plain ambience before the next fades in. Arriving somewhere new is
+//    quiet first; its first piece comes ~30-60s later. The pool per mood
+//    shuffles and never repeats back-to-back, so nothing reads as a loop.
+//  - QUIET: music peaks at ~35% volume. The effects are FEEDBACK (the
+//    chime that says "correct") and must always read over the music;
+//    music is backdrop, never information.
+//  - Battles are silent by design (no battle track). A piece caught
+//    mid-fight DUCKS to a murmur and recovers afterward — never a hard
+//    stop/start at dungeon fight frequency (~every 30-90s).
+//  - TEXTURE over melody (the family's own curation principle): every
+//    track is even, repeating figuration, auditioned by ear.
+//  - Autoplay-safe: nothing plays until the first user gesture has been
+//    seen (MM.music.poke() from the input handlers).
+//  - s.musicOff (⚙️ dialog + parent panel, two doors one state) stops
+//    music alone; s.soundOff silences it along with everything else.
+//  - A missing/broken audio file just removes that track from its pool;
+//    if a whole pool is empty, that mood simply stays quiet. Silence is
+//    honest — there is no synthesized fallback anymore.
 var MM = globalThis.MM = globalThis.MM || {};
 (() => {
   const M = MM.music = {};
 
-  // note names -> Hz (equal temperament, just the ones the tracks use)
-  const F = {
-    A2: 110.0, C3: 130.8, D3: 146.8, E3: 164.8, G3: 196.0, A3: 220.0,
-    C4: 261.6, D4: 293.7, E4: 329.6, G4: 392.0, A4: 440.0,
-    C5: 523.3, D5: 587.3, E5: 659.3, G5: 784.0,
-  };
+  // mood: world (mainland overworld) / dungeon / isles / gentle (inn rest,
+  // the ending's quiet after). One file per entry, committed under audio/.
+  const TRACKS = [
+    { id: 'gymnopedie', src: 'audio/ow-gymnopedie.mp3', mood: 'world',
+      title: 'Satie — Gymnopédie No. 1 (Robin Alciatore, public domain via Musopen)' },
+    { id: 'prelude', src: 'audio/ow-prelude.mp3', mood: 'world',
+      title: 'Bach — Prelude in C major, WTC I (Kimiko Ishizaka, Open Well-Tempered Clavier, CC0)' },
+    { id: 'gnossienne', src: 'audio/dg-gnossienne.mp3', mood: 'dungeon',
+      title: 'Satie — Gnossienne No. 1 (via Wikimedia Commons, CC BY-SA 3.0)' },
+    { id: 'leyenda', src: 'audio/dg-leyenda.mp3', mood: 'dungeon',
+      title: 'Albéniz — Leyenda (Asturias) (public domain via Musopen)' },
+    { id: 'clairdelune', src: 'audio/is-clairdelune.mp3', mood: 'isles',
+      title: 'Debussy — Clair de Lune (Laurens Goedhart 2011, CC BY 3.0, re-encoded)' },
+    { id: 'granvals', src: 'audio/is-granvals.mp3', mood: 'isles',
+      title: 'Tárrega — Gran Vals (Joni Ikäläinen, CC0)' },
+    { id: 'alhambra', src: 'audio/is-alhambra.mp3', mood: 'isles',
+      title: 'Tárrega — Recuerdos de la Alhambra (via Wikimedia Commons, CC BY-SA 3.0)' },
+    { id: 'traumerei', src: 'audio/ge-traumerei.mp3', mood: 'gentle',
+      title: 'Schumann — Träumerei, Kinderszenen (public domain via Musopen)' },
+    { id: 'pavane', src: 'audio/ge-pavane.mp3', mood: 'gentle',
+      title: 'Ravel — Pavane pour une infante défunte (Thérèse Dussaut, CC BY-SA 2.0)' },
+    { id: 'noi', src: 'audio/ge-noi.mp3', mood: 'gentle',
+      title: 'El Noi de la Mare, Catalan traditional (guitar, public domain)' },
+  ];
 
-  // A track = tempo (beats/min), loop length in beats, and notes as
-  // [beat, note, durBeats, volume, oscType]. Composed, not generated:
-  // each is a short question-and-answer phrase that resolves home, so the
-  // loop seam is a breath, not a hiccup.
-  const TRACKS = {
-    // The meadow: warm, unhurried, a walking song.
-    world: {
-      tempo: 96, loop: 32, notes: [
-        // phrase A — up and over
-        [0, 'C4', 1.6, .038, 'triangle'], [2, 'E4', 1.2, .034, 'triangle'],
-        [4, 'G4', 1.6, .036, 'triangle'], [6, 'E4', 1.2, .030, 'triangle'],
-        [8, 'A4', 2.4, .036, 'triangle'], [11, 'G4', 1.2, .032, 'triangle'],
-        [13, 'E4', 2.4, .034, 'triangle'],
-        // phrase B — and back home
-        [16, 'D4', 1.6, .034, 'triangle'], [18, 'E4', 1.2, .032, 'triangle'],
-        [20, 'D4', 1.6, .034, 'triangle'], [22, 'C4', 1.2, .030, 'triangle'],
-        [24, 'D4', 2.4, .034, 'triangle'], [27, 'E4', 1.2, .028, 'triangle'],
-        [28, 'C4', 3.6, .038, 'triangle'],
-        // bass roots, one to a bar
-        [0, 'C3', 3.6, .045, 'sine'], [4, 'G3', 3.6, .040, 'sine'],
-        [8, 'A2', 3.6, .045, 'sine'], [12, 'E3', 3.6, .040, 'sine'],
-        [16, 'D3', 3.6, .042, 'sine'], [20, 'G3', 3.6, .040, 'sine'],
-        [24, 'C3', 3.6, .045, 'sine'], [28, 'C3', 3.6, .040, 'sine'],
-        // one high sparkle per half, very soft
-        [10, 'E5', 0.8, .016, 'sine'], [26, 'G5', 0.8, .014, 'sine'],
-      ],
-    },
-    // The dungeon: sparse, low, curious — torchlight, not terror.
-    dungeon: {
-      tempo: 76, loop: 32, notes: [
-        [0, 'A3', 2.4, .034, 'triangle'], [4, 'C4', 1.6, .030, 'triangle'],
-        [7, 'D4', 2.4, .032, 'triangle'],
-        [12, 'E4', 1.6, .030, 'triangle'], [14, 'D4', 1.6, .028, 'triangle'],
-        [16, 'C4', 3.2, .032, 'triangle'],
-        [22, 'G3', 1.6, .028, 'triangle'],
-        [24, 'A3', 4.8, .034, 'triangle'],
-        // slow drone, one breath per half
-        [0, 'A2', 7.2, .040, 'sine'], [8, 'E3', 7.2, .036, 'sine'],
-        [16, 'A2', 7.2, .040, 'sine'], [24, 'E3', 7.2, .036, 'sine'],
-      ],
-    },
-    // Battle: a light heartbeat pulse and a small brave figure — motion
-    // without menace. Short loop so it never wears out its welcome.
-    battle: {
-      tempo: 112, loop: 16, notes: [
-        // pulse
-        [0, 'C3', 0.6, .042, 'sine'], [2, 'G3', 0.6, .034, 'sine'],
-        [4, 'C3', 0.6, .042, 'sine'], [6, 'G3', 0.6, .034, 'sine'],
-        [8, 'A2', 0.6, .042, 'sine'], [10, 'E3', 0.6, .034, 'sine'],
-        [12, 'G3', 0.6, .040, 'sine'], [14, 'G3', 0.6, .032, 'sine'],
-        // the figure
-        [0, 'E4', 0.9, .030, 'triangle'], [1, 'G4', 0.9, .028, 'triangle'],
-        [2, 'A4', 1.8, .030, 'triangle'],
-        [8, 'G4', 0.9, .028, 'triangle'], [9, 'E4', 0.9, .026, 'triangle'],
-        [10, 'D4', 1.8, .028, 'triangle'],
-      ],
-    },
-  };
+  const BASE_VOL = 0.35;          // music's ceiling, far under the SFX
+  const DUCK = 0.25;              // fraction of BASE_VOL during a battle
+  const FIRST_GAP = [30, 60];     // s of quiet after arriving in a mood
+  const GAP = [180, 360];         // s of quiet between pieces
+  const gapMs = ([a, b]) => (a + Math.random() * (b - a)) * 1000;
 
-  let ctx = null, timer = null, current = null, nextBeat = 0, loopStart = 0;
+  let el = null;                  // the single <audio> element, reused
+  let playing = null;             // TRACKS entry currently playing
+  let mood = null;                // current mood ('world'/'dungeon'/...)
+  let gapUntil = 0;               // performance.now() when quiet may end
+  let lastPlayed = {};            // mood -> id, never twice running
+  let broken = {};                // id -> true (file failed to load)
+  let poked = false;              // a user gesture has happened
+  let oneShot = null;             // a queued 'gentle' moment (inn rest)
 
-  // The context is created/resumed only from a user gesture (poke), per
-  // browser autoplay policy — and reused by everything after that.
-  M.poke = function () {
-    try {
-      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') ctx.resume();
-    } catch (e) { /* audio is optional */ }
-  };
+  M.poke = function () { poked = true; };
 
   const off = () => {
     const s = MM.engine && MM.engine.state;
     return !s || s.soundOff || s.musicOff;
   };
 
-  function scheduleWindow() {
-    if (!ctx || ctx.state !== 'running' || !current || off()) return;
-    const t = TRACKS[current];
-    const spb = 60 / t.tempo;
-    const horizon = ctx.currentTime + 0.6;
-    while (loopStart + nextBeatTime() <= horizon) {
-      for (const [beat, note, dur, vol, type] of t.notes) {
-        const when = loopStart + beat * spb;
-        if (when < ctx.currentTime - 0.05 || when > horizon) continue;
-        if (beat < nextBeat) continue;
-        playNote(F[note], when, dur * spb, vol, type);
-      }
-      // advance in whole-loop steps only when the horizon passes the seam
-      if (loopStart + t.loop * spb <= horizon) {
-        loopStart += t.loop * spb;
-        nextBeat = 0;
-      } else {
-        nextBeat = Math.ceil(((horizon - loopStart) / spb));
-        break;
-      }
-    }
-    function nextBeatTime() { return nextBeat * spb; }
+  function ensureEl() {
+    if (el) return el;
+    el = new Audio();
+    el.preload = 'none';
+    el.addEventListener('ended', () => {
+      playing = null;
+      gapUntil = performance.now() + gapMs(GAP);
+    });
+    el.addEventListener('error', () => {
+      if (playing) broken[playing.id] = true;
+      playing = null;
+      gapUntil = performance.now() + gapMs(GAP);
+    });
+    return el;
   }
 
-  function playNote(freq, when, dur, vol, type) {
-    try {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = type; o.frequency.value = freq;
-      g.gain.setValueAtTime(0.0001, when);
-      g.gain.linearRampToValueAtTime(vol, when + 0.04);
-      g.gain.setValueAtTime(vol, when + Math.max(0.05, dur - 0.25));
-      g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-      o.connect(g).connect(ctx.destination);
-      o.start(when); o.stop(when + dur + 0.05);
-    } catch (e) { /* optional */ }
+  function poolFor(m) {
+    return TRACKS.filter(t => t.mood === m && !broken[t.id]);
   }
 
-  // Which track belongs to this moment? Called every frame by worldLoop —
-  // must be cheap and idempotent.
+  function pick(m) {
+    const pool = poolFor(m);
+    if (!pool.length) return null;
+    const fresh = pool.filter(t => t.id !== lastPlayed[m]);
+    const from = fresh.length ? fresh : pool;
+    return from[Math.floor(Math.random() * from.length)];
+  }
+
+  function start(track) {
+    const a = ensureEl();
+    a.src = track.src;
+    a.volume = 0;
+    playing = track;
+    lastPlayed[track.mood] = track.id;
+    const p = a.play();
+    if (p && p.catch) p.catch(() => {
+      // autoplay refused or file missing on this platform: back to quiet,
+      // try again next window (poke() will have happened by then)
+      playing = null;
+      gapUntil = performance.now() + gapMs(FIRST_GAP);
+    });
+  }
+
+  // Which mood does this moment live in? Battles do NOT change the mood —
+  // they duck the volume instead (see below).
+  function moodNow() {
+    const s = MM.engine && MM.engine.state;
+    if (!s || !s.mapId) return null;
+    const id = String(s.mapId);
+    if (MM.maps.isOverworld && MM.maps.isOverworld(id)) return 'world';
+    // isle dungeons and the sea keep the isles' own colour
+    const idx = s.dungeonIndex;
+    const task = idx && MM.data.TASKS[idx - 1];
+    if (task && task.isle) return 'isles';
+    if (id.startsWith('d')) return 'dungeon';
+    return 'world';
+  }
+
+  // A gentle piece, soon: called at moments the world itself turns soft
+  // (the inn's lights-out, the ending's quiet after). One piece, then the
+  // area's normal weather resumes.
+  M.moment = function (m) { oneShot = m; };
+
+  // Called every frame by the world loop — cheap and idempotent. All the
+  // actual pacing lives on the timestamps above.
   M.update = function () {
-    let want = null;
-    if (!off()) {
-      if (MM.battle && MM.battle.active()) want = 'battle';
-      else {
-        const s = MM.engine && MM.engine.state;
-        if (s && s.mapId) want = MM.maps.isOverworld(s.mapId) ? 'world' : 'dungeon';
-      }
+    const a = el;
+    if (off()) {
+      if (a && !a.paused) { a.pause(); playing = null; }
+      return;
     }
-    if (want === current) return;
-    current = want;
-    // restart the loop clock at a clean seam for the new track
-    if (ctx && ctx.state === 'running' && current) {
-      loopStart = ctx.currentTime + 0.1;
-      nextBeat = 0;
+    const want = moodNow();
+    if (want !== mood) {
+      mood = want;
+      // leaving for somewhere new: let the current piece fade out (the
+      // volume ramp below heads to 0, then we stop), and start the new
+      // mood's clock — quiet FIRST, music later.
+      gapUntil = performance.now() + gapMs(FIRST_GAP);
     }
+    const inBattle = MM.battle && MM.battle.active();
+    if (playing && a) {
+      // ramp toward the moment's right volume: normal, ducked, or (mood
+      // changed away mid-piece) zero-then-stop
+      const target = (playing.mood !== mood && !(oneShot && playing.mood === oneShot))
+        ? 0 : BASE_VOL * (inBattle ? DUCK : 1);
+      a.volume += (target - a.volume) * 0.08;
+      if (target === 0 && a.volume < 0.01) { a.pause(); playing = null; }
+      return;
+    }
+    if (!poked || inBattle) return;   // never START a piece mid-fight
+    if (oneShot) {
+      const t = pick(oneShot);
+      oneShot = null;
+      if (t) { start(t); return; }
+    }
+    if (!mood || performance.now() < gapUntil) return;
+    const t = pick(mood);
+    if (t) start(t); else gapUntil = performance.now() + gapMs(GAP);
   };
 
-  M.currentTrack = () => current; // exposed for tests
-  M.TRACKS = TRACKS;              // exposed for tests (structure audit)
-
-  // one scheduler, always ticking; it no-ops until poke() + a track
-  timer = setInterval(scheduleWindow, 200);
+  M.currentTrack = () => (playing ? playing.id : null); // exposed for tests
+  M.TRACKS = TRACKS;                                    // exposed for tests + credits
+  M._state = () => ({ mood, playing: playing && playing.id, gapUntil, poked }); // tests
 })();

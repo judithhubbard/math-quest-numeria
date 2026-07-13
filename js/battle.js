@@ -14,6 +14,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   let bt = null; // current battle state (null = no battle)
 
   B.active = () => !!bt;
+  // v1.7.0: rarity hooks, exposed the same way E.*_CHANCE constants are —
+  // drives pin these to 0/1 to force or suppress the moment deterministically.
+  B.GOLEM_CRY_CHANCE = 0.12; // any golem's enter-flavor, regulars only
   // Wave 5 item 7: exposed for the Calm Mode drive check (same "exposed for
   // tests" convention as B.current) — shake amount + live particle count,
   // both of which Calm Mode should hold at zero.
@@ -84,9 +87,15 @@ var MM = globalThis.MM = globalThis.MM || {};
       floaters: [], particles: [], tweens: [], timeouts: [],
       over: false, locked: true, monScale: scale,
       gesture: null, gestureT: 0,   // the calmed monster's send-off (see monsterDefeated)
-      // flavor: bosses stay played straight; regular monsters get personality
+      pendingCorrection: null,      // v1.7.0: names the true equation after a boss lie
+      // flavor: bosses stay played straight; regular monsters get personality.
+      // v1.7.0: golems (canonically Miscount's old wrong homework) rarely
+      // bellow an ancient wrong answer instead — the COMEDY register of the
+      // same idea the boss falsehoods below play straight. Never on a boss.
       enterLine: mon.boss ? null
-        : MM.data.flavor(mon.sprite, 'enter', mon.name)
+        : (mon.sprite === 'golem' && Math.random() < B.GOLEM_CRY_CHANCE
+            ? MM.data.pick(MM.data.GOLEM_BATTLE_CRIES)
+            : MM.data.flavor(mon.sprite, 'enter', mon.name))
           + (mon.hat ? ' It is wearing a tiny hat. No one knows why.' : ''),
       hatCv: mon.hat ? MM.sprites.get('crown', { scale: 2 }) : null,
     };
@@ -215,10 +224,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     const prob = bt.ctx.hooks.pickProblem();
     bt.problem = prob;
     B.current = prob; // exposed for tests
-    // Latch the brave state THIS problem was picked under: double damage must
-    // only ever pay for a question that was actually asked the hard way —
-    // toggling ⚡ on mid-round can't retroactively double an easy problem
-    // (and toggling off can't dodge the deal either).
+    // v1.7.0 (dual-form ⚡ toggle): which form is ACTIVE right now. For an
+    // ELIGIBLE problem (prob._dualEligible — base+braveStep/tailStep both
+    // computed from the same draw), this simply starts matching whichever
+    // form pickProblem() already chose, and swapProblemForm() updates it
+    // in place on every mid-round toggle — damage always pays for whatever
+    // form is on screen when the kid answers. An INELIGIBLE problem (deep/
+    // choice kinds — the music staff, decimal compares) keeps the OLD latch
+    // instead: frozen at pick time, so toggling ⚡ takes effect next
+    // question, never retroactively.
+    bt.activeIsExtended = !!(prob._dualEligible && bt.ctx.hooks.brave && bt.ctx.hooks.brave());
     bt.braveAtPick = !!(bt.ctx.hooks.brave && bt.ctx.hooks.brave());
     bt.locked = false;
     const intro = bt.enterLine ? `<i>${bt.enterLine}</i><br>` : '';
@@ -264,6 +279,34 @@ var MM = globalThis.MM = globalThis.MM || {};
     const b = el('stBrave');
     if (b) b.onclick = () => { if (bt.locked) return; h.setBrave(!h.brave()); afterStanceChange('brave'); };
   }
+  // v1.7.0: swap bt.problem to its dual-form sibling IN PLACE — same
+  // operands either way (nothing to fish; see the anti-fishing sweep in
+  // tests/test.js), only the FORM (base ⇄ extended) changes. Input text is
+  // kept if it's still a valid digit-prefix of the new integer answer, else
+  // cleared — a kid mid-keystroke never loses unrelated typing silently.
+  function swapProblemForm(makeExtended) {
+    const box = el('battleProblem');
+    if (!box || !bt.problem) return;
+    const dualBase = bt.problem._dualBase, dualExtended = bt.problem._dualExtended;
+    const sibling = makeExtended ? dualExtended : dualBase;
+    const input = box.querySelector('#answerInput');
+    const typed = input ? input.value.trim() : '';
+    bt.problem = Object.assign({}, sibling, { _dualBase: dualBase, _dualExtended: dualExtended, _dualEligible: true });
+    bt.activeIsExtended = makeExtended;
+    B.current = bt.problem; // exposed for tests, mirrors nextRound
+    const textEl = box.querySelector('.prob-text');
+    if (textEl) textEl.innerHTML = bt.problem.text.replace(/\n/g, '<br>');
+    const svgEl = box.querySelector('.prob-svg');
+    if (svgEl) svgEl.innerHTML = bt.problem.svg || '';
+    MM.ui.buildProblemForm(el('probForm'), bt.problem, onAnswer);
+    const keepable = typed && bt.problem.kind === 'number' && bt.problem.answer.d === 1
+      && /^\d+$/.test(typed) && String(bt.problem.answer.n).startsWith(typed);
+    if (keepable) {
+      const ni = box.querySelector('#answerInput');
+      if (ni) ni.value = typed;
+    }
+  }
+
   // Switching stance re-skins the fight in place. It does NOT re-roll the
   // problem — that would let a kid reroll a hard question by tapping a stance,
   // and (worse) it would make the toggle feel like a move you spend a turn on.
@@ -271,20 +314,31 @@ var MM = globalThis.MM = globalThis.MM || {};
     renderStanceRow();
     setBars();
     if (kind === 'brave') {
+      const st = MM.engine.state;
+      const on = !!(st && st.brave);
+      // v1.7.0: an ELIGIBLE problem's displayed FORM swaps in place, right
+      // now (base ⇄ base+step); an INELIGIBLE one (deep/choice kinds) keeps
+      // the old latch — the toggle takes effect next question instead.
+      const eligible = !!(bt.problem && bt.problem._dualEligible);
+      if (eligible) swapProblemForm(on);
       // The button must explain ITSELF the moment it's touched (playtest
       // 2026-07-12: "how is a kid supposed to know what brave means?" — the
       // hover tooltip isn't an answer; kids don't hover). The first-ever
       // switch-on gets the full deal, spelled out; after that, short confirms.
-      const st = MM.engine.state;
-      const on = !!(st && st.brave);
-      if (on && st && !st.seenBraveHelp) {
-        st.seenBraveHelp = true;
-        MM.engine.save();
-        msg(`⚡ <b>Brave!</b> From the next question on, the monsters ask their <b>hardest</b> — and every right answer counts <b>double</b>. Get one wrong and it costs <b>nothing extra</b>. Press ⚡ again any time to switch back.`);
+      const firstTime = on && st && !st.seenBraveHelp;
+      if (firstTime) { st.seenBraveHelp = true; MM.engine.save(); }
+      if (firstTime) {
+        msg(eligible
+          ? `⚡ <b>Brave!</b> This very question just grew its hardest form, right where you're standing — solve it now and every right answer counts <b>double</b>. Get one wrong and it costs <b>nothing extra</b>. Press ⚡ again any time to switch back.`
+          : `⚡ <b>Brave!</b> From the next question on, the monsters ask their <b>hardest</b> — and every right answer counts <b>double</b>. Get one wrong and it costs <b>nothing extra</b>. Press ⚡ again any time to switch back.`);
+      } else if (eligible) {
+        msg(on
+          ? `⚡ <b>Brave on.</b> The SAME question, one step harder — double power, paid for what you actually solve.`
+          : `⚡ <b>Brave off.</b> Back to the plain form of the same question — normal power. The choice is always yours.`);
       } else {
         msg(on
-          ? `⚡ <b>Brave on.</b> Hardest questions, double power. A miss still costs nothing extra.`
-          : `⚡ <b>Brave off.</b> Back to the usual questions — the choice is always yours.`);
+          ? `⚡ <b>Brave on.</b> Takes effect next question — hardest questions, double power. A miss still costs nothing extra.`
+          : `⚡ <b>Brave off.</b> Takes effect next question — back to the usual questions.`);
       }
       return;
     }
@@ -299,7 +353,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     bt.ctx.hooks.recordAnswer(bt.problem.skill, correct, { text: bt.problem.text, kidAnswer });
     if (correct) {
       MM.sound.correct();
-      el('probFeedback').innerHTML = `<div class="right">✓ Correct!</div>`;
+      let feedback = `<div class="right">✓ Correct!</div>`;
+      // v1.7.0: the correction beat — the kid's own next correct strike
+      // names the true equation, error and fix adjacent. Her agency does
+      // the fixing; the pending lie is consumed exactly once.
+      if (bt.pendingCorrection) {
+        feedback += `<div class="boss-correction">…and <b>${bt.pendingCorrection}</b>. The record, corrected.</div>`;
+        bt.pendingCorrection = null;
+      }
+      el('probFeedback').innerHTML = feedback;
       // the pet cheers from the sidelines
       const pet = MM.engine.state.isles && MM.engine.state.isles.pet;
       if (pet) float(HERO.x - 80, HERO.y - 90, '♪', '#7ee0e8', 16);
@@ -346,7 +408,13 @@ var MM = globalThis.MM = globalThis.MM || {};
   }
 
   function playerAttack() {
-    const { dmg, crit, brave } = bt.ctx.hooks.playerStrike(bt.braveAtPick);
+    // v1.7.0: damage follows the FORM ANSWERED. An eligible dual-form
+    // problem reads bt.activeIsExtended (updated live by every ⚡ toggle,
+    // see swapProblemForm) instead of the old pick-time latch; an
+    // ineligible one (deep/choice kinds) still uses the original latch —
+    // frozen at pick time, exactly as before.
+    const braveForDamage = bt.problem._dualEligible ? bt.activeIsExtended : bt.braveAtPick;
+    const { dmg, crit, brave } = bt.ctx.hooks.playerStrike(braveForDamage);
     const soothe = soothing();
     // lunge toward the monster and back — soothing, you don't lunge, you REACH:
     // a smaller, slower movement toward it rather than a strike through it.
@@ -450,7 +518,21 @@ var MM = globalThis.MM = globalThis.MM || {};
       tween(v => { bt.heroFlash = 1 - v; bt.heroOx = -18 * (1 - v); }, 320);
       float(HERO.x, HERO.y - 140, '-' + dmg, '#ff6b6b', 26);
       if (soothing()) MM.sound.fret(); else MM.sound.thud();
-      msg(`💥 ${MM.data.theMon(bt.mon.name, true)} ${bt.mon.verb} you for <b>${dmg}</b> damage!`);
+      let atkMsg = `💥 ${MM.data.theMon(bt.mon.name, true)} ${bt.mon.verb} you for <b>${dmg}</b> damage!`;
+      // v1.7.0: bosses attack with wrong math (canon completion — disorder
+      // now ATTACKS by asserting falsehoods). Presentation only: damage was
+      // already rolled above and is untouched. Regulars keep their verb
+      // flavor; only bosses lie. Calm Mode needs no gate — it's text, not
+      // motion — so no calmOn() check here.
+      if (bt.mon.boss && Math.random() < MM.engine.WRONG_ATTACK_CHANCE) {
+        const lie = MM.engine.bossFalsehood();
+        bt.pendingCorrection = lie.truthText;
+        float(MON.x, MON.y - bt.monSprite.height - 40, lie.text, bt.theme.accent, 24);
+        // ✗ is the game's established WRONGNESS mark (the kid knows it from
+        // "✗ Not quite") — a falsehood must never wear the celebration ✦.
+        atkMsg += `<br><span class="boss-lie" style="color:${bt.theme.accent}">✗ <b>${lie.text}</b></span>`;
+      }
+      msg(atkMsg);
       setBars();
       MM.ui.renderSidebar();
       if (dead) { after(700, playerDefeated); return; }

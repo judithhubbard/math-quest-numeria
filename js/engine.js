@@ -99,6 +99,12 @@ var MM = globalThis.MM = globalThis.MM || {};
       seenGoldenBird: false,
       seenCatBeetle: false,
       seenHattedSlimes: false,
+      // ---------- v1.7.0: "story & wonder" ----------
+      spiralWalkNext: 0,      // the courtyard sequence walk's next expected stone
+      seenSpiralWalk: false,  // once-EVER: a full in-order walk
+      seenStairGlimmer: false, // once-EVER: first in-order walk completed post-ending
+      spiralGlintPending: null, // index of the newest-turned stone, until next plaza crossing
+      lastCatMoment: null,    // avoids repeating the same inn-cat moment twice in a row
     };
     E.enterWorld();
     E.save();
@@ -217,6 +223,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.seenGoldenBird == null) s.seenGoldenBird = false;
     if (s.seenCatBeetle == null) s.seenCatBeetle = false;
     if (s.seenHattedSlimes == null) s.seenHattedSlimes = false;
+    // v1.7.0: "story & wonder" — missing means "never happened yet."
+    if (s.spiralWalkNext == null) s.spiralWalkNext = 0;
+    if (s.seenSpiralWalk == null) s.seenSpiralWalk = false;
+    if (s.seenStairGlimmer == null) s.seenStairGlimmer = false;
+    if (s.spiralGlintPending === undefined) s.spiralGlintPending = null;
+    if (s.lastCatMoment === undefined) s.lastCatMoment = null;
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     // Session-shape pass (2026-07-13): resuming has ALWAYS pulled you to the
@@ -425,6 +437,10 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.GOLDEN_BIRD_CHANCE = 0.01;   // per step walked on the mainland, once the fence is mended
   E.CAT_BEETLE_CHANCE = 0.01;    // per inn-cat pat
   E.HATTED_SLIMES_CHANCE = 0.01; // per Meadow Cave entry
+  // v1.7.0 hooks, same idiom (drives pin to 0/1, never touch Math.random()):
+  E.CAT_ESCORT_CHANCE = 0.3;     // per non-pat inn visit, appended to the moment
+  E.GUESS_TALE_CHANCE = 0.35;    // per post-ending Academy visit, before the slates
+  E.WRONG_ATTACK_CHANCE = 0.5;   // per boss counterattack (roughly half, for variety)
 
   E.toggleCharm = function (id) {
     MM.track('toggleCharm ' + id);
@@ -981,6 +997,7 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   // ---------- the cutscene ----------
   E.playEnding = function () {
+    if (MM.music && MM.music.moment) MM.music.moment('gentle'); // the quiet after
     MM.ui.endingScene(() => {
       const s = E.state;
       E.save();
@@ -1888,6 +1905,13 @@ var MM = globalThis.MM = globalThis.MM || {};
       s.items.treasures.push('feather');
       MM.ui.log('🐦 <i>A golden bird lands on a fence post, watches you pass, and is gone before you can look twice.</i><br>It left one feather. <b>Proof It Happened.</b>');
       E.save();
+    }
+    // v1.7.0: the Turning Stones' sequence walk + newest-segment glint —
+    // both are per-mainland-step checks, same locality as the golden bird.
+    if (s.mapId === 'world') {
+      const stone = MM.data.TURNING_STONES.find(st => st.x === s.px && st.y === s.py);
+      if (stone) E.spiralStoneStep(stone.i);
+      E.checkSpiralGlint();
     }
     if (E.hasCharm('boots')) return;
     s.stepParity = !s.stepParity;
@@ -3793,7 +3817,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Wave 9 (P4): the room visibly grows with attendance — one line, shown
     // every visit, so returning kids actually SEE the desks accumulate.
     const growth = MM.data.academyGrowthLine(s.academyTotal || 0);
-    MM.ui.dialog('📝 The Academy', `${MM.data.pick(MM.data.ACADEMY_INTRO)}<br><br><span class="dim">${growth}</span>`, step);
+    // v1.7.0: Tales of the Guessing Years — post-ending only (pre-ending he
+    // is still tender about it), an occasional rotating aside before the
+    // day's slates. Self-told only: only Miscount laughs at his own past.
+    const tale = (s.endingDone && Math.random() < E.GUESS_TALE_CHANCE)
+      ? `<br><br><i>${MM.data.pick(MM.data.MISCOUNT_GUESS_TALES)}</i>` : '';
+    MM.ui.dialog('📝 The Academy', `${MM.data.pick(MM.data.ACADEMY_INTRO)}${tale}<br><br><span class="dim">${growth}</span>`, step);
   };
 
   E.miscountAssign = function () {
@@ -3809,6 +3838,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     const reward = MM.data.taskReward(s.taskIndex);
     s.haveItem = false;
     s.tasksDone.push(s.taskIndex);
+    if (s.tasksDone.length <= MM.data.TURNING_STONES.length) s.spiralGlintPending = s.tasksDone.length - 1;
     const gold = E.gainGold(reward.gold);
     E.gainXp(reward.xp);
     s.taskIndex++;
@@ -3954,7 +3984,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.spiralMenu = function () {
     const s = E.state;
     if (!E.spiralOpen()) {
-      return MM.ui.dialog('🌀 The Spiral Stair', MM.data.SPIRAL_SEALED);
+      return MM.ui.dialog('🌀 The Spiral Stair', MM.data.SPIRAL_SEALED(s));
     }
     const buttons = [];
     buttons.push({
@@ -3969,6 +3999,85 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
     buttons.push({ label: 'Not now', onClick: () => {} });
     MM.ui.dialogChoices('🌀 The Spiral Stair', MM.data.SPIRAL_INTRO, buttons);
+  };
+
+  // ---------- v1.7.0: the Turning Stones' sequence walk ----------
+  // Stepping on the 13 courtyard stones in path order (center outward)
+  // chimes a rising tone per stone; the full walk done in order is a small
+  // ONCE-EVER flourish. Out of order: total silence, no scold, no reset
+  // message — pure discovered wonder, never hinted anywhere in the game.
+  E.spiralStoneStep = function (idx) {
+    const s = E.state;
+    if (idx === 0) { // the center stone always (re)starts an attempt
+      s.spiralWalkNext = 1;
+      MM.sound.tone(0);
+      return;
+    }
+    if (idx === (s.spiralWalkNext || 0)) {
+      MM.sound.tone(idx);
+      s.spiralWalkNext = idx + 1;
+      if (s.spiralWalkNext >= MM.data.TURNING_STONES.length) {
+        s.spiralWalkNext = 0;
+        if (!s.seenSpiralWalk) {
+          s.seenSpiralWalk = true;
+          if (MM.ui.worldBurst) MM.ui.worldBurst(s.px, s.py, '#ffd94a', 20);
+          MM.sound.fanfare();
+          MM.ui.log('✨ <i>Something in the courtyard settles into place, just for a moment.</i>');
+        }
+        // The Stair glimmer: the FIRST in-order walk completed while the
+        // ending is already done — tracked independently of the once-ever
+        // flourish above, so a kid who solved this puzzle BEFORE finishing
+        // the game still gets the callback the first time it happens after.
+        if (s.endingDone && !s.seenStairGlimmer) {
+          s.seenStairGlimmer = true;
+          E.stairGlintUntil = performance.now() + 2200;
+        }
+        E.save();
+      }
+      return;
+    }
+    s.spiralWalkNext = 0; // out of order: silent reset, never a failure
+  };
+  E.stairGlinting = () => !!(E.stairGlintUntil && performance.now() < E.stairGlintUntil);
+
+  // The newly-turned stone glints once, the next time the kid actually
+  // crosses the plaza (not the instant the task completes, which could be
+  // anywhere on the map) — same "notice the CHANGE" idea as the gear-gate
+  // glint recipe. Checked on every mainland step (E.walkStamina).
+  E.checkSpiralGlint = function () {
+    const s = E.state;
+    if (!s || s.mapId !== 'world' || s.spiralGlintPending == null) return;
+    const c = MM.data.TURNING_STONES_CENTER;
+    if (Math.abs(s.px - c.x) > 3 || Math.abs(s.py - c.y) > 3) return;
+    E.spiralGlintIndex = s.spiralGlintPending;
+    E.spiralGlintUntil = performance.now() + 1800;
+    s.spiralGlintPending = null;
+    E.save();
+  };
+  E.spiralStoneGlinting = idx => !!(E.spiralGlintUntil && idx === E.spiralGlintIndex && performance.now() < E.spiralGlintUntil);
+
+  // ---------- v1.7.0: bosses attack with wrong math ----------
+  // Canon completion: monsters are tangles (disorder where working
+  // stopped); now disorder ATTACKS by asserting falsehoods. Presentation
+  // only — damage is unaffected, and the kid's own problem selection stays
+  // full-depth adaptive as always. PEDAGOGY GUARD (imprint risk): the wrong
+  // value must never be plausible — always truth × 4..12 or truth plus/minus
+  // several hundred, NEVER within 30% of truth and never an off-by-one/
+  // carry slip (that supervised territory belongs to the Academy's
+  // spot-the-error slates, never an unsupervised boss attack).
+  function randInt(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+  E.bossFalsehood = function () {
+    const forms = [
+      () => { const a = randInt(3, 12), b = randInt(3, 12); return { a, b, sym: '+', truth: a + b }; },
+      () => { const a = randInt(12, 30), b = randInt(3, 11); return { a, b, sym: '−', truth: a - b }; },
+      () => { const a = randInt(3, 9), b = randInt(3, 9); return { a, b, sym: '×', truth: a * b }; },
+    ];
+    const { a, b, sym, truth } = forms[randInt(0, forms.length - 1)]();
+    let wrong = Math.random() < 0.5 ? truth * randInt(4, 12) : truth + randInt(200, 900) * (Math.random() < 0.5 ? 1 : -1);
+    if (wrong < 0) wrong = truth + randInt(200, 900); // never a negative "record"
+    // absolute safety net, whatever path produced it
+    if (Math.abs(wrong - truth) <= Math.max(1, Math.abs(truth)) * 0.3) wrong = truth * 9 + 41;
+    return { text: `${a} ${sym} ${b} = ${wrong}`, truthText: `${a} ${sym} ${b} = ${truth}` };
   };
 
   // ---------- town ----------
@@ -4071,6 +4180,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       const reward = MM.data.taskReward(s.taskIndex);
       s.haveItem = false;
       s.tasksDone.push(s.taskIndex);
+      if (s.tasksDone.length <= MM.data.TURNING_STONES.length) s.spiralGlintPending = s.tasksDone.length - 1;
       const gold = E.gainGold(reward.gold);
       E.gainXp(reward.xp);
       s.taskIndex++;
@@ -4141,6 +4251,7 @@ var MM = globalThis.MM = globalThis.MM || {};
               s.hp = s.maxhp;
               s.stamina = s.maxStamina;
               s.greenHair = false; // a good wash fixes everything
+              if (MM.music && MM.music.moment) MM.music.moment('gentle'); // lights-out: one soft piece
               E.save();
               return { msg: msg + `<br><br>😴 You sleep wonderfully — and breakfast is included. <b>HP and stamina fully restored!</b><br><br>💤 <i>${MM.data.pick(MM.data.INN_DREAMS)}</i>`, end: 'win' };
             }
@@ -4178,6 +4289,20 @@ var MM = globalThis.MM = globalThis.MM || {};
             } },
           { label: 'Let it sleep', onClick: startWarmup },
         ]);
+    }
+    // v1.7.0 (a kid's own report: "the daily-only cat taught me to stop
+    // checking"): every OTHER mainland inn visit — the pat already spent
+    // today — still finds the cat doing something. Pure delight, no reward;
+    // avoids repeating the same moment twice running (s.lastCatMoment).
+    if (!shipboard) {
+      const pool = MM.data.CAT_MOMENTS;
+      let idx = Math.floor(Math.random() * pool.length);
+      if (pool.length > 1 && idx === s.lastCatMoment) idx = (idx + 1) % pool.length;
+      s.lastCatMoment = idx;
+      let html = pool[idx];
+      if (Math.random() < E.CAT_ESCORT_CHANCE) html += '<br><br>' + MM.data.CAT_ESCORT_LINE;
+      E.save();
+      return MM.ui.dialog('🐈 The inn cat', html, startWarmup);
     }
     startWarmup();
   };

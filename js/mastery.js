@@ -168,24 +168,36 @@ var MM = globalThis.MM = globalThis.MM || {};
   // behaviour unchanged.
   function isBrave(state) { return !!(state && state.brave); }
 
-  // A combat problem for one skill. Combat normally draws a QUICK problem (they
-  // carry no tier at all — that's what keeps battles quick). Brave swaps in a
-  // FULL-DEPTH problem one tier above where the kid currently sits, capped at 3:
-  // the work order's "one tier higher — and at tier 3, a full-depth problem in
-  // the quick slot", which collapses to one rule since quick problems are
-  // tier-less by construction.
+  // A combat problem for one skill. Combat normally draws a QUICK problem
+  // (they carry no tier at all — that's what keeps battles quick). Brave
+  // swaps in the SAME quick draw plus one extra step (braveStep) — the
+  // pacing rule holds even under brave: combat stays quick, full depth
+  // lives at gates (bosses).
+  //
+  // v1.7.0 (dual-form ⚡ toggle): the base quick problem and its
+  // braveStep-extended sibling are now ALWAYS computed together, from one
+  // draw, and both are stamped onto whichever form is active
+  // (_dualBase/_dualExtended/_dualEligible) — battle.js's mid-round toggle
+  // swaps bt.problem between the two IN PLACE, never re-rolling operands.
+  // This SUPERSEDES the old facts-only branch (which drew an independently-
+  // random tier-3 chain when brave was already on at pick time — fine for a
+  // static pick, incompatible with an in-place swap, since the chain's own
+  // operands could never match the base problem's). braveStep's inline path
+  // already produces the same "chain" look for facts ("6 + 9 + 7 = ?" /
+  // "6 × 7 × 3 = ?"), just always derived from the SAME draw. Deep topics
+  // (fraction/remainder/clock/choice quick problems) are simply ineligible
+  // (braveStep returns them unchanged) — battle.js falls back to the old
+  // latch + "takes effect next question" for those, exactly as the queue's
+  // exemption list specifies.
+  function combatDualForm(state, skill) {
+    const base = MM.problems.generateQuick(skill);
+    const extended = MM.problems.braveStep(base);
+    return { base, extended, eligible: extended !== base };
+  }
   function combatProblem(state, skill) {
-    if (!isBrave(state)) return MM.problems.generateQuick(skill);
-    // Brave COMBAT (redesigned 2026-07-13, live playtest: a "quick" fight
-    // served 9,208 − 8,587): the pacing rule — combat is quick, full depth
-    // lives at gates — holds even under brave. Facts topics draw their
-    // authored chains (quick-shaped by construction); every other topic
-    // gets its QUICK problem plus one extra small step. Full-depth-plus-
-    // tail stays where thinking time is free: bosses.
-    if (skill === 'addsub_facts' || skill === 'muldiv_facts') {
-      return MM.problems.generate(skill, 3); // the chain tier
-    }
-    return MM.problems.braveStep(MM.problems.generateQuick(skill));
+    const { base, extended, eligible } = combatDualForm(state, skill);
+    const active = (isBrave(state) && eligible) ? extended : base;
+    return Object.assign({}, active, { _dualBase: base, _dualExtended: extended, _dualEligible: eligible });
   }
   function braveTierFor(state, skill) {
     // The two FACTS topics are compressed — "one tier up" inside single-digit
@@ -218,11 +230,30 @@ var MM = globalThis.MM = globalThis.MM || {};
     return combatProblem(state, capSkill(state, skill));
   }
 
+  // v1.7.0: the boss "…and then" tail, shared by every full-depth GATE
+  // picker. `brave` here means "this call site is a boss" (only the boss
+  // branches in engine.js ever pass it — doors/chests/seals never do, so
+  // they never pay the extra tailStep() work and never carry dual-form
+  // info the battle UI has no ⚡ button to act on anyway). When it IS a
+  // boss, the tail sibling is always computed so a mid-round ⚡ toggle can
+  // add/remove it in place — same operands/tier either way, since both
+  // forms derive from ONE `generate()` draw. Tier lift (gateTier) still
+  // happens exactly as before; the tail guarantees the brave delta is never
+  // zero even once the tier lift caps at 3.
+  function bossDualForm(state, skill, brave) {
+    const base = MM.problems.generate(skill, gateTier(state, skill, brave));
+    if (!brave) return base;
+    const extended = MM.problems.tailStep(base);
+    const eligible = extended !== base;
+    const active = (isBrave(state) && eligible) ? extended : base;
+    return Object.assign({}, active, { _dualBase: base, _dualExtended: extended, _dualEligible: eligible });
+  }
+
   // Boss battles are the dungeon's real test: full-depth problems of its
   // topic, at a tier that adapts to how the kid has been doing.
   function pickBossProblem(state, dungeonIndex, brave) {
     const skill = capSkill(state, MM.data.TASKS[dungeonIndex - 1].skill);
-    return MM.problems.generate(skill, gateTier(state, skill, brave));
+    return bossDualForm(state, skill, brave);
   }
 
   // Quick problems from ALL ten topics, weighted toward whatever the kid is
@@ -243,7 +274,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   function pickMixedGate(state, brave) {
     const ranked = weakestFirst(state, cappedSkills(state));
     const skill = ranked[Math.floor(Math.random() * Math.min(3, ranked.length))];
-    return MM.problems.generate(skill, gateTier(state, skill, brave));
+    return bossDualForm(state, skill, brave);
   }
 
   // ---------- 50/50 own-topic vs. everything else ----------
@@ -271,7 +302,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   // `brave` (Wave 8b) is passed ONLY by the boss branches — see gateTier.
   function pickHalfMixGate(state, ownSkill, brave) {
     const skill = pickHalfMixSkill(state, ownSkill);
-    return MM.problems.generate(skill, gateTier(state, skill, brave));
+    return bossDualForm(state, skill, brave);
   }
 
   // Clockwork Spire (Wave 3): time_reading. Kept as named wrappers — tests
