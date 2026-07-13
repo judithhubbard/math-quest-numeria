@@ -7,6 +7,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     const screen = document.getElementById('profileScreen');
     const list = document.getElementById('profileList');
     const profiles = MM.engine.profiles();
+    // version stamp (2026-07-13): "am I updated?" answered at a glance
+    if (!document.getElementById('versionStamp')) {
+      const v = document.createElement('div');
+      v.id = 'versionStamp';
+      v.className = 'dim';
+      v.style.cssText = 'position:absolute;right:12px;bottom:8px;font-size:11px';
+      v.textContent = MM.VERSION;
+      screen.querySelector('.profile-card').style.position = 'relative';
+      screen.querySelector('.profile-card').appendChild(v);
+    }
     list.innerHTML = profiles.length
       ? profiles.map(n => `
           <div class="profile-row">

@@ -443,10 +443,13 @@ var MM = globalThis.MM = globalThis.MM || {};
       }
       const { dmg, dead } = bt.ctx.hooks.applyMonsterHit(bt.mon);
       bt.heroFlash = 1;
-      bt.shake = 10;
+      // gentle way (2026-07-13): a frightened flail, not a blow — soft
+      // ruffle sound, small flinch instead of a full shake. Damage stays
+      // fully visible (floater + bars) — character changes, honesty doesn't.
+      bt.shake = soothing() ? 4 : 10;
       tween(v => { bt.heroFlash = 1 - v; bt.heroOx = -18 * (1 - v); }, 320);
       float(HERO.x, HERO.y - 140, '-' + dmg, '#ff6b6b', 26);
-      MM.sound.thud();
+      if (soothing()) MM.sound.fret(); else MM.sound.thud();
       msg(`💥 ${MM.data.theMon(bt.mon.name, true)} ${bt.mon.verb} you for <b>${dmg}</b> damage!`);
       setBars();
       MM.ui.renderSidebar();
@@ -476,6 +479,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       // finally at ease, and wanders off — under its own power, in its own time.
       bt.gesture = MM.data.sootheGesture(bt.mon.sprite);
       bt.gestureT = 0;
+      MM.sound.purr(); // the settling-in, under the victory notes (2026-07-13)
       msg(`🕊 ${bt.mon.boss ? `${MM.data.theMon(bt.mon.name, true)} is at peace.` : MM.data.sootheLine(bt.mon)}`);
       banner('🕊 CALMED 🕊', '#7ee0e8');
       MM.sound.fanfare();

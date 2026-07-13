@@ -4296,7 +4296,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       leaveLabel: 'Never mind',
       onAnswer(correct, kidAnswer) {
         recordAnswer('word_problems', correct, { text: prob.text, kidAnswer });
-        const discount = correct ? Math.floor(c * 0.1) : 0;
+        // never 0 (playtest 2026-07-13): a 5g loaf floored 10% to zero gold
+        // off — the "question for a discount" promise must always pay ≥ 1
+        const discount = correct ? Math.max(1, Math.floor(c * 0.1)) : 0;
         const paid = c - discount;
         s.gold -= paid;
         let msg = correct

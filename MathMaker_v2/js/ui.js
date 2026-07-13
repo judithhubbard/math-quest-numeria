@@ -79,10 +79,17 @@ var MM = globalThis.MM = globalThis.MM || {};
     // crit adds a third, higher and softer still. No percussion at all:
     // calming something must never sound like hitting it.
     soothe(crit) {
-      beep(659, 0.28, 'sine', 0, 0.07);
-      beep(880, 0.34, 'sine', 0.12, 0.06);
-      if (crit) beep(1319, 0.45, 'sine', 0.26, 0.05);
+      beep(1760, 0.05, 'sine', 0, 0.05); // the tiny POP (user palette 2026-07-13)
+      beep(659, 0.28, 'sine', 0.03, 0.07);
+      beep(880, 0.34, 'sine', 0.15, 0.06);
+      if (crit) beep(1319, 0.45, 'sine', 0.29, 0.05);
     },
+    // The frightened flail (2026-07-13): the monster's counterattack in the
+    // gentle way — a quick soft ruffle, NO bass thump, clearly "that cost
+    // you" but nothing like a blow landing. Strike-way keeps thud().
+    fret() { noise(0.1, 1800, 0, 0.16); beep(520, 0.12, 'sine', 0.02, 0.05); },
+    // The final becalming: a low purr warble under the victory notes.
+    purr() { beep(96, 0.5, 'sine', 0, 0.06); beep(101, 0.5, 'sine', 0.02, 0.05); },
     battleStart(boss) {
       beep(196, 0.14, 'square', 0, 0.08); beep(196, 0.14, 'square', 0.16, 0.08);
       beep(boss ? 147 : 262, 0.35, 'square', 0.32, 0.1);
@@ -242,15 +249,36 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
   }
   UI.worldBurst = worldBurst; // exposed for engine.js (badges/level-ups/bounties)
+  // Celebration sparkles (playtest 2026-07-13: the teal body-height bursts
+  // at cheering friends read as SPITTING WATER): warm colors, RISING drift,
+  // occasional tiny heart, spawned above the celebrant's head.
+  function worldSparkle(tileX, tileY) {
+    const s = MM.engine.state;
+    if (s && s.calmMode) return;
+    const px = tileX * TILE + TILE / 2, py = tileY * TILE + TILE / 2;
+    worldParticles.push({
+      x: px + (Math.random() - 0.5) * 24, y: py + (Math.random() - 0.5) * 10,
+      vx: (Math.random() - 0.5) * 0.6, vy: -0.8 - Math.random() * 0.8,
+      life: 1, color: Math.random() < 0.35 ? '#ff9ad5' : '#ffd94a',
+      size: 9 + Math.random() * 4, glyph: Math.random() < 0.3 ? '🤍' : '✦', rise: true,
+    });
+  }
   function drawWorldParticles(camX, camY) {
     if (!worldParticles.length) return;
     for (let i = worldParticles.length - 1; i >= 0; i--) {
       const p = worldParticles[i];
-      p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 0.035;
+      p.x += p.vx; p.y += p.vy; p.vy += p.rise ? -0.01 : 0.15; p.life -= p.rise ? 0.022 : 0.035;
       if (p.life <= 0) { worldParticles.splice(i, 1); continue; }
       ctx.globalAlpha = Math.max(0, p.life);
-      ctx.fillStyle = p.color;
-      ctx.fillRect(p.x - camX * TILE - p.size / 2, p.y - camY * TILE - p.size / 2, p.size, p.size);
+      if (p.glyph) {
+        ctx.font = `${p.size}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = p.color;
+        ctx.fillText(p.glyph, p.x - camX * TILE, p.y - camY * TILE);
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - camX * TILE - p.size / 2, p.y - camY * TILE - p.size / 2, p.size, p.size);
+      }
     }
     ctx.globalAlpha = 1;
   }
@@ -920,7 +948,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         scale: 3,
       });
       ctx.drawImage(spr, vx * TILE, vy * TILE + bob + hop);
-      if (cheering && friend && !s.calmMode) worldBurst(m.x, m.y, '#7ee0e8', 1);
+      if (cheering && friend && !s.calmMode) worldSparkle(m.x, m.y - 0.6);
       if (m.boss) {
         const crown = MM.sprites.get('crown', { scale: 2 });
         ctx.drawImage(crown, vx * TILE + TILE / 2 - crown.width / 2, vy * TILE + bob - 8);
@@ -1253,7 +1281,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     messages.push(msg);
     if (messages.length > 10) messages.shift();
     const el = document.getElementById('log');
-    if (el) el.innerHTML = messages.map(m => `<div>${m}</div>`).join('');
+    if (el) {
+      el.innerHTML = messages.map(m => `<div>${m}</div>`).join('');
+      el.scrollTop = el.scrollHeight; // the log scrolls itself; newest always visible
+    }
   };
 
   // ---------- shared problem form (used by battle + modals) ----------
@@ -1696,6 +1727,16 @@ var MM = globalThis.MM = globalThis.MM || {};
         { label: `⚔️ Hero${mark('hero')}`, onClick: pick('hero', 'Hero'), primary: s.difficulty === 'hero' },
         { label: `🔥 Legend${mark('legend')}`, onClick: pick('legend', 'Legend'), primary: s.difficulty === 'legend' },
         { label: s.stance === 'soothe' ? '⚔️ Change my way: boldly' : '🕊 Change my way: gently', onClick: switchWay },
+        // 2026-07-13: sound controls live where a player looks (the user
+        // couldn't find the parent-panel copies — two doors, one state)
+        { label: s.musicOff ? '🎵 Music: off → on' : '🎵 Music: on → off', onClick: () => {
+          s.musicOff = !s.musicOff; MM.engine.save();
+          UI.log(s.musicOff ? '🎵 Music off — the sound effects stay.' : '🎵 Music on.');
+        } },
+        { label: s.soundOff ? '🔊 Sound: off → on' : '🔊 Sound: on → off', onClick: () => {
+          s.soundOff = !s.soundOff; MM.engine.save();
+          UI.log(s.soundOff ? '🔇 All sound off.' : '🔊 Sound on.');
+        } },
         { label: 'Cancel', onClick: () => {} },
       ]);
   };

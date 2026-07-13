@@ -1790,6 +1790,16 @@ for (const skill of skills) {
   if (!sawLateJoin) fail('pedagogy: a met late topic never appears in mainland review');
 }
 
+// ---------- Version stamp (2026-07-13): display never drifts from cache ----------
+{
+  // tracker.js isn't require()d headlessly — compare the two SOURCE files
+  const fsv = require('fs');
+  const swSrc = fsv.readFileSync(__dirname + '/../sw.js', 'utf8').match(/VERSION = '([^']+)'/);
+  const trSrc = fsv.readFileSync(__dirname + '/../js/tracker.js', 'utf8').match(/MM\.VERSION = '([^']+)'/);
+  if (!swSrc || !trSrc) fail('version: VERSION constant missing from sw.js or tracker.js');
+  else if (trSrc[1] !== swSrc[1]) fail(`version drift: tracker.js ${trSrc[1]} !== sw.js ${swSrc[1]}`);
+}
+
 // ---------- Music pass (2026-07-12): track structure audit ----------
 // The composer can't hear headless Chrome — but structure is checkable:
 // every note lands inside its loop, names a real frequency, and stays
