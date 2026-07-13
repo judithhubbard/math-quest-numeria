@@ -2943,3 +2943,30 @@ green (`tests/logs/*-v171*.log`, `sweep-v171-summary.txt`,
 `drive-wonder-v171-{2,3,4}.log`); spiral + soothe-battle screenshots
 audited by eye (curl connects, ends at the tower, numerals legible, no
 boxy shimmer, calm labels read in words).
+
+## v1.7.2 HOTFIX (2026-07-13): the streak bounty, second report
+
+User pushback on the v1.7.1 explanation ("I did not make mistakes") forced a
+deeper look. Verified headlessly that every answering surface (battles,
+doors, chests, inn, shop quizzes) routes through the ONE recordAnswer and
+feeds the streak — a healthy save that answers 4-in-a-row anywhere DOES
+complete the job. Two real fixes shipped anyway:
+
+1. **The poisoned-streak class.** A save whose `s.streak` ever goes
+   non-numeric (a pre-streak save's `undefined` becomes NaN on the first
+   increment; JSON round-trips NaN→null) sticks at "never ≥ need" with ZERO
+   symptoms — no crash, no log, crits and streak bonuses silently dead, and
+   the bounty reads 0/N forever: exactly the reported shape. Healed in
+   three places: load migration, a guard at the recordAnswer increment, and
+   settleStreakJobs. `Number.isFinite`, not a null-check — belt and braces.
+2. **Pay on sight.** A streak job whose condition is ALREADY met paid only
+   on the NEXT correct answer (bountyEvent is the only completer). Now
+   `E.settleStreakJobs()` runs on every notice-board open: an earned streak
+   pays the moment the kid looks. Consequence encoded in drive-bounty: a
+   same-day regenerated board's new streak job may arrive already-paid off
+   the standing streak — same semantics as before (one answer earlier),
+   deliberately generous.
+
+Evidence: unit ALL PASSED; drive-bounty (check updated: hunt/solve must
+regenerate fresh, streak may pay on sight) + drive-notices green; headless
+repro of both the NaN-heal and pay-on-sight paths in the session log.

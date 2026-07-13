@@ -106,12 +106,16 @@ async function dismissDialogs(page) { // e.g. badge celebrations between battles
   check(state.items.every(it => it.done), `all three bounties complete: ${JSON.stringify(state.items)}`);
   check(state.gold > goldBefore + 40, `bounty gold paid on the spot (${goldBefore} -> ${state.gold})`);
 
-  // a cleared board regenerates immediately with fresh, undone jobs
+  // a cleared board regenerates immediately with fresh jobs. v1.7.2: the
+  // NEW streak job may legitimately arrive already-paid — the kid's streak
+  // still stands, and an earned condition now pays ON SIGHT (before this it
+  // paid one answer later, same semantics, worse feelings). Hunt/solve must
+  // always come back fresh.
   await page.evaluate(() => { MM.engine.exitDungeon(); const s = MM.engine.state; s.px = 21; s.py = 5; });
   await page.keyboard.press('ArrowUp');
   await page.waitForSelector('#modalBox h2');
-  check(await page.evaluate(() => MM.engine.state.bounties.items.every(it => !it.done)),
-    'cleared board regenerates with fresh jobs');
+  check(await page.evaluate(() => MM.engine.state.bounties.items.filter(it => it.type !== 'streak').every(it => !it.done)),
+    'cleared board regenerates with fresh jobs (streak may pay on sight — the standing streak already earned it)');
   await page.click('#dlgOk');
 
   // daily rotation: stale date regenerates even with unfinished jobs

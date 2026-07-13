@@ -2708,6 +2708,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!s || UI.modalOpen() || MM.battle.active()) return;
     const onIsle = s.mapId === 'isles';
     if (onIsle) MM.engine.refreshIsleBounties(); else MM.engine.refreshBounties();
+    if (MM.engine.settleStreakJobs) MM.engine.settleStreakJobs(); // v1.7.2: an already-earned streak pays on sight
     const board = onIsle ? s.isleBounties : s.bounties;
     // Wave 9 (P1): the mainland board self-narrates the day's Daily Tangles —
     // "A tangle was spotted near X" — the bounty-board recipe, one more time.
