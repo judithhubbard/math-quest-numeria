@@ -165,6 +165,16 @@ button.mini { padding: 2px 10px; font-size: 12px; }
 #modalBox h3 { font-size: 14px; margin: 12px 0 6px; color: #b4a9df; }
 /* help menu: calm, grouped entries — one lead term, roomy line spacing */
 .help-p { margin: 0 0 9px; line-height: 1.45; }
+
+/* accessibility: parent-panel "larger reading text" — bumps the READING
+   surfaces (dialogs, problems, log, sidebar), never the pixel-art canvas */
+body.big-text .dialog-body { font-size: 17.5px; }
+body.big-text .prob-text { font-size: 26px; }
+body.big-text #log { font-size: 15px; }
+body.big-text #sidebar { font-size: 17px; }
+body.big-text .help-p { font-size: 16.5px; line-height: 1.5; }
+body.big-text .prob-header { font-size: 18px; }
+body.big-text #modalBox h2 { font-size: 23px; }
 .dialog-body { font-size: 15.5px; line-height: 1.55; }
 .dialog-body hr { border: none; border-top: 1px solid #494073; margin: 10px 0; }
 .btnrow { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }

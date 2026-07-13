@@ -859,7 +859,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       // never-colour-alone rule: (a) a softened palette, (b) a CONSTANT 🕊 pip
       // above it, and (c) a slower, becalmed sway. Any one of the three is
       // enough — so it survives colour-blindness, and it reads from the doorway.
-      const friend = MM.engine.isBefriended && MM.engine.isBefriended(m);
+      // Per-creature taming (2026-07-13): the heart, soft palette, and calm
+      // sway belong ONLY to a monster the kid personally soothed — its wild
+      // species-mates look wild, because they are.
+      const friend = !!m.becalmed;
       const bob = friend
         ? Math.sin(now / 900 + m.x * 2 + m.y) * 1.2          // (c) slow, easy sway
         : Math.sin(now / 400 + m.x * 2 + m.y) * 2;
@@ -1033,8 +1036,9 @@ var MM = globalThis.MM = globalThis.MM || {};
         `<div style="text-align:center"><img src="${img}" style="image-rendering:pixelated"></div>
          <p style="text-align:center;font-size:16px">The <b>${entry.befriend}</b> is calm — and it's staying right there,
          wearing a little 🤍 heart.</p>
-         <p style="text-align:center" class="dim">Calmed kinds won't start fights with you any more — bump one and it
-         steps aside to let you through. Every kind you calm gets its 🤍 mark in your 📕 Monster Book, for good.</p>`);
+         <p style="text-align:center" class="dim">A calmed friend never fights — bump it and it steps aside to let you
+         through. Each creature is tamed one at a time, and every kind you've calmed gets its 🤍 mark in your
+         📕 Monster Book, for good.</p>`);
       MM.sound.fanfare();
       return;
     }
@@ -1801,6 +1805,10 @@ var MM = globalThis.MM = globalThis.MM || {};
           <input type="checkbox" id="musicOffCheck" ${s.musicOff ? 'checked' : ''}>
           Turn off the background music (sound effects stay)
         </label>
+        <label class="topic-check">
+          <input type="checkbox" id="bigTextCheck" ${s.bigText ? 'checked' : ''}>
+          Larger reading text (dialogs, problems, and the story log)
+        </label>
         <h3>Current progress</h3>
         <p style="font-size:14px">📗 On task <b>${Math.min(s.taskIndex, 13)}</b> ·
           answered <b>${s.totals.correct}/${s.totals.answered}</b> correctly overall.
@@ -1836,6 +1844,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       s.calmMode = document.getElementById('calmModeCheck').checked;
       s.soundOff = document.getElementById('soundOffCheck').checked;
       s.musicOff = document.getElementById('musicOffCheck').checked;
+      s.bigText = document.getElementById('bigTextCheck').checked;
+      document.body.classList.toggle('big-text', s.bigText);
       MM.engine.save();
       closeModal();
       const n = Object.values(map).filter(Boolean).length;
