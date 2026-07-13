@@ -87,6 +87,16 @@ var MM = globalThis.MM = globalThis.MM || {};
       academyTotal: 0,      // lifetime Academy slates checked (attendance; never resets)
       castleFurnish: { rug: false, garden: false, library: false, statues: [] },
       petHats: [],          // owned pet-hat ids; s.isles.pet.hat is which one is WORN
+      // ---------- Wave 10: "The World Notices" ----------
+      // The Turning Stones (P1) read s.tasksDone.length live — zero new
+      // state. The fence (P3) reads s.tasksDone.includes(6) live too — the
+      // only new persisted field it needs is the one-time thank-you dialog.
+      seenFenceThanks: false,
+      // The rare-surprise pool (P4): once-EVER world moments, each its own
+      // persisted seen-flag so none can ever repeat.
+      seenGoldenBird: false,
+      seenCatBeetle: false,
+      seenHattedSlimes: false,
     };
     E.enterWorld();
     E.save();
@@ -197,6 +207,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!s.castleFurnish) s.castleFurnish = { rug: false, garden: false, library: false, statues: [] };
     if (!s.castleFurnish.statues) s.castleFurnish.statues = [];
     if (!s.petHats) s.petHats = [];
+    // Wave 10: "The World Notices" — missing means "never happened yet."
+    if (s.seenFenceThanks == null) s.seenFenceThanks = false;
+    if (s.seenGoldenBird == null) s.seenGoldenBird = false;
+    if (s.seenCatBeetle == null) s.seenCatBeetle = false;
+    if (s.seenHattedSlimes == null) s.seenHattedSlimes = false;
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     E.enterWorld();  // always resume on the overworld
@@ -210,7 +225,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   // its problem really can draw from anywhere.
   E.monsterTopicIcon = function (mon) {
     const s = E.state;
-    if (!s || !s.dungeonIndex || mon.boss) return null;
+    // Wave 10 (P4c): the hatted-slimes pair is never a real fight prompt —
+    // no telegraph icon.
+    if (!s || !s.dungeonIndex || mon.boss || mon.hattedPair) return null;
     const task = MM.data.TASKS[s.dungeonIndex - 1];
     if (!task) return null;
     const mixed = task.mixed || E.isDeepWingFloor(s);
@@ -385,6 +402,14 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.CHARM_SLOTS = 3;
   E.PET_FETCH_CHANCE = 0.10; // stage-2+ pets fetch after victories (Wave 5)
   E.hasCharm = id => !!(E.state && E.state.charmsOn && E.state.charmsOn.includes(id));
+
+  // Wave 10 (P4, the rare-surprise pool): each once-EVER world moment gets
+  // its own exposed CHANCE hook, per eligible condition, same idiom as
+  // E.MIMIC_CHANCE — drives pin these to 1 to force the moment, never touch
+  // Math.random() directly.
+  E.GOLDEN_BIRD_CHANCE = 0.01;   // per step walked on the mainland, once the fence is mended
+  E.CAT_BEETLE_CHANCE = 0.01;    // per inn-cat pat
+  E.HATTED_SLIMES_CHANCE = 0.01; // per Meadow Cave entry
 
   E.toggleCharm = function (id) {
     MM.track('toggleCharm ' + id);
@@ -595,6 +620,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.petPos = { x: s.px, y: s.py };
     E.refreshTangles();
     MM.ui.log('You stand in the kingdom of Numeria.');
+    // Session-shape pass (2026-07-13): a returning kid should hear what's
+    // new TODAY in the first second, not after walking to a board. One
+    // line, only when there's genuinely something waiting.
+    if (s.endingDone && s.tangles && s.tangles.items.some(t => !t.done)) {
+      const n = s.tangles.items.filter(t => !t.done).length;
+      MM.ui.log(`🌀 ${n === 1 ? 'A tangle was' : n + ' tangles were'} spotted overnight — the notice boards know where.`);
+    }
     MM.ui.refresh();
   };
 
@@ -1046,9 +1078,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
     choices.push({ label: '⛵ Sail home to Numeria', primary: !s.isles.lampLit, onClick: () => E.sail('west') });
     choices.push({ label: 'Stay a while', onClick: () => {} });
-    const greeting = s.isles.lampLit
-      ? '"Lit her right up, didn\'t you?" the captain grins. "Found something new on the charts, too — a little isle that\'s all ticking and gears. <b>Horologe</b>, the old maps call it. Fancy a look?"'
-      : '"Homeward, hero? The old kingdom\'s right where you left it."';
+    // Wave 10 (P2, reactive cast): the captain gets her own once-crowned
+    // acknowledgment, ahead of everything else this dock already said.
+    const greeting = s.endingDone
+      ? '"Crown looks good on you, you know." The captain tips her hat, and doesn\'t make it a joke. "Where to, Your Majesty?"'
+      : s.isles.lampLit
+        ? '"Lit her right up, didn\'t you?" the captain grins. "Found something new on the charts, too — a little isle that\'s all ticking and gears. <b>Horologe</b>, the old maps call it. Fancy a look?"'
+        : '"Homeward, hero? The old kingdom\'s right where you left it."';
     MM.ui.dialogChoices('⛵ The Compass Rose', greeting, choices);
   };
 
@@ -1070,9 +1106,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Wave 6.5: no inn on this island — the bunk serves instead
     choices.push({ label: '🛏 Rest in your bunk (3 warm-ups)', onClick: () => E.inn(true) });
     choices.push({ label: 'Stay a while', onClick: () => {} });
-    const greeting = s.isles.spireDone
-      ? '"Ticking away nicely now, isn\'t it?" the captain says. "A couple of new spots on the charts — a hum you can hear from clear out on the water (<b>Chime Isle</b>), and a storm-battered little harbor further out (<b>Gullwrack</b>). Where to?"'
-      : '"Back the way you came, or straight home? Your call."';
+    // Wave 10 (P2, reactive cast): once Gullwrack's own dungeon is beaten,
+    // this stop has heard about it too — checked above spireDone so it
+    // doesn't get shadowed on a later visit.
+    const greeting = s.isles.breakwaterDone
+      ? '"Back through here again? Small world, once you\'ve got a boat," the captain says, not looking up from her charts. "Where to?"'
+      : s.isles.spireDone
+        ? '"Ticking away nicely now, isn\'t it?" the captain says. "A couple of new spots on the charts — a hum you can hear from clear out on the water (<b>Chime Isle</b>), and a storm-battered little harbor further out (<b>Gullwrack</b>). Where to?"'
+        : '"Back the way you came, or straight home? Your call."';
     MM.ui.dialogChoices('⛵ The Compass Rose', greeting, choices);
   };
 
@@ -1080,8 +1121,14 @@ var MM = globalThis.MM = globalThis.MM || {};
   // the way home, or onward to Gullwrack Harbor (Wave 6) — reachable from
   // here too, since reaching Chime already implies spireDone.
   E.chimeDock = function () {
+    const s = E.state;
+    // Wave 10 (P2, reactive cast): once the Halls sing again, the captain's
+    // greeting here says so.
+    const greeting = s.isles.hallsDone
+      ? '"They\'ve got a real choir going now — heard it clear from the water. Half my crew won\'t stop humming it." The captain looks almost sentimental about it. "Where to?"'
+      : '"Quite the tune this place hums. Where to now?"';
     MM.ui.dialogChoices('⛵ The Compass Rose',
-      '"Quite the tune this place hums. Where to now?"',
+      greeting,
       [
         { label: '⛵ Sail onward to Gullwrack Harbor', primary: true, onClick: () => E.sail('gullwrack') },
         { label: '⛵ Sail to Horologe Isle', onClick: () => E.sail('horologe') },
@@ -1096,8 +1143,14 @@ var MM = globalThis.MM = globalThis.MM || {};
   // Gullwrack Harbor's own dock (Wave 6): the end of the charted line so
   // far — sail back to any previous leg, or all the way home.
   E.gullwrackDock = function () {
+    const s = E.state;
+    // Wave 10 (P2, reactive cast): once the town is fully rebuilt, the
+    // captain's greeting here says so.
+    const greeting = s.isles.gullwrackRebuilt
+      ? '"Gullwrack\'s fixed up proper now — paint, roofs, the lot. Maren\'s already talking about a second pier." The captain shakes her head, fond. "Where to?"'
+      : '"Quite the harbor you\'ve been patching up. Where to?"';
     MM.ui.dialogChoices('⛵ The Compass Rose',
-      '"Quite the harbor you\'ve been patching up. Where to?"',
+      greeting,
       [
         { label: '⛵ Sail to Horologe Isle', primary: true, onClick: () => E.sail('horologe') },
         { label: '⛵ Sail to Chime Isle', onClick: () => E.sail('chime') },
@@ -1195,6 +1248,18 @@ var MM = globalThis.MM = globalThis.MM || {};
       }
     }
     if (skippedAny) MM.ui.log('The halls are quiet — the monsters you drove off haven\'t crept back yet.');
+    // Wave 10 (P4c, rare-surprise pool): once ever, in the Meadow Cave, two
+    // slimes turn up stacked, sharing one hat. Not a fight — E.tryMove
+    // intercepts mon.hattedPair the same way it intercepts a becalmed
+    // friend's bump (swap-not-battle), and resolves the whole moment there.
+    if (idx === 1 && !s.seenHattedSlimes && Math.random() < E.HATTED_SLIMES_CHANCE) {
+      const pair = s.monsters.filter(m => !m.boss);
+      if (pair.length >= 2) {
+        const [a, b] = pair;
+        s.monsters = s.monsters.filter(m => m !== b); // folded into a, visually
+        a.hattedPair = true;
+      }
+    }
     const bpos = MM.maps.find(s.grid, 'b')[0];
     if (bpos) {
       s.grid[bpos.y][bpos.x] = '.';
@@ -1353,6 +1418,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (ch === 'H') return E.spiralMenu();
         if (ch === 'n') return MM.ui.noticeBoard();
         if (ch === 'W') return E.pier();
+        if (ch === 'F') return E.fencePost(); // Wave 10 (P3): the mended fence east of the farm
         if ('1234567890'.includes(ch)) return E.tryEnterDungeon(ch === '0' ? 10 : +ch);
         const exp = { A: 11, B: 12, K: 13 }[ch];
         if (exp) return E.tryEnterDungeon(exp);
@@ -1380,6 +1446,18 @@ var MM = globalThis.MM = globalThis.MM || {};
 
     // dungeon
     const mon = s.monsters.find(m => m.x === nx && m.y === ny && m.hp > 0);
+    // Wave 10 (P4c, rare-surprise pool): the hatted-slimes moment. Never a
+    // fight — they split apart, embarrassed, and scurry off; the hat is
+    // retired with honors.
+    if (mon && mon.hattedPair) {
+      s.seenHattedSlimes = true;
+      MM.ui.log('🎩 Two slimes tumble apart, mortified — they\'d been sharing one hat, this whole time. It rolls to your feet.<br><br><i>The hat is retired, with honors.</i> +2 gold.');
+      E.gainGold(2);
+      s.monsters = s.monsters.filter(m => m !== mon);
+      E.save();
+      MM.ui.refresh();
+      return;
+    }
     // Round 5: bumping a calmed friend is never a fight ("if I bump into a
     // calmed creature, I can still fight it, and it starts at 0% calm" —
     // accidentally erasing your own kindness is the worst feeling in the
@@ -1780,6 +1858,17 @@ var MM = globalThis.MM = globalThis.MM || {};
         s.hearthmossSteps = 0;
         s.hp = Math.min(s.maxhp, s.hp + 1);
       }
+    }
+    // Wave 10 (P4a, rare-surprise pool): a golden bird, once ever, on the
+    // mainland road — only once there's an actual fence post for it to land
+    // on (s.tasksDone.includes(6), same live check the fence tiles read).
+    // Never a reward you can chase: no notification if it never fires, no
+    // second chance once it has.
+    if (s.mapId === 'world' && !s.seenGoldenBird && s.tasksDone.includes(6) && Math.random() < E.GOLDEN_BIRD_CHANCE) {
+      s.seenGoldenBird = true;
+      s.items.treasures.push('feather');
+      MM.ui.log('🐦 <i>A golden bird lands on a fence post, watches you pass, and is gone before you can look twice.</i><br>It left one feather. <b>Proof It Happened.</b>');
+      E.save();
     }
     if (E.hasCharm('boots')) return;
     s.stepParity = !s.stepParity;
@@ -3469,6 +3558,17 @@ var MM = globalThis.MM = globalThis.MM || {};
       // Must be tested BEFORE the taskIndex>13 branch — by the time the ending
       // is done, taskIndex is always past 13, and this would never fire.
       greeting = MM.data.pick(MM.data.MISCOUNT_EPILOGUE);
+    } else if (s.isles.gullwrackRebuilt) {
+      // Wave 10 (P2, reactive cast): Miscount hears about the isles the same
+      // way the mainland does — after the fact, by reputation. Ordered
+      // most-advanced-flag-first, like the rest of the cast.
+      greeting = `"A whole town, put back stone by stone." Miscount shakes his head, admiring. "Slower than magic. Sturdier, too, I'd bet." Golem <b>${L}</b>, if you're up for it.`;
+    } else if (s.isles.hallsDone) {
+      greeting = `"They found room for the one voice that didn't fit." Miscount smiles like that sentence means several things at once. "Good. Everybody deserves finding room." Golem <b>${L}</b> is ready when you are.`;
+    } else if (s.isles.spireDone) {
+      greeting = `"A clock that stopped, wound again." Miscount goes quiet a moment. "I know a bit about that." Then, brighter: "Golem <b>${L}</b>'s ready, if you'd rather not talk about clocks."`;
+    } else if (s.isles.lampLit) {
+      greeting = `"The lighthouse, they tell me!" Miscount says it like the news physically relieved him. "Something in me still doesn't love the dark. Glad someone's tending it better than I did." Golem <b>${L}</b> awaits.`;
     } else if (s.taskIndex > 13) {
       greeting = `"Everything's back where it belongs, thanks to you." Miscount smiles up at the peak, where the Star glitters. "So now we just... practice. Golem <b>${L}</b> awaits, champion."`;
     } else {
@@ -3977,6 +4077,27 @@ var MM = globalThis.MM = globalThis.MM || {};
       `<i>The ${t.dungeon} is marked with a <b>${s.taskIndex === 10 ? '10' : s.taskIndex}</b> on the map.</i>${aside}`);
   };
 
+  // Wave 10 (P3, the mid-game event): the fence east of the farm. Reads
+  // s.tasksDone.includes(6) live (same trick as castleFurnish) — mending it
+  // needs no new persisted flag at all. The one-time thank-you dialog does
+  // need its own flag (s.seenFenceThanks), since it should only interrupt
+  // the walk once, ever.
+  E.fencePost = function () {
+    const s = E.state;
+    if (!s.tasksDone.includes(6)) {
+      return MM.ui.log('🪵 A broken length of fence, propped up with rope and a hand-lettered sign: "MIND THE GAP (please)."');
+    }
+    if (s.seenFenceThanks) {
+      return MM.ui.log('🪵 The mended fence. Straight as anything.');
+    }
+    s.seenFenceThanks = true;
+    E.save();
+    return MM.ui.dialog('🧑‍🌾 The Farm Fence',
+      'The fence stands whole again — every post straight, every rail true. Farmer Fenwick straightens up from the last knot, wiping his hands on his trousers.<br><br>' +
+      '"There. Held together with baling wire and stubbornness for a month too long." He nods at you. "Wouldn\'t have gotten to it while the ruin was still full of boars, though. Thank you, truly."<br><br>' +
+      'Beside him, his hired hand — younger, quieter, permanently squinting at the sun — adds his own bit: "He means it. Doesn\'t say \'thank you\' twice in one year, usually."');
+  };
+
   // shipboard=true (Wave 6.5): the same three-warmups rest, taken in your
   // bunk aboard the Compass Rose — for the inn-less islands, so a kid deep
   // in the Spire or Halls never has to sail two legs just to sleep
@@ -4028,9 +4149,16 @@ var MM = globalThis.MM = globalThis.MM || {};
           { label: '🐾 Give it a pat', primary: true, onClick: () => {
               s.stamina = Math.min(s.maxStamina, s.stamina + 1);
               s.catPettedDate = E.todayStr();
-              E.save();
               MM.sound.coin();
               MM.ui.log('🐈 Purrrrr. (+1 stamina)');
+              // Wave 10 (P4b, rare-surprise pool): once ever, the cat brings
+              // something to show off. Log line, +nothing — the joke's on
+              // the cat, not the kid.
+              if (!s.seenCatBeetle && Math.random() < E.CAT_BEETLE_CHANCE) {
+                s.seenCatBeetle = true;
+                MM.ui.log('🪲 The cat drops something at your feet — a live beetle, presented with enormous pride. You admire it appropriately. It scuttles off, mission accomplished.');
+              }
+              E.save();
               startWarmup();
             } },
           { label: 'Let it sleep', onClick: startWarmup },
