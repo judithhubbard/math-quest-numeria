@@ -213,6 +213,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.daysTended == null) s.daysTended = 0;
     if (s.lastTendedDate === undefined) s.lastTendedDate = null;
     if (s.tangles === undefined) s.tangles = null;
+    // v1.7.2: heal a non-numeric streak at load (JSON turns NaN into null;
+    // a pre-streak save has undefined) — see the matching recordAnswer guard
+    if (!Number.isFinite(s.streak)) s.streak = 0;
     if (!s.spiral) s.spiral = { highest: 0, landing: 0 };
     if (s.academyTotal == null) s.academyTotal = 0;
     if (!s.castleFurnish) s.castleFurnish = { rug: false, garden: false, library: false, statues: [] };
@@ -2078,6 +2081,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     const s = E.state;
     MM.mastery.record(s, skill, correct);
     s.totals.answered++;
+    // v1.7.2 hardening (streak-bounty stuck at 0 despite right answers): a
+    // save whose streak ever went non-numeric would poison EVERY comparison
+    // downstream (NaN >= 4 is false forever, silently — no crash, no log,
+    // just crits/streak-bonuses/bounties all dead). Heal it at the one
+    // place the value changes, so no save can stay stuck.
+    if (!Number.isFinite(s.streak)) s.streak = 0;
     if (correct) { s.totals.correct++; s.streak++; }
     else { s.streak = E.hasRing('focus') ? Math.floor(s.streak / 2) : 0; noteRoughPatch(s, skill); }
     checkBadge(skill);
@@ -2326,6 +2335,24 @@ var MM = globalThis.MM = globalThis.MM || {};
       lines.push(`🐾 ${pet.name} fetched you a ${food.emoji} <b>${food.name}</b>!`);
     }
   }
+
+  // v1.7.2: a streak job whose condition is ALREADY met pays out the moment
+  // the board is looked at — "get 4 in a row" is true the instant the
+  // streak reads 4, and making the kid produce one more answer before the
+  // reward lands read as "the board isn't working" (playtest 2026-07-13).
+  E.settleStreakJobs = function () {
+    const s = E.state;
+    if (!Number.isFinite(s.streak)) { s.streak = 0; return; }
+    for (const board of [s.bounties, s.isleBounties]) {
+      if (!board) continue;
+      for (const it of board.items) {
+        if (!it.done && it.type === 'streak' && s.streak >= it.need) {
+          it.have = it.need;
+          completeBounty(it, board);
+        }
+      }
+    }
+  };
 
   function completeBounty(it, board) {
     it.done = true;
