@@ -27,6 +27,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       difficulty: 'hero',                    // story | hero | legend (kid-settable)
       calmMode: false,                       // Wave 5: no shakes/particles/ambient motion
       soundOff: false,                       // Pass D: silence every beep/chime/fanfare
+      musicOff: false,                       // music pass: background loops off (SFX stay)
       // parent-only, PIN-protected. topics = all-on until set, EXCEPT
       // Every topic defaults ON (user decision 2026-07-11): missing from
       // parent.topics means enabled; only an explicit parent choice in
@@ -61,6 +62,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       shopShelf: [],       // Wave 8a (P8): last few sold items, on display
       catPettedDate: null, // Wave 8a (P8): the inn cat's daily pat, once/day
       seenGearHint: false, // one-time "the shop sells sharper blades" nudge
+      seenBraveHelp: false, // one-time ⚡ explainer on first brave toggle
       // ---------- Wave 8b: the two stances ----------
       // Two INDEPENDENT dials, both sticky, both the kid's to turn at will. They
       // COMPOSE — a kid can be brave and soothing at once. Neither is ever
@@ -75,6 +77,16 @@ var MM = globalThis.MM = globalThis.MM || {};
                            // outlives the fight (report card + Hall of Heroes)
       seenCeremony: false, // the first-battle question: boldly, or gently?
       academy: null,       // Miscount's daily homework: {date, done}
+      // ---------- Wave 9: "The Tending" (post-game practice) ----------
+      // Every field below is meaningless until s.endingDone — the kid isn't
+      // asked to tend a kingdom she hasn't finished putting right yet.
+      daysTended: 0,        // counts UP only. Never resets, never shames.
+      lastTendedDate: null, // dedupe: 2 tangles same day = still 1 day tended
+      tangles: null,        // {date, items:[{x,y,done}]} — like s.bounties
+      spiral: { highest: 0, landing: 0 }, // Spiral Stair: deepest floor reached, highest checkpoint
+      academyTotal: 0,      // lifetime Academy slates checked (attendance; never resets)
+      castleFurnish: { rug: false, garden: false, library: false, statues: [] },
+      petHats: [],          // owned pet-hat ids; s.isles.pet.hat is which one is WORN
     };
     E.enterWorld();
     E.save();
@@ -110,6 +122,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!s.difficulty) s.difficulty = 'hero';
     if (s.calmMode == null) s.calmMode = false;
     if (s.soundOff == null) s.soundOff = false;
+    if (s.musicOff == null) s.musicOff = false;
     if (!s.badges) { s.badges = {}; s.pendingBadges = []; }
     if (!s.bestiary) s.bestiary = { seen: {}, kills: {}, gauntlet: {} };
     if (!s.bestiary.gauntlet) s.bestiary.gauntlet = {};
@@ -160,6 +173,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     // gear-shop nudge: an old save past the stick has nothing to learn —
     // mark it seen so the hint can never fire as a non-sequitur late-game
     if (s.seenGearHint == null) s.seenGearHint = (s.equipped && s.equipped.weapon !== 'stick');
+    if (s.seenBraveHelp == null) s.seenBraveHelp = false;
     // Wave 8b: the stances, the befriended axis, and the Academy.
     // A returning hero starts in ⚔️ Strike — which is exactly what they have
     // been doing all along — and is NOT stopped at the door and asked how they
@@ -174,6 +188,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.seenCeremony == null) s.seenCeremony = !!s.seenBattleHelp;
     if (s.academy === undefined) s.academy = null;
     if (!s.bestiary.befriended) s.bestiary.befriended = {};
+    // Wave 9: "The Tending" — missing means "never tended yet," not reset.
+    if (s.daysTended == null) s.daysTended = 0;
+    if (s.lastTendedDate === undefined) s.lastTendedDate = null;
+    if (s.tangles === undefined) s.tangles = null;
+    if (!s.spiral) s.spiral = { highest: 0, landing: 0 };
+    if (s.academyTotal == null) s.academyTotal = 0;
+    if (!s.castleFurnish) s.castleFurnish = { rug: false, garden: false, library: false, statues: [] };
+    if (!s.castleFurnish.statues) s.castleFurnish.statues = [];
+    if (!s.petHats) s.petHats = [];
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     E.enterWorld();  // always resume on the overworld
@@ -570,6 +593,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     const start = safeStart(s);
     s.px = start.x; s.py = start.y;
     E.petPos = { x: s.px, y: s.py };
+    E.refreshTangles();
     MM.ui.log('You stand in the kingdom of Numeria.');
     MM.ui.refresh();
   };
@@ -719,6 +743,72 @@ var MM = globalThis.MM = globalThis.MM || {};
     const memory = typeof entry === 'string' ? entry : (s.endingDone ? entry.after : entry.before);
     MM.ui.dialog(`${task.itemEmoji} ${task.item}`,
       `<i>${task.dungeon}</i><br><br>${memory}`);
+  };
+
+  // ---------- Wave 9 (P3): cosmetic gold sinks — castle furnishing ----------
+  // Bump-to-buy, exactly like the Gallery's own plinths above. Plain gold
+  // for an item — deliberately NOT routed through the shop's money-quiz
+  // discount (that belongs to the shop counter; this is a fixture you walk
+  // up to around the house). Permanent, cosmetic, priced to matter.
+  E.castleFurnishBump = function (kind) {
+    const s = E.state;
+    const item = MM.data.CASTLE_FURNISH[kind];
+    if (!s.endingDone) {
+      return MM.ui.dialog('🏰 Not yet', 'The steward\'s ledger stays shut until the crown is truly yours.');
+    }
+    if (s.castleFurnish[kind]) {
+      return MM.ui.dialog(`${item.emoji} ${item.name}`, item.bought);
+    }
+    MM.ui.dialogChoices(`${item.emoji} ${item.name}`,
+      `${item.empty}<br><br>Furnish it for <b>${item.price} gold</b>?`,
+      [
+        { label: `Buy — ${item.price}g`, primary: true, onClick: () => {
+          if (s.gold < item.price) return MM.ui.dialog('🏰 Not quite', `That's <b>${item.price} gold</b> — you have ${s.gold}.`);
+          s.gold -= item.price;
+          s.castleFurnish[kind] = true;
+          MM.sound.fanfare();
+          E.save();
+          MM.ui.dialog(`${item.emoji} ${item.name}`, item.bought);
+        } },
+        { label: 'Not now', onClick: () => {} },
+      ]);
+  };
+
+  // Buy once, then wear/take-off freely — the gold sink is the FIRST hat;
+  // switching between owned hats afterward is free, same as swapping charms.
+  E.petHatAction = function (id) {
+    const s = E.state;
+    const pet = s.isles && s.isles.pet;
+    const h = MM.data.petHatById(id);
+    if (!pet || !h) return { ok: false };
+    if (!s.petHats.includes(id)) {
+      if (s.gold < h.price) return { ok: false, msg: `That's <b>${h.price} gold</b> — you have ${s.gold}.` };
+      s.gold -= h.price;
+      s.petHats.push(id);
+      pet.hat = id;
+      MM.sound.fanfare();
+    } else if (pet.hat === id) {
+      pet.hat = null;
+    } else {
+      pet.hat = id;
+    }
+    E.save();
+    return { ok: true };
+  };
+
+  // Three independent plinths (not a dependency chain, unlike the Gallery —
+  // these are trophies, not a story). Picks from E.gauntletBosses(), which
+  // already dedupes multi-floor mapIds down to one entry per boss.
+  E.commissionStatue = function (idx, name) {
+    const s = E.state;
+    if (s.gold < MM.data.STATUE_PRICE) {
+      return MM.ui.dialog('🗿 Not quite', `That's <b>${MM.data.STATUE_PRICE} gold</b> — you have ${s.gold}.`);
+    }
+    s.gold -= MM.data.STATUE_PRICE;
+    s.castleFurnish.statues[idx] = name;
+    MM.sound.fanfare();
+    E.save();
+    MM.ui.dialog(`🗿 ${name}`, MM.data.STATUE_LINE(name));
   };
 
   // ---------- the Study: the reveal ----------
@@ -1024,8 +1114,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     const task = MM.data.TASKS[idx - 1];
     // the Vault's monster stats pin to Cinderforge's tier (statIndex) even
     // though its own index (idx) drives map/roster/theme lookups — it's an
-    // optional side dungeon, not meant to outscale the mandatory Lighthouse
-    const statIdx = task.statIndex || idx;
+    // optional side dungeon, not meant to outscale the mandatory Lighthouse.
+    // The Spiral Stair (Wave 9) is the one dungeon with PER-FLOOR difficulty
+    // — every other dungeon is flat regardless of floor — ramping slowly
+    // past dungeon 21's tier as the kid climbs, capped well short of silly.
+    const statIdx = idx === MM.maps.SPIRAL_INDEX
+      ? Math.min(30, 21 + Math.floor(floor / 4))
+      : (task.statIndex || idx);
     const floors = MM.maps.dungeonFloors(idx);
     // remember the return spot when entering from ANY overworld (mainland,
     // isles, horologe, chime, or gullwrack) — but never on floor changes,
@@ -1116,7 +1211,18 @@ var MM = globalThis.MM = globalThis.MM || {};
     const exit = MM.maps.find(s.grid, 'X')[0];
     if (exit) { s.px = exit.x; s.py = exit.y; }
     E.petPos = { x: s.px, y: s.py };
-    if (floor === 0) {
+    // Wave 9 (P2): track the deepest floor and highest landing ever
+    // reached — "highest step of the Spiral" on the Hall plaque. No
+    // run-loss: this only ever counts UP, same spirit as s.daysTended.
+    if (idx === MM.maps.SPIRAL_INDEX) {
+      const n = floor + 1;
+      if (n > s.spiral.highest) s.spiral.highest = n;
+      const landing = n % 5 === 0;
+      if (landing && n > s.spiral.landing) s.spiral.landing = n;
+      MM.ui.log(landing ? `🌀 <b>Floor ${n}</b> — a landing. Catch your breath.` : `🌀 <b>Floor ${n}</b> of the Spiral Stair.`);
+      E.save();
+    }
+    if (idx !== MM.maps.SPIRAL_INDEX && floor === 0) {
       MM.ui.log(`You enter the ${task.dungeon}. (${task.mixed ? 'Everything you\'ve learned!' : MM.data.SKILL_NAMES[task.skill]})`);
       // Wave 8-preview (user playtest): a bounty that applies HERE announces
       // itself — dungeon-scoped jobs were progressing invisibly (or not at
@@ -1184,6 +1290,16 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (ch === 'V') return MM.ui.hallOfHeroes();
         if (ch === 'O') return E.throneRoom();
         if (ch === 'F') return;   // a banner. It is a very good banner.
+        // Wave 9 (P3): cosmetic gold sinks, bump-to-buy like the Gallery's
+        // own plinths — d/i/k furnishing, l the pet's wardrobe, n/w/r three
+        // independent boss-statue plinths (any order, no dependency chain).
+        if (ch === 'd') return E.castleFurnishBump('garden');
+        if (ch === 'i') return E.castleFurnishBump('rug');
+        if (ch === 'k') return E.castleFurnishBump('library');
+        if (ch === 'l') return MM.ui.petWardrobe();
+        if (ch === 'n') return MM.ui.statuePlinth(0);
+        if (ch === 'w') return MM.ui.statuePlinth(1);
+        if (ch === 'r') return MM.ui.statuePlinth(2);
         if (MM.data.NPCS[ch]) return E.talkNpc(ch);
         if (ch === '.' || ch === 'P') {
           // no stamina cost indoors — there's nothing to fight and nothing to
@@ -1228,7 +1344,13 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (ch === '6') return E.tryEnterDungeon(20);
         if (ch === 'W') return E.chimeDock();
       } else {
+        // Wave 9 (P1): a Daily Tangle standing on ordinary ground — not a
+        // grid glyph (they move day to day), so it's checked by position,
+        // same idea as a dungeon's monster array overlaid on the grid.
+        const tangleHere = s.tangles && s.tangles.items.find(t => !t.done && t.x === nx && t.y === ny);
+        if (tangleHere) return E.startTangleBattle(tangleHere);
         if (ch === 'C') return E.castle();
+        if (ch === 'H') return E.spiralMenu();
         if (ch === 'n') return MM.ui.noticeBoard();
         if (ch === 'W') return E.pier();
         if ('1234567890'.includes(ch)) return E.tryEnterDungeon(ch === '0' ? 10 : +ch);
@@ -1258,6 +1380,22 @@ var MM = globalThis.MM = globalThis.MM || {};
 
     // dungeon
     const mon = s.monsters.find(m => m.x === nx && m.y === ny && m.hp > 0);
+    // Round 5: bumping a calmed friend is never a fight ("if I bump into a
+    // calmed creature, I can still fight it, and it starts at 0% calm" —
+    // accidentally erasing your own kindness is the worst feeling in the
+    // game). It steps aside — you swap places — with a friendly word. This
+    // also means a becalmed monster can never block a chokepoint.
+    if (mon && (mon.becalmed || E.isPacified(mon))) {
+      const ox = s.px, oy = s.py;
+      s.px = mon.x; s.py = mon.y;
+      mon.x = ox; mon.y = oy;
+      if (mon.home) mon.home = { x: ox, y: oy };
+      MM.ui.log(`🤍 ${MM.data.theMon(mon.name, true)} shuffles aside to let you through. ${MM.data.pick(MM.data.FRIEND_BUMP_LINES)}`);
+      E.walkStamina();
+      MM.ui.playerMoved(dx);
+      MM.ui.refresh();
+      return;
+    }
     if (mon) return E.isOverwhelming(mon) ? E.tryOverwhelm(mon) : E.startCombat(mon);
     if (ch === 'D') return E.mathDoor(nx, ny);
     if (ch === 'Z') return E.clockDoor(nx, ny);
@@ -1671,6 +1809,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       // does not chase, does not attack, and cannot be woken by a thief's shout
       // (that's the whole promise — a friend stays a friend even when the room
       // goes loud). Bump it and you can still spar, by choice.
+      // Round 5: a just-becalmed monster SITS — right where the kid calmed
+      // it, so she always knows who is who ("they appear in different places
+      // than where the fight happened"). It settled; let it stay settled.
+      if (m.becalmed) { m.alerted = 0; continue; }
       if (E.isPacified(m)) {
         m.alerted = 0;
         if (Math.random() < 0.5) continue;   // mostly it just stays put, at ease
@@ -1799,12 +1941,26 @@ var MM = globalThis.MM = globalThis.MM || {};
   // problem's text and the kid's verbatim submitted answer. Only ever used
   // to grow s.recentMisses; every existing call site that doesn't pass it
   // keeps working exactly as before.
+  // Struggle pass (2026-07-12): the adaptive tier already drops QUIETLY on a
+  // rough patch — but silence reads as indifference to an anxious kid. When
+  // the last 4 answers in a topic were all misses, the next miss's feedback
+  // says one kind, true thing (once per session per topic, never a modal).
+  E.roughPatch = null; // battle.js reads-and-clears this on a miss
+  const roughPatchNoted = {};
+  function noteRoughPatch(s, skill) {
+    const m = s.mastery && s.mastery[skill];
+    if (!m || !m.recent || m.recent.length < 4) return;
+    if (m.recent.slice(-4).some(Boolean)) return;
+    if (roughPatchNoted[skill]) return;
+    roughPatchNoted[skill] = true;
+    E.roughPatch = skill;
+  }
   function recordAnswer(skill, correct, meta) {
     const s = E.state;
     MM.mastery.record(s, skill, correct);
     s.totals.answered++;
     if (correct) { s.totals.correct++; s.streak++; }
-    else s.streak = E.hasRing('focus') ? Math.floor(s.streak / 2) : 0;
+    else { s.streak = E.hasRing('focus') ? Math.floor(s.streak / 2) : 0; noteRoughPatch(s, skill); }
     checkBadge(skill);
     if (correct) E.bountyEvent('correct');
     const pet = s.isles && s.isles.pet;
@@ -1920,6 +2076,111 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
     s.isleBounties = { date: today, items };
     E.save();
+  };
+
+  // ---------- Wave 9 (P1): Daily Tangles — the renewable heartbeat ----------
+  // Post-game only. Mirrors refreshBounties exactly: date-keyed, regenerates
+  // on a real-day flip. Placement is DERIVED from the overworld's own
+  // walkability (every plain '.' grass tile), never a hand-picked list, so
+  // it can never land on a building, water, or a story tile.
+  E.refreshTangles = function () {
+    const s = E.state;
+    if (!s.endingDone) { s.tangles = null; return; }
+    const today = E.todayStr();
+    if (s.tangles && s.tangles.date === today) return;
+    const grid = MM.maps.parse(MM.maps.OVERWORLD, '~');
+    const spots = [];
+    for (let y = 0; y < grid.length; y++) {
+      for (let x = 0; x < grid[y].length; x++) {
+        if (grid[y][x] === '.') spots.push({ x, y });
+      }
+    }
+    const n = 1 + Math.floor(Math.random() * 3); // 1-3 a day
+    const items = [];
+    for (let i = 0; i < n && spots.length; i++) {
+      const pick = spots.splice(Math.floor(Math.random() * spots.length), 1)[0];
+      items.push({ x: pick.x, y: pick.y, done: false });
+    }
+    s.tangles = { date: today, items };
+    E.save();
+  };
+
+  // The notice board's self-narration ("A tangle was spotted near the Old
+  // Mine") — the nearest dungeon entrance by Manhattan distance, derived
+  // from the map itself rather than a hand-authored landmark list.
+  E.nearestLandmark = function (x, y) {
+    const grid = MM.maps.parse(MM.maps.OVERWORLD, '~');
+    let best = null, bestD = Infinity;
+    MM.data.TASKS.forEach((t, i) => {
+      if (t.exp) return; // only the ten mainland entrances are on this map
+      const ch = i === 9 ? '0' : String(i + 1);
+      const p = MM.maps.find(grid, ch)[0];
+      if (!p) return;
+      const d = Math.abs(p.x - x) + Math.abs(p.y - y);
+      if (d < bestD) { bestD = d; best = t.dungeon; }
+    });
+    return best || 'the castle';
+  };
+
+  // Untangling one = a short battle drawing the same weakest-first mixed
+  // pool as a Homework Golem — adaptive review wearing a story costume.
+  E.startTangleBattle = function (tangle) {
+    const s = E.state;
+    const m = E.diffMult();
+    const st = {
+      hp: Math.max(1, Math.round(9 * m.hp)),
+      atk: Math.max(1, Math.round(2 * m.atk)),
+    };
+    const roster = MM.data.MONSTERS[MM.maps.SPIRAL_INDEX - 1];
+    const type = roster.types[Math.floor(Math.random() * roster.types.length)];
+    const mon = {
+      name: type.name, sprite: type.sprite, pal: type.pal, verb: type.verb,
+      hp: st.hp, maxhp: st.hp, atk: st.atk, boss: false, stun: 0,
+    };
+    E.markSeen(mon);
+    let retryUsed = false;
+    const frostPending = [false];
+    MM.battle.start(mon, {
+      dungeonIndex: MM.maps.SPIRAL_INDEX,
+      hooks: Object.assign(E.stanceHooks(mon, frostPending), {
+        pickProblem: () => { E.spendStamina(1); return MM.mastery.pickArenaProblem(s); },
+        recordAnswer,
+        dodgeChance: () => E.dodgeChance(),
+        tryRetry() {
+          if (retryUsed || !E.hasCharm('ring')) return false;
+          retryUsed = true;
+          return true;
+        },
+        victory() {
+          E.recordKill(mon);
+          if (E.isSoothing() && E.recordBefriend(mon) && E.befriendedCount() === 1) {
+            (s.pendingBadges = s.pendingBadges || []).push({ befriend: E.beastKey(mon), sprite: mon.sprite, pal: mon.pal || null });
+          }
+          tangle.done = true;
+          const gold = E.gainGold(6 + Math.floor(Math.random() * 6));
+          const lines = [`💰 +${gold} gold`];
+          // "days tended" counts up only — two tangles the same real day is
+          // still ONE day tended, never a streak that can be broken.
+          const today = E.todayStr();
+          if (s.lastTendedDate !== today) {
+            s.lastTendedDate = today;
+            s.daysTended++;
+            lines.push(`🌀 <b>${s.daysTended} day${s.daysTended === 1 ? '' : 's'} tended.</b>`);
+            if (MM.data.TANGLE_MILESTONES[s.daysTended]) {
+              (s.pendingBadges = s.pendingBadges || []).push({ tangleMilestone: s.daysTended });
+            }
+          }
+          petFetch(lines);
+          E.save();
+          return { lines };
+        },
+        onEnd(result) {
+          if (result.dead) return E.die();
+          E.save();
+          MM.ui.refresh();
+        },
+      }),
+    });
   };
 
   // Wave 5 item 3: "Champion" (stage 2+) pets learn to fetch. 10% chance
@@ -2330,8 +2591,12 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.grantVictory = function (m, soothed) {
     const s = E.state;
     const task = MM.data.TASKS[s.dungeonIndex - 1];
-    E.recordKill(m);
-    E.bountyEvent('kill');
+    // A calmed friend was not DEFEATED (playtest 2026-07-12): a soothed
+    // regular records on the befriend axis only — no ⚔ tally, no defeatedAt
+    // (it isn't gone; see the becalm block below). Bosses keep recordKill
+    // either way — their flags and gauntlet marks are story bookkeeping.
+    if (!soothed || m.boss) E.recordKill(m); else E.markSeen(m);
+    E.bountyEvent('kill'); // board jobs count EITHER verb — kindness is progress
     if (m.behavior === 'thief') E.bountyEvent('thief'); // Wave 5: "catch 2 thieves"
     // Wave 8b: a soothed monster is recorded on the SECOND collection axis, and
     // the first of each kind earns a small ceremony (queued like a badge, so it
@@ -2339,7 +2604,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     let firstFriend = false;
     if (soothed) {
       firstFriend = E.recordBefriend(m);
-      if (firstFriend) (s.pendingBadges = s.pendingBadges || []).push({ befriend: E.beastKey(m), sprite: m.sprite, pal: m.pal || null });
+      // Round 5: the "A friend!" ceremony fires ONCE — for the very first
+      // friend the kid ever makes ("having the pop-up after every fight is
+      // ridiculous"). Every later kind gets its victory line and its 🕊 mark
+      // in the book, no modal.
+      if (firstFriend && E.befriendedCount() === 1) {
+        (s.pendingBadges = s.pendingBadges || []).push({ befriend: E.beastKey(m), sprite: m.sprite, pal: m.pal || null });
+      }
     }
     const baseGold = m.boss ? m.gold : Math.floor(Math.random() * (2 * s.dungeonIndex)) + s.dungeonIndex;
     const gold = E.gainGold(baseGold);
@@ -2424,6 +2695,13 @@ var MM = globalThis.MM = globalThis.MM || {};
       s.isles.breakwaterDone = true;
       lines.push('🧱 <i>Somewhere above, the last loose stone in the breakwater grinds back into place.</i>');
       lines.push('🌊 <b>The Sunken Breakwater holds again!</b>');
+    } else if (m.boss && task.spiral) {
+      // Wave 9: a landing's tangle-boss. Defeated forever, per landing floor
+      // (s.mapId is per-floor, e.g. 'd22f4') — no need to refight it to pass
+      // through on a later visit. No item, no s.haveItem: this only ever
+      // gates the chest sitting right beside it.
+      s.bossesDefeated[s.mapId] = true;
+      lines.push('🌀 <i>The tightest knot on this landing comes loose, all at once.</i>');
     } else if (m.boss && task.isle) {
       // isle bosses guard lighthouse lenses, not quest items
       s.bossesDefeated[s.mapId] = true;
@@ -2441,6 +2719,23 @@ var MM = globalThis.MM = globalThis.MM || {};
       }
       lines.push(`${task.itemEmoji} <b>You found the ${task.item}!</b>`);
       lines.push(task.exp ? `Bring it to Miscount 🧑‍🎓 across the bridge!` : `Bring it to the MathMaker at the castle! 🏰`);
+    }
+    // Playtest 2026-07-12 ("they seem to disappear, like ones that have been
+    // fought"): a soothed regular STAYS in the room, becalmed — full health,
+    // and since its species is befriended as of this very moment, the
+    // existing friend rendering (softened palette, 🕊 pip) and pacify logic
+    // pick it up with zero extra wiring. A soothed GUARD goes off duty and
+    // drifts from its post, so soothing can never leave a chokepoint blocked
+    // that defeating would have cleared — soothing is never the worse
+    // choice. Bosses keep their sincere endings; a mimic IS its chest
+    // (opened above); tangles dissolve — their whole self was the knot.
+    // Round 5 refinement: it SITS STILL right where it was calmed ("settles
+    // down right where it is" — wandering off made friends untrackable), and
+    // bumping it makes it politely step aside (see tryMove), so a becalmed
+    // guard can never block a chokepoint that defeating would have cleared.
+    if (soothed && !m.boss && !m.mimicChest) {
+      m.hp = m.maxhp;
+      m.becalmed = true;
     }
     // Wave 8b: the calmed monster's own send-off, and the friendship, spelled
     // out. Bosses keep their existing sincere endings — they were always being
@@ -2552,7 +2847,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         E.grantVictory(mon, E.isSoothing());
         return {
           msg: E.isSoothing()
-            ? 'It takes one look at your worked answer and simply comes untied — and then, unhurried, wanders off.'
+            ? 'It takes one look at your worked answer and simply comes untied — and settles down right there, entirely at peace.'
             : 'It takes one look at your worked answer and unties itself on the spot.',
           end: 'won',
         };
@@ -2589,9 +2884,11 @@ var MM = globalThis.MM = globalThis.MM || {};
         const w = E.equippedItem('weapon');
         return (w && w.verb) || 'holds steady in front of';
       },
-      playerStrike() {
+      playerStrike(braveAtPick) {
         let dmg = E.rollStrike();
-        const brave = !!s.brave;
+        // battle.js latches the brave state each problem was PICKED under —
+        // double damage only pays for a question actually asked the hard way
+        const brave = braveAtPick != null ? !!braveAtPick : !!s.brave;
         // ⚡ Brave: DOUBLE damage for the harder problem. playerStrike fires
         // exactly once per CORRECT battle answer, which is precisely what
         // "brave problems solved" means — so the lifetime counter lives here.
@@ -2754,8 +3051,12 @@ var MM = globalThis.MM = globalThis.MM || {};
          ✗ A wrong answer means it <b>doesn't land</b> — but you'll be shown the solution,
          so you'll get it next time.<br><br>
          🔥 Answer streaks add bonus power, and at 5+ you can land <b>CRITICAL HITS</b>.<br><br>
-         🕊⚔️ You can switch between <b>Strike</b> and <b>Soothe</b> whenever you like — the
-         buttons are right there in the battle, and the math is <b>exactly the same</b> either way.<br><br>
+         ${soothing
+           ? '🕊 Every victory here is a <b>calming</b>: the monster settles down right where it is, becomes a friend, and its whole kind stops picking fights with you.'
+           : '⚔️ Every victory clears the way — and the treasures, gold, and learning are yours.'}
+         <i>(You chose your way at the door. The ⚙️ button can change it, any time.)</i><br><br>
+         ⚡ <b>Brave</b> (in the battle) is for daredevils: the <b>hardest</b> questions, and every
+         right answer counts <b>double</b>. Getting one wrong costs nothing extra.<br><br>
          🏃 You can always <b>flee</b> — but the monster <b>recovers all its health</b>
          while you run. Sticking with it is how you win!<br><br>
          Take your time — there are <b>no timers</b>. Good luck!<br><br>
@@ -2783,7 +3084,7 @@ var MM = globalThis.MM = globalThis.MM || {};
             ? 'The MathMaker hands you a <b>🎀 Ribbon Streamer</b>. "Gently, then. It works — I promise you it works. A tangle comes loose exactly as well as it comes apart."'
             : 'The MathMaker hands you a <b>🥢 Wooden Stick</b>. "Boldly, then. Go and meet it."'}
            <br><br>
-           <i>"You can always change your way. Most heroes do, eventually."</i>`,
+           <i>"You can always change your way — the ⚙️ button remembers where I keep the question. Most heroes do, eventually."</i>`,
           tutorial);
       };
       return MM.ui.dialogChoices('🕯 Before your first monster',
@@ -3352,6 +3653,9 @@ var MM = globalThis.MM = globalThis.MM || {};
           // never touches mastery or badges. The kid is the grader here.
           n++;
           s.academy.done = n;
+          // Wave 9 (P4): lifetime attendance — never resets, grows the room
+          // (MM.data.academyGrowthLine) and the Hall of Heroes plaque.
+          s.academyTotal = (s.academyTotal || 0) + 1;
           const last = n >= ACADEMY_SLATES;
           let msg = correct
             ? (prob.badStep < 0 ? MM.data.pick(MM.data.ACADEMY_CLEAN) : MM.data.pick(MM.data.ACADEMY_CAUGHT))
@@ -3371,7 +3675,10 @@ var MM = globalThis.MM = globalThis.MM || {};
         onEnd() { MM.ui.refresh(); },
       });
     };
-    MM.ui.dialog('📝 The Academy', MM.data.pick(MM.data.ACADEMY_INTRO), step);
+    // Wave 9 (P4): the room visibly grows with attendance — one line, shown
+    // every visit, so returning kids actually SEE the desks accumulate.
+    const growth = MM.data.academyGrowthLine(s.academyTotal || 0);
+    MM.ui.dialog('📝 The Academy', `${MM.data.pick(MM.data.ACADEMY_INTRO)}<br><br><span class="dim">${growth}</span>`, step);
   };
 
   E.miscountAssign = function () {
@@ -3515,6 +3822,38 @@ var MM = globalThis.MM = globalThis.MM || {};
         { label: '🥚 The green egg', onClick: pick('green') },
         { label: '🥚 The rose egg', onClick: pick('rose') },
       ]);
+  };
+
+  // ---------- Wave 9 (P2): the Spiral Stair ----------
+  // Post-game volume, castle-adjacent. Explicitly NOT a roguelike: nothing
+  // is ever lost on the way back down, Beacon and Rope both already work
+  // (they only need E.inDungeon(), true for any 'd'-prefixed mapId — see
+  // MM.maps.SPIRAL_INDEX's floor naming), and returning to your highest
+  // landing costs nothing.
+  E.spiralOpen = () => !!(E.state && E.state.endingDone);
+
+  E.enterSpiral = function (n) {
+    E.enterDungeon(MM.maps.SPIRAL_INDEX, n - 1);
+  };
+
+  E.spiralMenu = function () {
+    const s = E.state;
+    if (!E.spiralOpen()) {
+      return MM.ui.dialog('🌀 The Spiral Stair', MM.data.SPIRAL_SEALED);
+    }
+    const buttons = [];
+    buttons.push({
+      label: '🌀 Climb from Floor 1', primary: !s.spiral.landing,
+      onClick: () => E.enterSpiral(1),
+    });
+    if (s.spiral.landing > 0) {
+      buttons.push({
+        label: `🏳 Return to your Landing (Floor ${s.spiral.landing})`, primary: true,
+        onClick: () => E.enterSpiral(s.spiral.landing),
+      });
+    }
+    buttons.push({ label: 'Not now', onClick: () => {} });
+    MM.ui.dialogChoices('🌀 The Spiral Stair', MM.data.SPIRAL_INTRO, buttons);
   };
 
   // ---------- town ----------

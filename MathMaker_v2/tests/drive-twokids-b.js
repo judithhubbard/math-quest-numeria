@@ -113,14 +113,16 @@ function canonicalize(p) {
   await page.waitForFunction(() => MM.battle.active(), null, { timeout: 15000 });
   check(true, 'the first battle begins');
   await page.waitForSelector('#stanceRow .stance-btn', { timeout: 15000 });  // built with round 1
+  // round 5 (one-track design): battles show ONLY ⚡ Brave — no Strike/Soothe
+  // buttons; the way was chosen at the Ceremony and lives in the ⚙️ dialog
   const soothingUi = await ev(() => ({
     calmBar: !!document.querySelector('#monFill.calm'),
-    stanceRow: !!document.querySelector('#stanceRow .stance-btn'),
-    soothOn: !!document.querySelector('#stSoothe.on'),
+    braveBtn: !!document.querySelector('#stBrave'),
+    wayButtons: !!document.querySelector('#stSoothe, #stStrike'),
   }));
   check(soothingUi.calmBar, 'the monster bar is a CALM meter (teal, and it fills) rather than health draining');
-  check(soothingUi.stanceRow, 'the stance row is present in the battle');
-  check(soothingUi.soothOn, '🕊 Soothe reads as the active stance');
+  check(soothingUi.braveBtn, '⚡ Brave is in the battle');
+  check(!soothingUi.wayButtons, 'NO Strike/Soothe buttons — one track, chosen at the Ceremony');
   await page.waitForTimeout(400);
   await page.screenshot({ path: SHOTS + '/2-soothe-battle.png' });
 
@@ -177,19 +179,24 @@ function canonicalize(p) {
   await page.waitForTimeout(300);
   await page.screenshot({ path: SHOTS + '/4-world-friends-and-hostiles.png' });
 
-  // bump it and you can still spar, by choice
-  await ev(() => {
+  // round 5: bumping a friend is NEVER a fight — it steps aside (you swap
+  // places), with a friendly word ("I can still fight it, and it starts at
+  // 0% calm" — accidentally erasing your own kindness, fixed)
+  const swap = await ev(() => {
     const s = MM.engine.state;
     const friendName = Object.keys(s.bestiary.befriended)[0];
-    const friend = s.monsters.find(m => m.name === friendName && !m.boss);
+    const friend = s.monsters.find(m => m.name === friendName && !m.boss && m.hp > 0);
     s.px = friend.x; s.py = friend.y - 1;
+    const before = { fx: friend.x, fy: friend.y, px: s.px, py: s.py };
+    MM.engine.tryMove(0, 1);
+    return { before, after: { fx: friend.x, fy: friend.y, px: s.px, py: s.py }, battle: MM.battle.active() };
   });
-  await page.keyboard.press('ArrowDown');
-  await page.waitForFunction(() => MM.battle.active() || MM.ui.modalOpen(), null, { timeout: 8000 });
-  check(await ev(() => MM.battle.active() || MM.ui.modalOpen()), 'bumping a friend deliberately STILL starts a fight — the choice stays yours');
-  await ev(() => { if (MM.battle.active()) MM.battle.current = MM.battle.current; });
-  if (await ev(() => MM.battle.active())) await winBattle();
-  await clearModals(4);
+  check(!swap.battle, 'bumping a friend is never a fight');
+  check(swap.after.px === swap.before.fx && swap.after.py === swap.before.fy
+    && swap.after.fx === swap.before.px && swap.after.fy === swap.before.py,
+    'the friend steps aside — you swap places');
+  const bumpLog = await ev(() => document.getElementById('log').innerText);
+  check(/shuffles aside/.test(bumpLog), 'the step-aside narrates itself');
 
   // ================= The bestiary's second axis =================
   await ev(() => { MM.engine.enterWorld(); });

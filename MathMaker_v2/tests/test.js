@@ -260,7 +260,7 @@ if (revs.length !== 3) fail('pickReviewProblems count');
     if (names.has(c.name)) fail(`bestiary: duplicate monster name "${c.name}" (cards are keyed by name)`);
     names.add(c.name);
   }
-  if (cards.length !== 77) fail(`bestiary: expected 77 cards, found ${cards.length}`);
+  if (cards.length !== 80) fail(`bestiary: expected 80 cards, found ${cards.length}`);
 }
 
 // ---------- Wave 2: enchant gems + the amulet slot ----------
@@ -438,7 +438,12 @@ function auditDoors(rawGrid, label) {
 }
 // EVERY dungeon, derived — never a hardcoded list again (Wave 6.5): the
 // task table is the single source of truth for how many dungeons exist.
+// The Spiral Stair (Wave 9) is exempt: its 'D' doors sit in open rooms, not
+// corridor chokepoints (post-game practice stations, not lock-and-key
+// gates), so the "does this door gate anything" check doesn't apply — it
+// gets its own plain-reachability audit below instead.
 for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
+  if (idx === MM.maps.SPIRAL_INDEX) continue;
   MM.maps.dungeonFloors(idx).forEach((raw, fi) => auditDoors(raw, `dungeon ${idx} f${fi}`));
 }
 
@@ -1430,7 +1435,9 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
     }
   }
   const adj = p => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen.has((p.x + dx) + ',' + (p.y + dy)));
-  for (const ch of ['E', 'V', 'O', 'Q', 'J', 'X']) {
+  // Wave 9 (P3): d/i/k furnishing, l the pet's wardrobe, n/w/r the statue
+  // plinths — same bumpability contract as the Gallery's own plinths.
+  for (const ch of ['E', 'V', 'O', 'Q', 'J', 'X', 'd', 'i', 'k', 'l', 'n', 'w', 'r']) {
     for (const p of MM.maps.find(g, ch)) {
       if (!adj(p)) fail(`castle: '${ch}' at ${p.x},${p.y} can never be bumped — nothing walkable beside it`);
     }
@@ -1438,6 +1445,14 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   // the castle's two NPCs must actually exist, or they draw as bare floor
   for (const ch of ['Q', 'J']) {
     if (!MM.data.NPCS[ch]) fail(`castle: glyph '${ch}' has no NPCS entry`);
+  }
+  // Wave 9: the townsfolk NPC-draw pass runs on every glyph, on every
+  // overworld — a NON-NPC castle glyph that happens to collide with an
+  // MM.data.NPCS key (used by some OTHER map's villager) draws that
+  // villager sprite right over the tile. Caught once only by screenshot;
+  // this makes it impossible to silently reintroduce.
+  for (const ch of ['d', 'i', 'k', 'l', 'n', 'w', 'r']) {
+    if (MM.data.NPCS[ch]) fail(`castle: furnishing glyph '${ch}' collides with an MM.data.NPCS key — the townsfolk pass will draw a villager over it`);
   }
   // one Gallery memory per mainland task
   if (!MM.data.GALLERY || MM.data.GALLERY.length !== 10) {
@@ -1651,6 +1666,55 @@ for (const skill of skills) {
   st.level = 7; // gap of 6 — right at the threshold
   if (!MM.engine.isOverwhelming({})) fail('overwhelm: a gap of exactly 6 should trigger');
   MM.engine.state = null;
+}
+
+// ---------- Pedagogy pass (2026-07-12): solutions must TEACH ----------
+// The worked solution is the game's only teaching moment. These checks pin
+// the process-narration so a refactor can't quietly regress to "line up the
+// columns: <answer>".
+{
+  let sawBorrow = false, sawCarry = false, sawBringDown = false, sawLateJoin = false;
+  for (let i = 0; i < 400 && !(sawBorrow && sawCarry); i++) {
+    const p = MM.problems.generate('multidigit_addsub', 3);
+    if (/borrow/.test(p.solution)) sawBorrow = true;
+    if (/carry/.test(p.solution)) sawCarry = true;
+  }
+  if (!sawBorrow) fail('pedagogy: subtraction solutions never narrate a borrow');
+  if (!sawCarry) fail('pedagogy: addition solutions never narrate a carry');
+  for (let i = 0; i < 60 && !sawBringDown; i++) {
+    if (/bring down/.test(MM.problems.generate('long_division', 3).solution)) sawBringDown = true;
+  }
+  if (!sawBringDown) fail('pedagogy: long division solutions never walk the algorithm');
+  if (/a eighth/.test(JSON.stringify(Array.from({ length: 200 }, () => MM.problems.generate('music_reading', 2).text)))) {
+    fail('pedagogy: "a eighth note" regressed');
+  }
+  // late topics join review pools once their home dungeon is done
+  const stLate = { parent: { topics: {} }, mastery: {}, isles: { spireDone: true, hallsDone: false, breakwaterDone: true } };
+  const met = MM.mastery.metLateTopics(stLate);
+  if (met.join(',') !== 'time_reading,geometry') fail(`pedagogy: metLateTopics wrong: ${met}`);
+  for (let i = 0; i < 3000 && !sawLateJoin; i++) {
+    if (MM.mastery.pickCombatProblem(stLate, 10).skill === 'time_reading') sawLateJoin = true;
+  }
+  if (!sawLateJoin) fail('pedagogy: a met late topic never appears in mainland review');
+}
+
+// ---------- Music pass (2026-07-12): track structure audit ----------
+// The composer can't hear headless Chrome — but structure is checkable:
+// every note lands inside its loop, names a real frequency, and stays
+// UNDER the effects volume (music is background by design-rule).
+{
+  require('../js/music.js');
+  const tracks = MM.music.TRACKS;
+  for (const [name, t] of Object.entries(tracks)) {
+    if (!t.tempo || !t.loop || !t.notes.length) fail(`music: track '${name}' malformed`);
+    for (const [beat, note, dur, vol, type] of t.notes) {
+      if (beat < 0 || beat >= t.loop) fail(`music '${name}': note at beat ${beat} outside its ${t.loop}-beat loop`);
+      if (dur <= 0) fail(`music '${name}': zero/negative duration at beat ${beat}`);
+      if (!(vol > 0 && vol <= 0.05)) fail(`music '${name}': volume ${vol} breaks the background rule (0 < v <= 0.05)`);
+      if (type !== 'sine' && type !== 'triangle') fail(`music '${name}': harsh oscillator '${type}'`);
+    }
+  }
+  if (!tracks.world || !tracks.dungeon || !tracks.battle) fail('music: a moment is missing its track');
 }
 
 // ---------- Wave 8a (P5): rust ordering ----------
@@ -1947,6 +2011,192 @@ for (const skill of skills) {
       fail(`softPalette('${fam}') emits unsorted keys — the sprite cache would mint duplicate canvases`);
     }
   }
+}
+
+// ================= Wave 9: "The Tending" (post-game practice) =================
+
+// ---------- P2: the Spiral Stair's chunk templates ----------
+// Own dedicated reachability audit (not the shared door-gating one — its
+// 'D' doors are practice stations in open rooms, not corridor gates).
+{
+  const bfsReach = (rows, label) => {
+    rows.forEach((r, i) => { if (r.length !== 12) fail(`${label} row ${i} length ${r.length}, want 12`); });
+    if (rows.length !== 10) fail(`${label} has ${rows.length} rows, want 10`);
+    const g = MM.maps.parse(rows, '#');
+    const X = MM.maps.find(g, 'X')[0];
+    if (!X) return fail(`${label}: no 'X' arrival tile`);
+    const seen = new Set([X.x + ',' + X.y]);
+    const q = [X];
+    while (q.length) {
+      const { x, y } = q.shift();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (ny < 0 || ny >= g.length || nx < 0 || nx >= g[0].length || g[ny][nx] === '#') continue;
+        const k = nx + ',' + ny;
+        if (!seen.has(k)) { seen.add(k); q.push({ x: nx, y: ny }); }
+      }
+    }
+    for (const ch of ['D', 'm', '>', '*', 'b']) {
+      for (const p of MM.maps.find(g, ch)) {
+        if (!seen.has(p.x + ',' + p.y)) fail(`${label}: '${ch}' at ${p.x},${p.y} unreachable from X`);
+      }
+    }
+  };
+  MM.maps.SPIRAL_REGULAR.forEach((rows, i) => bfsReach(rows, `spiral regular chunk ${i}`));
+  MM.maps.SPIRAL_LANDING.forEach((rows, i) => bfsReach(rows, `spiral landing chunk ${i}`));
+  if (MM.maps.SPIRAL_REGULAR.length < 6) fail('spiral: fewer than 6 regular chunks — not enough variety');
+  if (MM.maps.SPIRAL_LANDING.length < 2) fail('spiral: fewer than 2 landing chunks');
+
+  // materialization: the right length, landings on every 5th floor, and the
+  // very top floor has no way further up (the tower has to end somewhere)
+  const floors = MM.maps.dungeonFloors(MM.maps.SPIRAL_INDEX);
+  if (floors.length !== MM.maps.SPIRAL_MAX_FLOOR) fail(`spiral: expected ${MM.maps.SPIRAL_MAX_FLOOR} floors, got ${floors.length}`);
+  const isLandingFloor = f => MM.maps.find(MM.maps.parse(floors[f - 1], '#'), 'b').length > 0;
+  for (let f = 5; f <= MM.maps.SPIRAL_MAX_FLOOR; f += 5) {
+    if (!isLandingFloor(f)) fail(`spiral: floor ${f} should be a landing (chest + tougher tangle)`);
+  }
+  if (isLandingFloor(1) || isLandingFloor(4)) fail('spiral: a non-multiple-of-5 floor should not be a landing');
+  const topGrid = MM.maps.parse(floors[MM.maps.SPIRAL_MAX_FLOOR - 1], '#');
+  if (MM.maps.find(topGrid, '>').length) fail('spiral: the top floor still has a way further up');
+  // calling it again must return the SAME array (materialized once, not
+  // reshuffled on every call — floors are stable within a session)
+  if (MM.maps.dungeonFloors(MM.maps.SPIRAL_INDEX) !== floors) fail('spiral: dungeonFloors(22) is not cached/stable');
+}
+
+// ---------- P2: the Spiral's world-map entrance + per-floor difficulty ----------
+{
+  const ow = MM.maps.parse(MM.maps.OVERWORLD, '~');
+  if (MM.maps.find(ow, 'H').length !== 1) fail('overworld: want exactly one Spiral Stair tower (H)');
+  MM.engine.state = { endingDone: false };
+  if (MM.engine.spiralOpen()) fail('spiralOpen: must stay shut before the ending');
+  MM.engine.state.endingDone = true;
+  if (!MM.engine.spiralOpen()) fail('spiralOpen: should open once the ending is done');
+  MM.engine.state = null;
+  // roster: 2 tangle types + a tougher landing boss, no crueler than the rest
+  const roster = MM.data.MONSTERS[MM.maps.SPIRAL_INDEX - 1];
+  if (!roster || roster.types.length < 2 || !roster.boss) fail('spiral: MONSTERS roster incomplete');
+}
+
+// ---------- P1: Daily Tangles — placement is DERIVED, never hand-listed ----------
+{
+  const ow = MM.maps.parse(MM.maps.OVERWORLD, '~');
+  for (let trial = 0; trial < 8; trial++) {
+    MM.engine.state = { endingDone: true, tangles: null };
+    MM.engine.refreshTangles();
+    const s = MM.engine.state;
+    if (!s.tangles || !s.tangles.items.length) { fail('refreshTangles: produced no tangles'); break; }
+    if (s.tangles.items.length < 1 || s.tangles.items.length > 3) fail(`refreshTangles: expected 1-3 tangles, got ${s.tangles.items.length}`);
+    for (const t of s.tangles.items) {
+      if (ow[t.y][t.x] !== '.') fail(`tangle placed on non-walkable tile '${ow[t.y][t.x]}' at ${t.x},${t.y}`);
+    }
+  }
+  // gated on endingDone, and regenerates only on a real day-flip (bounty-board recipe)
+  MM.engine.state = { endingDone: false, tangles: null };
+  MM.engine.refreshTangles();
+  if (MM.engine.state.tangles !== null) fail('refreshTangles: must stay null before the ending');
+  const today = MM.engine.todayStr();
+  MM.engine.state = { endingDone: true, tangles: { date: today, items: [{ x: 1, y: 1, done: false }] } };
+  MM.engine.refreshTangles();
+  if (MM.engine.state.tangles.items.length !== 1 || MM.engine.state.tangles.items[0].x !== 1) {
+    fail('refreshTangles: regenerated on the SAME day — should only flip on a real day change');
+  }
+  MM.engine.state = null;
+
+  // nearestLandmark: a name, always — never crashes on an edge coordinate
+  const name = MM.engine.nearestLandmark(0, 0);
+  if (typeof name !== 'string' || !name) fail('nearestLandmark: did not return a usable name');
+}
+
+// ---------- P3: cosmetic gold sinks — data completeness ----------
+{
+  for (const kind of ['rug', 'garden', 'library']) {
+    const it = MM.data.CASTLE_FURNISH[kind];
+    if (!it || !it.name || !it.emoji || !it.price || !it.empty || !it.bought) {
+      fail(`CASTLE_FURNISH.${kind} is missing a required field`);
+    }
+  }
+  if (!MM.data.STATUE_PRICE || !MM.data.STATUE_EMPTY || typeof MM.data.STATUE_LINE('Test Boss') !== 'string') {
+    fail('statue data incomplete');
+  }
+  const hatIds = new Set();
+  for (const h of MM.data.PET_HATS) {
+    if (!h.id || !h.name || !h.emoji || !h.price) fail(`PET_HATS entry "${h.id}" is missing a required field`);
+    hatIds.add(h.id);
+  }
+  if (hatIds.size !== MM.data.PET_HATS.length) fail('duplicate ids in MM.data.PET_HATS');
+  for (const n of [10, 50, 100]) {
+    const ms = MM.data.TANGLE_MILESTONES[n];
+    if (!ms || !ms.title || !ms.body) fail(`TANGLE_MILESTONES[${n}] is missing a required field`);
+  }
+}
+
+// ---------- P3: buying/wearing pet hats, and commissioning statues ----------
+{
+  MM.engine.state = {
+    gold: 500, petHats: [], isles: { pet: { name: 'Fido', hat: null } }, castleFurnish: { statues: [] },
+  };
+  const cheap = MM.data.PET_HATS.slice().sort((a, b) => a.price - b.price)[0];
+  const r1 = MM.engine.petHatAction(cheap.id);
+  if (!r1.ok) fail('petHatAction: buying an affordable hat should succeed');
+  if (MM.engine.state.isles.pet.hat !== cheap.id) fail('petHatAction: buying a hat should wear it immediately');
+  if (!MM.engine.state.petHats.includes(cheap.id)) fail('petHatAction: bought hat not recorded as owned');
+  if (MM.engine.state.gold !== 500 - cheap.price) fail('petHatAction: gold not deducted correctly');
+  MM.engine.petHatAction(cheap.id); // already worn -> take it off
+  if (MM.engine.state.isles.pet.hat !== null) fail('petHatAction: bumping a worn (owned) hat again should take it off');
+  const goldBefore = MM.engine.state.gold;
+  MM.engine.petHatAction(cheap.id); // owned, not worn -> wear again, no charge
+  if (MM.engine.state.gold !== goldBefore) fail('petHatAction: re-wearing an OWNED hat must be free');
+
+  MM.engine.state.gold = 0;
+  const pricey = MM.data.PET_HATS.slice().sort((a, b) => b.price - a.price)[0];
+  const r2 = MM.engine.petHatAction(pricey.id);
+  if (r2.ok || !r2.msg) fail('petHatAction: buying with insufficient gold should fail with a message, not silently succeed');
+
+  MM.engine.state.gold = 1000;
+  MM.engine.commissionStatue(0, 'The Murk');
+  if (MM.engine.state.castleFurnish.statues[0] !== 'The Murk') fail('commissionStatue: did not record the boss name');
+  if (MM.engine.state.gold !== 1000 - MM.data.STATUE_PRICE) fail('commissionStatue: gold not deducted correctly');
+  MM.engine.state = null;
+}
+
+// ---------- P4: Academy growth + Hall of Heroes plumbing ----------
+{
+  if (MM.data.academyGrowthLine(0) !== MM.data.ACADEMY_GROWTH[0].line) fail('academyGrowthLine(0) should be the starting line');
+  if (MM.data.academyGrowthLine(9) !== MM.data.ACADEMY_GROWTH[0].line) fail('academyGrowthLine(9) should not yet show the 10-attendance line');
+  if (MM.data.academyGrowthLine(10) === MM.data.ACADEMY_GROWTH[0].line) fail('academyGrowthLine(10) should have grown past the starting line');
+  if (MM.data.academyGrowthLine(999) !== MM.data.ACADEMY_GROWTH[MM.data.ACADEMY_GROWTH.length - 1].line) {
+    fail('academyGrowthLine: a very high count should show the LAST (biggest) growth stage');
+  }
+}
+
+// ---------- migration: an old (pre-Wave-9) save gets sane defaults ----------
+{
+  localStorage.setItem('mathmaker2_save_wave9migrant', JSON.stringify({
+    version: 4, name: 'wave9migrant', hp: 24, maxhp: 24, stamina: 100, maxStamina: 100,
+    gold: 10, level: 1, xp: 0, potions: 1, difficulty: 'hero',
+    parent: { pin: null, topics: {} }, taskIndex: 13, haveItem: false, tasksDone: [1,2,3,4,5,6,7,8,9,10,11,12,13],
+    mastery: {}, badges: {}, bestiary: { seen: {}, kills: {}, gauntlet: {} },
+    continent: 'west', isles: { lenses: {}, keys: {}, egg: null, pet: null },
+    charmsOn: [], opened: {}, bossesDefeated: {}, defeatedAt: {}, streak: 0,
+    totals: { answered: 0, correct: 0 }, worldPos: null, seenBattleHelp: true,
+    endingDone: true, gear: { weapon: ['stick'], body: ['clothes'], helmet: [], boots: [], ring: [], amulet: [] },
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null }, enchants: {},
+    items: { food: {}, treasures: [], charms: [], gems: [] },
+  }));
+  MM.engine.load('wave9migrant');
+  const s = MM.engine.state;
+  if (s.daysTended !== 0) fail('migration: daysTended should default to 0');
+  // this fixture has endingDone:true, so E.enterWorld's own E.refreshTangles()
+  // call populates tangles immediately on load — correct behavior, not a bug;
+  // just check the shape is sane rather than asserting it stayed null.
+  if (s.tangles !== null && (!s.tangles.date || !Array.isArray(s.tangles.items))) {
+    fail('migration: tangles should be null or a well-formed {date, items}');
+  }
+  if (!s.spiral || s.spiral.highest !== 0 || s.spiral.landing !== 0) fail('migration: spiral should default to {highest:0, landing:0}');
+  if (s.academyTotal !== 0) fail('migration: academyTotal should default to 0');
+  if (!s.castleFurnish || s.castleFurnish.rug !== false || !Array.isArray(s.castleFurnish.statues)) fail('migration: castleFurnish should default sensibly');
+  if (!Array.isArray(s.petHats) || s.petHats.length) fail('migration: petHats should default to an empty array');
+  MM.engine.state = null;
 }
 
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');

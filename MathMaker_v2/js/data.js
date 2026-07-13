@@ -219,6 +219,22 @@ var MM = globalThis.MM = globalThis.MM || {};
       assign: "Gullwrack Harbor's Sunken Breakwater has crumbled into the sea, and something's nesting in the wreckage.",
       done: 'The Breakwater holds again!',
     },
+    // dungeon 22 — Wave 9: the Spiral Stair. Post-game only (gated on
+    // s.endingDone, not on this entry — see E.spiralOpen). No quest item,
+    // no Miscount turn-in: item:null routes startCombat.victory() away from
+    // the generic "you found the X" text (see the `spiral` branch there),
+    // exactly like the Vault's item:null. `spiral:true` (not `vault`,
+    // `finale`, `spire`, `chime`, or `breakwater` — all spoken for) marks a
+    // landing's tangle-boss as defeated-forever without setting s.haveItem.
+    // Its floors are NOT hand-authored: MM.maps.dungeonFloors special-cases
+    // idx 22 to build a long procedural run from a small chunk pool (see
+    // maps.js). statIndex is likewise special-cased per-floor in
+    // E.enterDungeon (a slow ramp past 21), not read from here.
+    {
+      exp: true, mixed: true, skill: null, spiral: true,
+      dungeon: 'The Spiral Stair', item: null, itemEmoji: null,
+      assign: '', done: '',
+    },
   ];
 
   // Battle-scene colors per dungeon (sky gradient + ground).
@@ -244,6 +260,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     { sky1: '#241c14', sky2: '#4a3a20', ground: '#2e2414', accent: '#e0b84a' },  // 19 clockwork spire
     { sky1: '#1c1430', sky2: '#3d2a5c', ground: '#241c3a', accent: '#e88ac4' },  // 20 resonant halls
     { sky1: '#0e1f2b', sky2: '#1f3f4a', ground: '#152d34', accent: '#7ab8b0' },  // 21 sunken breakwater
+    { sky1: '#211c33', sky2: '#3a3050', ground: '#241f38', accent: '#cfc6e8' },  // 22 the Spiral Stair
   ];
 
   // Monster rosters per dungeon (1-10): sprite + palette swap + attack verb.
@@ -496,6 +513,20 @@ var MM = globalThis.MM = globalThis.MM || {};
           desc: 'Keeps its loot in a coat made entirely of pockets. Nobody has counted the pockets. Nobody dares.' }],
       boss: { name: 'The Undertow', sprite: 'ghost', pal: { A: '#1f4a52', B: '#153338', E: '#9adcd4', k: '#0a1f22' }, verb: 'drags at',
           desc: 'Never learned where the edges of things are — the shore, the harbor wall, its own temper. You showed it, gently, where the lines go.' } },
+    // 22: the Spiral Stair (Wave 9) — post-game practice. Every "monster" in
+    // this game has always narratively BEEN a tangle (see the Study reveal);
+    // here, for the first time, one just looks like it. The landing boss
+    // is a bigger, tighter knot — no crueler than the rest, just slower to
+    // work loose.
+    { types: [
+        { name: 'Loose Tangle', sprite: 'tangle', pal: null, verb: 'snags',
+          behavior: 'wander',
+          desc: 'A small unfinished sum, wandering. Doesn\'t mean any harm — it just hasn\'t been worked out yet.' },
+        { name: 'Snarled Tangle', sprite: 'tangle', pal: { T: '#8a6ab0', W: '#e0d4f4' }, verb: 'wraps around',
+          behavior: 'chase',
+          desc: 'A little more knotted than most. Give it time. Give it a worked answer, really.' }],
+      boss: { name: 'The Knot', sprite: 'tangle', pal: { T: '#4a3d68', k: '#150f22', W: '#8a7ab0' }, verb: 'coils around',
+          desc: 'Every landing has one — the tightest tangle on the stair, holding the whole knot together out of sheer stubbornness.' } },
   ];
 
   // Miscount's sparring partner gets a card too (all golem levels share it).
@@ -906,8 +937,18 @@ var MM = globalThis.MM = globalThis.MM || {};
       win: ['The {name} is defeated!'],
       // generic MUST carry every sub-pool: MM.data.flavor falls back to it per
       // KIND, and a missing key there would hand pick() an undefined pool.
-      soothe: ['The {name} loosens, sighs, and wanders off in peace.'],
+      soothe: ['The {name} loosens, sighs, and settles down happily right where it is.'],
       fret: ['The {name} tenses up again. So nearly calm, though.'],
+    },
+    // Wave 9: the Spiral Stair's tangles — the game's oldest metaphor,
+    // finally just standing there looking like one.
+    tangle: {
+      enter: ['The {name} knots itself tighter, unsure of you.',
+              'The {name} loops and re-loops, working itself into a state.'],
+      miss: ['The {name} snags you and looks rather pleased about it.'],
+      win: ['The {name} comes loose all at once, and the mess simply resolves.'],
+      soothe: ['The {name} loosens, slips free of itself, and drifts off as a single unknotted thread.'],
+      fret: ['The {name} snarls back up, still not sure of you.'],
     },
   };
 
@@ -997,6 +1038,22 @@ var MM = globalThis.MM = globalThis.MM || {};
   // Bespoke soothe-victory lines for the monsters with the most personality —
   // keyed by NAME, checked before the family pool (MM.data.sootheLine, below).
   // A Cuckoo deserves better than "the bat lands."
+  // Struggle pass: said once per session per topic, after a run of misses,
+  // under the worked solution. True, kind, and never about the kid's worth.
+  MM.data.ROUGH_PATCH_LINES = [
+    'This kind is being stubborn today. Every worked answer above is the practice — that\'s how it comes loose.',
+    'Tricky ones lately. The problems will meet you where you are — they always do.',
+    'A hard stretch — every hero has them. Read the working above; next one starts fresh.',
+  ];
+
+  // Round 5: the little courtesies of a calmed friend when you bump it.
+  MM.data.FRIEND_BUMP_LINES = [
+    'It seems glad you stopped by.',
+    'It hums something. Probably a thank-you.',
+    'It pats the floor where it was sitting, in case you want the warm spot.',
+    'It waves with whatever it waves with.',
+  ];
+
   MM.data.SOOTHE_BESPOKE = {
     'Slime': ['The Slime does one small, delighted bounce. It has never once been calm before. It likes it.'],
     'Cuckoo': ['The Cuckoo pops out one last time — and instead of shouting, says "cuckoo" very quietly, the way a good clock should.'],
@@ -1010,7 +1067,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     'Off-Key Sprite': ['The Off-Key Sprite hums its wrong note one more time. Calm, it somehow fits.'],
     'Lantern Moth': ['The Lantern Moth settles on your lantern, content now just to look at it.'],
     'Ink Ghost': ['The Ink Ghost blots gently, and the smudges settle into something almost like handwriting.'],
-    'Star Wisp': ['The Star Wisp brightens, softly, and drifts back up toward the sky it fell out of.'],
+    'Star Wisp': ['The Star Wisp brightens, softly, and stays — a little piece of sky that has decided it likes it here.'],
     'Soot Wisp': ['The Soot Wisp settles into the warm ash by the forge and stays there, sooty and content.'],
     'Mimic': ['The Mimic opens wide and offers you everything it was hiding. It keeps one shiny button, for sentimental reasons.'],
   };
@@ -1027,7 +1084,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   // sit (lowering down to rest at last).
   MM.data.SOOTHE_GESTURE = {
     slime: 'bounce', rat: 'nap', bat: 'wave', spider: 'nap', ghost: 'drift',
-    skeleton: 'sit', golem: 'sit', mage: 'wave', snake: 'drift',
+    skeleton: 'sit', golem: 'sit', mage: 'wave', snake: 'drift', tangle: 'drift',
   };
   MM.data.sootheGesture = sprite => MM.data.SOOTHE_GESTURE[sprite] || 'bounce';
 
@@ -1219,6 +1276,74 @@ var MM = globalThis.MM = globalThis.MM || {};
     'a tiny boot for a mouse (he\'s keeping that one)',
     'the first boot again — they\'re old friends now',
   ];
+
+  // ---------- Wave 9: "The Tending" (post-game practice) ----------
+  // All of the below gates on s.endingDone — the kid is the New MathMaker
+  // now, and tending the kingdom (not finishing it) is the whole point.
+
+  // 5a. Daily Tangles: the notice board's self-narrating line, and the
+  // milestone celebrations for s.daysTended (counts UP only, never resets).
+  MM.data.TANGLE_LINES = [
+    l => `A tangle was spotted near ${l} — it isn't hurting anyone, just... snarled.`,
+    l => `Something's tangled up near ${l} again. Someone ought to see to it.`,
+    l => `A knot of old confusion has drifted near ${l}. It happens, now and then.`,
+  ];
+  MM.data.TANGLE_MILESTONES = {
+    10: { title: '🌀 10 days tended',
+      body: 'Ten different days, you came back and untangled something. <span class="dim">Numeria doesn\'t keep score. But it is, undeniably, easier to tend than it used to be.</span>' },
+    50: { title: '🌀 50 days tended',
+      body: 'Fifty days of small, ordinary care. <span class="dim">The MathMaker never called Numeria "finished." Only "tended."</span>' },
+    100: { title: '🌀 100 days tended',
+      body: 'One hundred days. <span class="dim">Miscount, told the number, is not embarrassed about the crying this time.</span>' },
+  };
+
+  // 5c. The Spiral Stair — entrance flavor.
+  MM.data.SPIRAL_SEALED = 'A narrow stair, half-built, coiled tight as a shell — and going nowhere yet. <span class="dim">Perhaps once the crown is truly yours.</span>';
+  MM.data.SPIRAL_INTRO = 'A staircase coiled tight as a shell, climbing further than the tower has any right to hold. <span class="dim">Numeria writes itself along the spiral — you\'ve known that since the credits. Now you get to climb it.</span>';
+  MM.data.SPIRAL_LANDING_LINES = [
+    'The stair widens into a landing — a good place to catch your breath and look back down at everything you\'ve climbed.',
+    'A landing, a chest, and a long clear view of the kingdom below.',
+    'The stair opens out here. Someone left a chest. Someone always does.',
+  ];
+
+  // Cosmetic gold sinks: castle furnishing, boss statues, pet hats. All
+  // purchased at fixed spots in the Open Castle (E.galleryPlinth's
+  // neighbors); each renders permanently once bought.
+  MM.data.CASTLE_FURNISH = {
+    rug: { name: 'a good rug', emoji: '🧶', price: 120,
+      empty: 'Bare stone floor here. It echoes a bit, honestly.',
+      bought: 'A thick, warm rug — the kind that makes a room stop being just a hallway.' },
+    garden: { name: 'a garden bed', emoji: '🌻', price: 150,
+      empty: 'An empty patch of dirt by the window. It could be something.',
+      bought: 'Sunflowers, mostly, with a few stubborn daisies that turned up uninvited and stayed.' },
+    library: { name: 'a library shelf', emoji: '📚', price: 200,
+      empty: 'An empty wall niche. It looks like it\'s waiting for something.',
+      bought: 'Shelves, floor to ceiling, with every book you\'d expect a MathMaker to keep — and a few you wouldn\'t.' },
+  };
+  MM.data.STATUE_PRICE = 220;
+  MM.data.STATUE_EMPTY = 'An empty plinth, waiting for someone worth remembering.';
+  MM.data.STATUE_LINE = name => `A small stone likeness of ${name} — carved with more fondness than accuracy, honestly.`;
+  MM.data.PET_HATS = [
+    { id: 'bow', name: 'Bow', emoji: '🎀', price: 60 },
+    { id: 'party', name: 'Party Hat', emoji: '🎉', price: 80 },
+    { id: 'flower', name: 'Flower Crown', emoji: '🌸', price: 100 },
+    { id: 'crown', name: 'Tiny Crown', emoji: '👑', price: 160 },
+  ];
+  MM.data.petHatById = id => MM.data.PET_HATS.find(h => h.id === id);
+
+  // 5b growth visuals: Miscount's Academy visibly grows with attendance
+  // (s.academyTotal — a lifetime "slates checked" counter, never resets).
+  MM.data.ACADEMY_GROWTH = [
+    { at: 0, line: 'A single slate-board and two stools.' },
+    { at: 10, line: 'A second row of desks has appeared. Nobody remembers ordering them.' },
+    { at: 25, line: 'The room is properly full now: real desks, a real chalkboard, a jar of spare chalk.' },
+    { at: 50, line: 'Benches line both walls, and somebody has started a wall chart of "tricky steps we caught."' },
+    { at: 100, line: 'A class photo hangs by the door — Miscount, beaming, surrounded by every slate he\'s ever marked.' },
+  ];
+  MM.data.academyGrowthLine = n => {
+    const rows = MM.data.ACADEMY_GROWTH.filter(g => n >= g.at);
+    return rows[rows.length - 1].line;
+  };
 
   MM.data.weaponById = id => MM.data.WEAPONS.find(w => w.id === id) || MM.data.WEAPONS[0];
   MM.data.armorById = id => MM.data.ARMOR.find(a => a.id === id) || MM.data.ARMOR[0];

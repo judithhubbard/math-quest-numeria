@@ -208,6 +208,11 @@ async function makeChampion(page) {
 
   // ---------- the epilogue ----------
   await page.evaluate(() => { MM.engine.state.continent = 'west'; MM.engine.enterWorld(); });
+  // Wave 9 ("The Tending"): the post-game practice loop wakes up the moment
+  // the ending is done — marathon.js never reaches endingDone, so this is
+  // the one place a full playthrough exercises it at all.
+  check(await page.evaluate(() => MM.engine.spiralOpen()), 'post-ending: the Spiral Stair is open');
+  check(await page.evaluate(() => !!(MM.engine.state.tangles && MM.engine.state.tangles.items.length)), 'post-ending: Daily Tangles start appearing on entering the world');
   const epi = await page.evaluate(() => ({
     sylvia: MM.data.NPCS.g.talk(MM.engine.state),
     percy: MM.data.NPCS.p.talk(MM.engine.state),

@@ -148,12 +148,13 @@ function canonicalize(p) {
   check(afterWin.treasures > treasuresBefore, `the nerve-treasure landed in the bag (${treasuresBefore} -> ${afterWin.treasures})`);
   check(afterWin.kills === 1, 'the Monster Book records the Mimic kill');
 
-  // book: the Wandering Chests page exists once met, counter is 77
+  // book: the Wandering Chests page exists once met, counter is 80 (Wave 9
+  // added the Spiral Stair's tangle roster: 77 -> 80)
   await page.keyboard.press('m');
   await page.waitForSelector('#modalBox h2');
   const book = await ev(() => document.getElementById('modalBox').innerText.replace(/\s+/g, ' '));
   check(/Wandering Chests/.test(book) && /Mimic/.test(book), 'the Monster Book shows the Wandering Chests page once a mimic is met');
-  check(/of 77/.test(book), 'the book counts 77 kinds now');
+  check(/of 80/.test(book), 'the book counts 80 kinds now');
   await page.screenshot({ path: SHOTS + '/3-book-card.png' });
   await page.click('#dlgOk');
   await page.waitForFunction(() => !MM.ui.modalOpen());

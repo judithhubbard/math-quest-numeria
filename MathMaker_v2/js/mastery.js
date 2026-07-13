@@ -98,13 +98,38 @@ var MM = globalThis.MM = globalThis.MM || {};
   // Weakest skills first (lowest recent accuracy, unpracticed counts as
   // weak-ish, and a stale topic gets a staleness bonus toward the front).
   function weakestFirst(state, skills) {
+    // Pedagogy pass (2026-07-12): recentAccuracy is a last-10 window, so it
+    // quantizes to tenths and TIES ARE COMMON — and a stable sort resolves
+    // every tie by list order, quietly biasing "weakest" toward whichever
+    // topics sit earliest in the array (measured: at uniform accuracy, three
+    // list-early topics ate ~60% of every mixed pool). A jitter smaller than
+    // any real signal (±0.03 vs 0.1 accuracy steps and the 0.15 rust bonus)
+    // breaks ties fairly without ever overriding a genuine difference.
+    const jitter = () => (Math.random() - 0.5) * 0.06;
     return skills.slice().sort((a, b) => {
       const aa = recentAccuracy(state, a), bb = recentAccuracy(state, b);
-      let av = aa == null ? 0.5 : aa, bv = bb == null ? 0.5 : bb;
+      let av = (aa == null ? 0.5 : aa) + jitter(), bv = (bb == null ? 0.5 : bb) + jitter();
       if (isRusty(state, a)) av -= RUST_BONUS;
       if (isRusty(state, b)) bv -= RUST_BONUS;
       return av - bv;
     });
+  }
+
+  // Pedagogy pass (2026-07-12): the three LATE topics (clocks, music,
+  // geometry) live in one dungeon each, and the story's review pools only
+  // ever drew from the ten mainland topics — so a kid who finished the
+  // Spire never saw another clock outside it (measured: ~5% whole-story
+  // exposure vs 10-20% for early topics). Once a late topic's home dungeon
+  // is DONE, it joins every review pool like any other learned topic.
+  // Parent switches still apply downstream (capSkill / allowed filters).
+  function metLateTopics(state) {
+    const isles = state && state.isles;
+    if (!isles) return [];
+    const met = [];
+    if (isles.spireDone) met.push('time_reading');
+    if (isles.hallsDone) met.push('music_reading');
+    if (isles.breakwaterDone) met.push('geometry');
+    return met;
   }
 
   // ----- parent topic switches -----
@@ -151,6 +176,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     return MM.problems.generate(skill, braveTierFor(state, skill));
   }
   function braveTierFor(state, skill) {
+    // The two FACTS topics are compressed — "one tier up" inside single-digit
+    // facts barely reads as harder (playtest 2026-07-12: a brave problem came
+    // out as "3+5"). Their tier 3 is the composed-chain tier, so brave always
+    // draws it there. Deep topics keep the adaptive one-tier-up.
+    if (skill === 'addsub_facts' || skill === 'muldiv_facts') return 3;
     return Math.min(3, tierFor(state, skill) + 1);
   }
   // The adaptive tier a full-depth GATE/BOSS problem draws at. `brave` is only
@@ -168,7 +198,8 @@ var MM = globalThis.MM = globalThis.MM || {};
     const primary = MM.data.TASKS[dungeonIndex - 1].skill;
     let skill = primary;
     if (dungeonIndex > 1 && Math.random() < 0.25) {
-      const earlier = MM.data.TASKS.slice(0, dungeonIndex - 1).map(t => t.skill);
+      const earlier = MM.data.TASKS.slice(0, dungeonIndex - 1).map(t => t.skill)
+        .concat(metLateTopics(state)); // clocks/music/geometry recur once met
       const ranked = weakestFirst(state, earlier);
       skill = Math.random() < 0.7 ? ranked[0] : ranked[Math.floor(Math.random() * ranked.length)];
     }
@@ -246,6 +277,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   function pickReviewProblems(state, upToTask, count) {
     const allowed = cappedSkills(state);
     const skills = MM.data.TASKS.slice(0, Math.max(1, upToTask)).map(t => t.skill)
+      .concat(metLateTopics(state))
       .filter(sk => allowed.includes(sk));
     const ranked = weakestFirst(state, skills.length ? skills : allowed);
     const probs = [];
@@ -256,5 +288,5 @@ var MM = globalThis.MM = globalThis.MM || {};
     return probs;
   }
 
-  MM.mastery = { record, tierFor, accuracy, recentAccuracy, badgeTier, weakestFirst, capSkill, cappedSkills, pickCombatProblem, pickBossProblem, pickArenaProblem, pickMixedGate, pickReviewProblems, pickHalfMixSkill, pickHalfMixProblem, pickHalfMixGate, pickSpireProblem, pickSpireGate, pickBreakwaterProblem, pickBreakwaterGate, ensure, isRusty, daysSincePracticed, almostNextTier, combatProblem, braveTierFor, gateTier, isBrave };
+  MM.mastery = { record, tierFor, accuracy, recentAccuracy, badgeTier, weakestFirst, capSkill, cappedSkills, pickCombatProblem, pickBossProblem, pickArenaProblem, pickMixedGate, pickReviewProblems, pickHalfMixSkill, pickHalfMixProblem, pickHalfMixGate, pickSpireProblem, pickSpireGate, pickBreakwaterProblem, pickBreakwaterGate, ensure, isRusty, daysSincePracticed, almostNextTier, combatProblem, braveTierFor, gateTier, isBrave, metLateTopics };
 })();

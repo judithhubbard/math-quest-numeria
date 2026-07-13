@@ -81,7 +81,7 @@ function canonicalize(p) {
   async function winBattle(cap) {
     let calm = 0; // consecutive ticks with no battle AND no modal
     for (let i = 0; i < (cap || 60); i++) {
-      if (await page.$('#victOk')) break;
+      if (await page.$('#battleOverlay:not(.hidden) #victOk')) break;
       // dialogs can sit in FRONT of a battle — including BEFORE it starts
       // (the first-battle tutorial fires before battle.active() is true,
       // which silently no-op'ed two whole marathon attempts) — dismiss
@@ -111,7 +111,7 @@ function canonicalize(p) {
       }
       await page.waitForTimeout(600);
     }
-    if (!(await page.$('#victOk'))) {
+    if (!(await page.$('#battleOverlay:not(.hidden) #victOk'))) {
       // the battle ended without a victory panel — the kid DIED (gentle
       // failure: whisked to safety, gold halved, progress kept). Report
       // it so the caller can walk back in, the way a real kid does.
@@ -134,7 +134,9 @@ function canonicalize(p) {
         const s = MM.engine.state;
         let sawUnreachable = false;
         for (const m of s.monsters) {
-          if (m.boss || m.hp <= 0) continue;
+          // round 5: becalmed friends AND pacified species-mates are not
+          // combatants — bumping either swaps places, no battle ever starts
+          if (m.boss || m.hp <= 0 || m.becalmed || MM.engine.isPacified(m)) continue;
           let engaged = false;
           for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
             const t = (s.grid[m.y + dy] || [])[m.x + dx];

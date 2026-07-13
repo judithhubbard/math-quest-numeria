@@ -89,6 +89,26 @@ kid marks the WRONG step — so since Wave 7 the final exam has said *"Here.
 undefined"* on a miss, at the most sensitive moment the game has.
 `drive-castle.js` missed it because it only asserts the feedback doesn't scold.
 
+Wave 9 ("The Tending") adds: the Spiral Stair's own reachability audit (every
+regular and landing chunk, X to every D/m/>/*/b — deliberately NOT folded into
+the shared door-gating audit, since these doors are open-room practice
+stations, not corridor gates) plus materialization checks (the right floor
+count, a landing on every multiple of 5 and nowhere else, the top floor with
+no way further up, and the array proven stable/cached across calls); Daily
+Tangle placement DERIVED from the overworld's own walkable tiles across many
+regenerations (never a hand-listed spot); the day-flip and same-day dedup
+contract (two tangles one real day is still one day tended); castle
+furnishing/pet-hat/statue data completeness; pet-hat buy/wear/take-off/
+insufficient-gold branches and statue commissioning; the Academy's growth-line
+thresholds; and a migration test for a save that predates all of it. It also
+guards the **real bug this wave found by screenshot, not by any automated
+check**: three of the castle's first-draft furnishing glyphs collided with
+existing `MM.data.NPCS` keys used by townsfolk on OTHER maps — the NPC-draw
+pass runs on every glyph regardless of map, so it drew a villager sprite right
+over the furniture. Every `tileSprite()`-level check stayed green throughout
+(they only prove a glyph maps to *some* sprite); only looking at a screenshot
+caught it. A permanent unit check now asserts no castle glyph is an NPCS key.
+
 ## Browser drives (need Playwright + Chrome)
 
 One-time setup in any folder:
@@ -308,8 +328,8 @@ a dock, and rest), and the sail-destination registry.
   completely normal battle, flee-and-rebump re-reveals the same mimic,
   victory opens the chest for good plus a "for your nerve" treasure,
   soothing befriends the Mimic and opens the chest all the same, the
-  "Wandering Chests" book page and the 77-kind count, and Calm Mode's
-  static grin standing in for the breathing bob).
+  "Wandering Chests" book page and the (now 80-kind, post-Wave-9) count, and
+  Calm Mode's static grin standing in for the breathing bob).
 
 - `drive-touch.js` — Pass D ergonomics (15 checks): tap/click-to-move
   (plain-floor BFS + synthesized tryMove steps; a real coordinate click
@@ -317,6 +337,39 @@ a dock, and rest), and the sail-destination registry.
   dialog/battle; taps ignored under modals), spell number keys 1/2/3,
   and the parent-panel all-sound-off toggle (persists, round-trips,
   every sound call a safe no-op while muted).
+
+- `drive-tending.js` — Wave 9 ("The Tending", post-game practice, 39 checks):
+  **Daily Tangles** (auto-generated 1-3 a day on entering the world post-
+  ending, every one on a walkable tile, a stale date regenerating the set, a
+  full battle, the days-tended counter incrementing once — and staying put
+  for a SECOND tangle the same real day — the 10-day milestone firing exactly
+  once, and the notice board self-narrating); **the Spiral Stair** (sealed
+  before the ending, the entrance menu, climbing floor by floor, a real
+  battle against the roster INSIDE the tower, floor 5's landing verified to
+  carry a chest and its own tougher tangle boss, that boss's dedicated
+  victory branch marking it defeated-forever, the highest-floor and
+  highest-landing counters, Beacon returning to the tower's own floor 1,
+  leaving the tower entirely, and returning to exactly the saved landing);
+  **cosmetic gold sinks** (an unbought garden/rug/library reading as empty,
+  buying one confirmed both by its dialog AND by `tileSprite()` now returning
+  the bought sprite, the pet's wardrobe buying-and-immediately-wearing a hat,
+  and a boss statue commissioned from a boss the profile ACTUALLY beat — the
+  Spiral's own landing guardian, a nice cross-system check); and **the Hall
+  of Heroes plaque** showing all three new counters together. `drive-castle.js`
+  gained two lines of its own in the post-ending epilogue section (the Spiral
+  open, Daily Tangles already populated) since `drive-marathon.js` never
+  reaches `endingDone` and so can never exercise this wave on its own.
+
+- `drive-stances2.js` — playtest round 5 (19 checks): brave facts problems
+  are always chains/missing-number (never "3+5"), the ⚡ button explains
+  itself on first touch (persisted once-ever) with short confirms after,
+  the brave latch (a problem picked before ⚡ pays normal damage), a
+  soothed monster STAYS becalmed exactly where it was calmed (full
+  health, 🤍 not ⚔ in the book, bumping it swaps places instead of
+  fighting), the friend ceremony fires once EVER, the soothe chime and
+  per-instrument motes (the Bubble Pipe blows bubbles), and the
+  one-track design (no Strike/Soothe battle buttons; Help describes your
+  way; the ⚙️ dialog switches it in one click with every friend kept).
 
 Operational note (2026-07-11): do NOT run drives while Dropbox is
 indexing a big file operation (e.g. right after refreshing the play

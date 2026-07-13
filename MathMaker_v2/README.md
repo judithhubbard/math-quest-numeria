@@ -434,6 +434,34 @@ switched off.)
   every dungeon re-sealed and every boss back and tougher — while you keep
   your level, gear, gems, charms, badges, Monster Book, pet, and crown.
 
+### 🌀 The Tending — life after the ending
+
+You're the MathMaker now, which means tending the kingdom *is* the job. A few
+small, renewable reasons to open the game on any random Tuesday:
+
+- **Daily Tangles** — each real day, one to three little scribble-knot
+  monsters turn up somewhere in the kingdom (the notice board says roughly
+  where). Untangling one is a short, easy battle drawing from everything
+  you've learned. The reward is small gold and a counter — **"days
+  tended," which only ever counts up.** Missing a week costs nothing; there
+  is no streak to lose. Milestones at 10, 50, and 100 days are celebrated
+  and shown on your Hall of Heroes plaque.
+- **The Spiral Stair** — a tower beside the castle, climbing as far as
+  you're willing to go. Every floor is a small room with a couple of
+  problems and a tangle or two; every fifth floor is a landing — a
+  breather, a chest, and a checkpoint. Beacon always brings you back to
+  the tower's own entrance, and you can jump straight to your highest
+  landing any time — nothing is ever lost, and this is deliberately *not*
+  a roguelike.
+- **Furnish the castle** — a rug, a garden bed, a library shelf, statues of
+  bosses you've beaten, and — at long last — **tiny hats for the pet**,
+  all bought at fixed spots around the castle, all permanent, all
+  genuinely visible the moment you buy them.
+- **The Hall of Heroes plaque** grows to match: days tended, your highest
+  Spiral floor, and how many of Miscount's students you've helped. Miscount's
+  Academy itself visibly grows with attendance too — more desks, then a
+  proper chalkboard, then (at 100 slates checked) a class photo by the door.
+
 ### 🐣🗡 The Two Kids Update
 
 Some kids want the fight. Some kids want it gentle. Numeria now leans a
@@ -464,31 +492,36 @@ little further toward both, at once:
   thieves admire their loot, and the Monster Book now keeps count of every
   tiny hat respectfully retired.
 
-### 🕊 Two ways to face a monster
+### 🕊 Your way: boldly, or gently
 
 Before your very first monster, the MathMaker stops you at the door and asks
 one question: **"How will you face the tangles — boldly, or gently?"**
 
-It is a question, not a class. Nothing is locked behind either answer, and you
-can change your mind at any moment, in any fight. *("You can always change your
+Your answer is your **way** — one path, lived in, not a button to juggle
+mid-fight. Battles show just your problem, ⚡ Brave, and Flee. Changing your
+way is always allowed and always free: it's right there in the **⚙️ menu**,
+one click, nothing lost, every friend kept. *("You can always change your
 way. Most heroes do, eventually.")*
 
-- **⚔️ Strike** — the classic. Answer correctly, hit the monster.
-- **🕊 Soothe** — **exactly the same math, exactly the same rewards.** A correct
-  answer doesn't wound the monster; it *loosens the tangle in it*. The bar fills
-  with calm instead of draining with damage, and when it's full the monster
-  doesn't splat — it un-tenses, does whatever its kind does when it's finally at
-  ease (the slime bounces, the frost pup rolls over, the golem sits down at last
-  after four hundred years), nudges a pouch of gold over as a *gift*, and wanders
-  off. If it was wearing a tiny hat, it tips it to you.
+- **⚔️ Boldly** — the classic. Answer correctly, hit the monster.
+- **🕊 Gently** — **exactly the same math, exactly the same rewards.** A correct
+  answer doesn't wound the monster; it *loosens the tangle in it* — with a soft
+  chime, and each gentle instrument sheds its own calm (the bubble pipe blows
+  actual bubbles). The bar fills with calm instead of draining with damage, and
+  when it's full the monster doesn't splat — it un-tenses, does whatever its kind
+  does when it's finally at ease (the slime bounces, the frost pup rolls over,
+  the golem sits down at last after four hundred years), nudges a pouch of gold
+  over as a *gift* — **and then it stays**, right where you calmed it, at full
+  health in its soft colours with a little 🤍 heart above its head. No ⚔ mark
+  goes in the book for a calmed friend — only the 🤍. If it was wearing a tiny
+  hat, it tips it to you.
 
-Soothing a monster **befriends its whole kind, forever**. Befriended monsters
-show up in your Monster Book on a second collection page (🕊), they walk around
-the dungeons in soft, calmed colours with a little dove over their heads — and
-**they stop starting fights with you**. They just wave as you go past. (You can
-still spar with one whenever you want; just walk into it. Guards still guard
-their posts, though, and thieves are still thieves.) When a floor's boss goes
-down, every friend in the room bounces.
+Calming a monster **befriends its whole kind, forever**. Befriended monsters
+show up in your Monster Book on a second collection page (🤍), they wear the
+heart in every dungeon — and **they never start fights with you**. Bump into
+one and it politely steps aside to let you through. (Guards still guard
+their posts and thieves are still thieves — until you calm them.) When a
+floor's boss goes down, every friend in the room bounces.
 
 The shop lays its weapons out under **🕊 For gentle hands** and **⚔️ For bold
 arms** — your kind first, everything else right below it, all of it always
@@ -499,9 +532,12 @@ enforced.
 
 ### ⚡ Brave problems
 
-A sticky **⚡ Brave** toggle sits in every battle. Turn it on and every problem
-comes one tier harder than you'd normally get — and every correct answer hits for
-**double damage**, in gold lightning.
+A sticky **⚡ Brave** toggle sits in every battle — and the first time you touch
+it, the battle itself tells you the deal. Turn it on and every problem comes
+harder than you'd normally get (in the facts topics that means *chains* —
+`6 + 9 + 7`, `36 ÷ 4 × 5` — never plain small sums) — and every correct answer
+hits for **double damage**, in gold lightning. The double only ever pays for a
+question that was actually asked the hard way.
 
 Get one wrong and *nothing extra happens*. It's an ordinary miss. Bravery is
 never a trap. Your lifetime count of brave problems solved is kept on your report

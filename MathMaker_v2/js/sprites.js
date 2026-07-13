@@ -1540,6 +1540,232 @@ var MM = globalThis.MM = globalThis.MM || {};
         '............',
       ],
     },
+    // Playtest round 5: the friend mark. The 🕊 emoji pip was mush at pip
+    // size ("the dove is unrecognizable") — a pixel heart reads instantly,
+    // drawn like the crown, with a shine pixel so it's never colour-alone.
+    heart: {
+      colors: { R: '#ff6b9d', r: '#d84a7e', W: '#ffd8e8' },
+      map: [
+        '.RR..RR.',
+        'RWRRRRRR',
+        'RWRRRRRR',
+        'RRRRRRRR',
+        '.rRRRRr.',
+        '..rRRr..',
+        '...rr...',
+        '........',
+      ],
+    },
+
+    // ===== Wave 9: "The Tending" (post-game practice) =====
+
+    // a Daily Tangle / Spiral Stair "monster" — the game's oldest metaphor
+    // (every monster IS a tangle, per the Study reveal), finally just
+    // standing there looking like one: a small scribbled knot with a stray
+    // loop at each end and two worried eyes peeking out.
+    tangle: {
+      colors: { k: '#241a2e', T: '#a89cc4', E: '#ffffff', e: '#241a2e' },
+      map: [
+        '................',
+        '.....k....k.....',
+        '....kTk..kTk....',
+        '.....kTkkTk.....',
+        '...kkTTTTTTkk...',
+        '..kTTTTTTTTTTk..',
+        '.kTTTEeTTEeTTTk.',
+        '.kTTTTTTTTTTTTk.',
+        '.kTTkkTTTTkkTTk.',
+        '.kTTTTkkkkTTTTk.',
+        '..kTTTTTTTTTTk..',
+        '...kkTTTTTTkk...',
+        '....kTk..kTk....',
+        '.....k....k.....',
+        '................',
+        '................',
+      ],
+    },
+
+    // castle furnishing (Wave 9, P3): each purchasable piece is TWO sprites
+    // — an "empty" state (bare floor / dirt / frame) and a "bought" state —
+    // so the purchase is visible at a glance, not just in a dialog. Rugs
+    // reuse `hallFloor` for their empty state (there is nothing there yet
+    // but floor); the rest get their own empty look.
+    gardenEmpty: {
+      colors: { A: '#8f819c', k: '#4a4458', d: '#6b4a34' },
+      map: [
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAkkkkkkkkkkAAA',
+        'AAkddddddddddkAA',
+        'AAkdddddddddddkA',
+        'AAkddddddddddkAA',
+        'AAkdddddddddddkA',
+        'AAkddddddddddkAA',
+        'AAkdddddddddddkA',
+        'AAkddddddddddkAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+      ],
+    },
+    gardenFull: {
+      colors: { A: '#8f819c', k: '#4a4458', d: '#6b4a34', g: '#4e9e52', Y: '#ffd94a' },
+      map: [
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAkkkkkkkkkkAAA',
+        'AAkggYggggYggkAA',
+        'AAkgYYgggYYgggkA',
+        'AAkggggYgggggkAA',
+        'AAkgYggggYgggdkA',
+        'AAkggYgggggYgdkA',
+        'AAkgggggYgggddkA',
+        'AAkddddddddddkAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+      ],
+    },
+    shelfEmpty: {
+      colors: { A: '#8f819c', k: '#5a4a34' },
+      map: [
+        'AAAAAAAAAAAAAAAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAkAAAAAAAAAAkAA',
+        'AAkAAAAAAAAAAkAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAkAAAAAAAAAAkAA',
+        'AAkAAAAAAAAAAkAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAkAAAAAAAAAAkAA',
+        'AAkAAAAAAAAAAkAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+      ],
+    },
+    shelfFull: {
+      colors: { A: '#8f819c', k: '#5a4a34', R: '#c0504a', G: '#4e9e52', B: '#5a7ec4', Y: '#ffd94a' },
+      map: [
+        'AAAAAAAAAAAAAAAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAkRGBYRGBYRGkAA',
+        'AAkRGBYRGBYRGkAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAkYBRGYBRGYBkAA',
+        'AAkYBRGYBRGYBkAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAkGRYBGRYBGRkAA',
+        'AAkGRYBGRYBGRkAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+      ],
+    },
+    rugFull: {
+      colors: { A: '#8f819c', k: '#4a4458', R: '#c0504a', Y: '#ffd94a' },
+      map: [
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAkRRRRRRRRRRkAA',
+        'AAkRYYYYYYYYRkAA',
+        'AAkRYRRRRRRYRkAA',
+        'AAkRYRYYYYRYRkAA',
+        'AAkRYRYRRYRYRkAA',
+        'AAkRYRYYYYRYRkAA',
+        'AAkRYRRRRRRYRkAA',
+        'AAkRYYYYYYYYRkAA',
+        'AAkRRRRRRRRRRkAA',
+        'AAkkkkkkkkkkkkAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+      ],
+    },
+    // one shared "statue" sprite for every commissioned-boss plinth (a
+    // sculpted likeness of a specific boss is beyond this game's pixel
+    // budget — the name lives in the bump dialog instead). The EMPTY
+    // plinth reuses the Gallery's own `plinth` sprite — this room is a
+    // museum too.
+    statueFull: {
+      colors: { A: '#8f819c', s: '#9a92b8', S: '#7a7098', p: '#6b6482', k: '#4a4458' },
+      map: [
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAssSAAAAAAA',
+        'AAAAAsSSssAAAAAA',
+        'AAAAAsSSsSAAAAAA',
+        'AAAAsSSSSSAAAAAA',
+        'AAAAsSSSSSAAAAAA',
+        'AAAAAsSSsAAAAAAA',
+        'AAAAsSssSsAAAAAA',
+        'AAAsSSSSSSsAAAAA',
+        'AAAAAAppAAAAAAAA',
+        'AAAkkkkkkkkkAAAA',
+        'AAkppppppppkAAAA',
+        'AAkppppppppkAAAA',
+        'AAAkkkkkkkkkAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+      ],
+    },
+    // the pet's own little wardrobe — one static look; hats themselves are
+    // drawn on the PET (an emoji overlay), not on this basket.
+    petBasket: {
+      colors: { A: '#8f819c', k: '#4a3424', w: '#a87a4a', R: '#c0504a' },
+      map: [
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAkkkkkkkkAAAA',
+        'AAAkRRRRRRRRkAAA',
+        'AAAkRRRRRRRRkAAA',
+        'AAAkwwwwwwwwkAAA',
+        'AAAkwwwwwwwwkAAA',
+        'AAAAkwwwwwwkAAAA',
+        'AAAAAkkkkkkAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+        'AAAAAAAAAAAAAAAA',
+      ],
+    },
+    // the Spiral Stair's own tower, on the world map — castle-adjacent
+    spiralTower: {
+      colors: { g: '#4e9e52', k: '#3a2f4a', S: '#8f819c', s: '#6b6280', Y: '#ffd94a' },
+      map: [
+        'ggggggggggggggg',
+        'ggggg.kkk.ggggg',
+        'gggg.kSSSk.gggg',
+        'ggg.kSsSsSk.ggg',
+        'gg.kSsSSSsSk.gg',
+        'g.kSsSSYSSsSk.g',
+        '.kSsSSYYYSSsSk.',
+        'kSsSSSYYYSSSsSk',
+        'kSsSSSSYSSSSsSk',
+        'kSSSssssssSSSSk',
+        'kkSSSSSSSSSSkkk',
+        'gkkSSSSSSSSkkgg',
+        'ggkkkkkkkkkkggg',
+        'gggggkkkkgggggg',
+        'ggggggggggggggg',
+        'ggggggggggggggg',
+      ],
+    },
   };
 
   // ---------- rendering ----------

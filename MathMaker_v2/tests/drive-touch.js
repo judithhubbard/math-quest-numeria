@@ -165,6 +165,49 @@ const SHOTS = path.join(__dirname, 'shots-touch');
   const muteSafe = await ev(() => { try { MM.sound.correct(); MM.sound.fanfare(); MM.sound.hit(true); return true; } catch (e) { return false; } });
   check(muteSafe, 'every sound call is a safe no-op while muted');
 
+  // ---------- background music: right track for the moment, toggleable ----------
+  await ev(() => { MM.music.poke(); MM.engine.state.soundOff = false; MM.engine.state.musicOff = false; MM.engine.enterWorld(); });
+  await page.waitForTimeout(300);
+  check(await ev(() => MM.music.currentTrack() === 'world'), 'overworld plays the world track');
+  await ev(() => MM.engine.enterDungeon(1));
+  await page.waitForTimeout(300);
+  check(await ev(() => MM.music.currentTrack() === 'dungeon'), 'a dungeon switches to the dungeon track');
+  // a battle takes the battle track — and a rough patch says one kind thing
+  await ev(() => {
+    const s = MM.engine.state;
+    for (const t of MM.data.TASKS.slice(0, 10)) {           // seed a rough patch in every
+      for (let i = 0; i < 4; i++) MM.engine.recordAnswer(t.skill, false, { text: 'x', kidAnswer: 'y' }); // possible battle topic
+    }
+    const m = s.monsters.find(m => !m.boss && m.hp > 0);
+    m.stun = 999;
+    s.px = m.x; s.py = m.y + (s.grid[m.y + 1] && s.grid[m.y + 1][m.x] === '.' ? 1 : -1);
+    MM.engine.startCombat(m);
+  });
+  await page.waitForFunction(() => MM.battle.active());
+  await page.waitForTimeout(400);
+  check(await ev(() => MM.music.currentTrack() === 'battle'), 'a battle switches to the battle track');
+  // answer WRONG once: the worked solution + one kind line appear
+  await page.waitForSelector('#battleProblem #answerInput:not([disabled]), #battleProblem .choice:not([disabled])');
+  if (await page.$('#battleProblem #answerInput:not([disabled])')) {
+    await page.fill('#battleProblem #answerInput', '999999');
+    await page.keyboard.press('Enter');
+  } else {
+    const right = await ev(() => MM.battle.current.answer);
+    await page.click(`#battleProblem .choice >> nth=${right === 0 ? 1 : 0}`);
+  }
+  await page.waitForTimeout(600);
+  const feedback = await ev(() => (document.getElementById('probFeedback') || {}).innerText || '');
+  check(/Not quite/.test(feedback) && /=/.test(feedback), 'a miss shows the worked solution');
+  check(/stubborn today|meet you where you are|every hero has them/.test(feedback),
+    'after a rough patch, the miss feedback says one kind thing');
+  await page.screenshot({ path: SHOTS + '/2-rough-patch-kindness.png' });
+  await ev(() => { const f = document.getElementById('fleeBtn'); if (f) f.click(); });
+  await page.waitForFunction(() => !MM.battle.active(), null, { timeout: 8000 }).catch(() => {});
+  // musicOff: the track stops; soundOff stays independent
+  await ev(() => { MM.engine.state.musicOff = true; });
+  await page.waitForTimeout(300);
+  check(await ev(() => MM.music.currentTrack() === null), 'musicOff silences the track picker (SFX untouched)');
+
   await page.screenshot({ path: SHOTS + '/1-final-state.png' });
   console.log('=== CHECKS ===');
   console.log(checks.join('\n'));

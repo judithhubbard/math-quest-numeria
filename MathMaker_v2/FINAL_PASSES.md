@@ -244,6 +244,90 @@ one instance of a class (the gear report was really "systems don't
 narrate their own existence"; the help report was really "menus don't
 know what the kid knows yet").
 
+## Pass I — The Pedagogy pass ✅ (2026-07-12; the game's first direct audit
+## of its own teaching)
+
+**I1. Play-time distribution, measured** (scratchpad harness sampling every
+picker at staged save states): the three LATE topics (clocks d19, music
+d20, geometry d21) got ~5% whole-story exposure each vs 10-20% for early
+topics — they don't exist for the first ~55% of play and lived only in
+their one home dungeon plus small mixed-pool shares. THREE dynamics found,
+two fixed, one confirmed healthy:
+- **FIXED — review pools were mainland-only forever**: pickCombatProblem's
+  25% review draw and the inn's pickReviewProblems never included a late
+  topic, so a kid who finished the Spire never saw another clock outside
+  it. Now `metLateTopics(state)` adds each late topic to every review pool
+  once its home dungeon is DONE (spireDone/hallsDone/breakwaterDone) —
+  measured: clocks go 0% → ~19% of dungeon-10 combat for a post-Spire kid
+  who's weak in them.
+- **FIXED — weakest-first tie bias**: recentAccuracy quantizes to tenths
+  (last-10 window), ties are common, and a stable sort resolved every tie
+  by list order — at uniform accuracy three list-early topics ate ~60% of
+  every mixed pool. A ±0.03 jitter (smaller than any real signal) breaks
+  ties fairly: true-tie spread now 6.5-10.3% around the fair 7.7%.
+- **CONFIRMED HEALTHY — post-game catch-up**: for a realistic post-story
+  kid (late topics barely met), weakest-first already gives them ~63% of
+  all mixed practice (tangles/Spiral/sparring). The adaptive design works;
+  it just needed the story-arc plumbing above.
+
+**I2. Worked solutions, read with teacher eyes** (every generator × tier
+sampled and read). Strong and untouched: fractions (equivalence,
+of-language, simplification), distributive multiplication splits, money
+contexts, geometry (formula named then applied; the L-shape split), clock
+name-the-time language. Fixed:
+- **multidigit_addsub taught nothing** ("Line up the columns: 993 − 128 =
+  865" — hiding regrouping, THE 5th-grade stumbling block and the very
+  error the Academy's "flip" slate features). Solutions now narrate the
+  first two carries/borrows column by column ("ones: 5 − 9 can't — borrow
+  a ten: 15 − 9 = 6 … Keep going") and say so when NO regrouping is needed
+  (also a teaching point).
+- **long_division verified instead of teaching** ("7 × 35 = 245, so 35").
+  Solutions now walk the paper algorithm ("6 into 56 goes 9 (2 left);
+  bring down the 9 → 29; …"), with the multiplication kept as a Check line.
+- Mixed-number sums show the regroup ("2/2 is a whole 1, so add 1 more
+  whole"); elapsed-time solutions split past the hour ("90 minutes = 1
+  hour + 30 — hop to the hour first"); "A eighth note" → "an eighth note"
+  (article helper); dropped redundant "1/12 = 1/12" when already simplest.
+
+**I3. Noted, deliberately unchanged**: mixed dungeons 11-13 bind some
+monsters to time_reading BEFORE the Spire "introduces" clocks — fine for a
+practice-only game (clocks are school-known, nothing is game-taught), and
+the telegraph keeps its promise. Tier ramps are smooth everywhere except
+the facts topics, whose compression is now handled by the brave-chain
+design (round 5). Decimal add/sub solutions still say "line up the decimal
+points" without narrating carries — acceptable since the integer narration
+teaches the identical move; revisit if playtest shows otherwise.
+
+## Pass J — Music ✅ (2026-07-12, design session; js/music.js)
+
+Three hand-composed WebAudio loops in the no-assets idiom — world (warm
+pentatonic walking song, 96bpm), dungeon (sparse, low, curious — torchlight
+not terror, 76bpm), battle (light heartbeat pulse, 112bpm; no urgency — the
+game has no timers and the music must not smuggle pressure in). Rules
+enforced by a unit audit: every note inside its loop, volumes ≤ 0.05
+(background by construction), sine/triangle only. Autoplay-safe (context
+starts on first gesture via MM.music.poke()), track picked per-frame from
+the moment (battle/overworld/dungeon), own parent-panel toggle (s.musicOff)
+plus the master s.soundOff. **The one thing the design session cannot do is
+LISTEN — the family's ears are the review**: if a loop grates, say which
+(world/dungeon/battle) and what it does wrong (too loud, too busy, too
+gloomy) and it's a data-only fix.
+
+## Pass K — The struggle experience ✅ (2026-07-12, design session)
+
+Played badly on purpose. VERDICT: the adaptive floor works — 20 straight
+misses drop the tier to 1 immediately and problems become genuinely gentle
+(8−7, 2×5); topics never leak below their parent settings. The gap: the
+system adapted in TOTAL SILENCE, which an anxious kid reads as
+indifference. Now, when the last 4 answers in a topic were all misses, the
+NEXT miss's feedback adds one kind, true line under the worked solution
+("This kind is being stubborn today. Every worked answer above is the
+practice — that's how it comes loose.") — once per session per topic,
+never a modal, never about the kid's worth. Remaining item for a future
+pass: nothing ever suggests the parent panel to the PARENT when a topic
+stays hard for days (the trend view shows it; a gentle hint line there
+could close the loop).
+
 ## The done checklist
 
 - [ ] Waves 5, 6, 7 shipped + reviewed

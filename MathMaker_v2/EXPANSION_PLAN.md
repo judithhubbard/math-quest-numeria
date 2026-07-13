@@ -1757,7 +1757,72 @@ Four live-playtest reports, applied right after the Wave 8b review:
    Knight's soothe line "dead in the middle" → "exactly in the middle".
    Audit confirmed no player-facing "die/death" anywhere else.
 
-## Wave 9 — The Tending (post-game practice; SONNET, prose stop on new dialog)
+## Wave 9 — The Tending (post-game practice; SONNET, prose stop on new dialog) ✅ SHIPPED (2026-07-12)
+
+**Deviations from this spec, and why:**
+- **A REAL BUG FOUND (and fixed) by screenshot review, not by the automated
+  suite.** Three of the castle's new furnishing glyphs (originally `u`, `h`,
+  `c`, `y`) happened to collide with existing `MM.data.NPCS` keys used by
+  townsfolk on OTHER maps (Trader Tessa, Farmer Fenwick, etc.). The
+  townsfolk NPC-draw pass in `drawWorld` runs on every glyph, on every
+  overworld, regardless of which one — so a reused letter drew that
+  villager sprite RIGHT OVER the furniture tile. Every automated check
+  (`tileSprite()` unit assertions, the render audit) stayed green throughout,
+  because they only ever check that a glyph maps to *some* known sprite —
+  none of them render a screenshot and look. Fixed by renaming to `d/i/k/l`
+  + `n/w/r`, none of which are NPCS keys, and added a permanent unit check
+  (`tests/test.js`) asserting no future castle glyph collides with
+  `MM.data.NPCS`. Left as a standing lesson: **a glyph-registry check proves
+  a tile is CLASSIFIED, not that it's the only thing drawn there.**
+- **The Spiral Stair's `D` doors are exempt from the shared door-gating
+  audit.** Every other dungeon's math door gates a genuine chokepoint (the
+  audit fails a door that's bypassable). The Spiral's doors are practice
+  *stations* scattered through small open rooms — post-game volume, not
+  lock-and-key puzzles — so requiring them to gate anything would mean
+  redesigning every chunk as a corridor maze, which the spec never asked
+  for. `MM.maps.SPIRAL_INDEX` is explicitly excluded from that audit and
+  gets its own plain reachability check instead (X to every D/m/>/*/b),
+  exactly matching the acceptance text's "chunk templates all pass the
+  reachability BFS."
+- **Capped at 60 floors, not literally endless.** FUTURE_LEVELS.md's own
+  phrase is "infinite content from finite assets" — a real infinite loop
+  needs infinite storage or a lazy/procedural array contract this codebase
+  doesn't have (`MM.maps.dungeonFloors` returns a plain, pre-built array
+  everywhere else). 60 floors (12 landings) is far past anything a kid will
+  reach for a very long time, and the top floor simply has no way further
+  up — exactly how every hand-authored dungeon in this game already ends.
+- **Daily Tangles appear on the mainland overworld only, not inside
+  dungeons.** The spec says "an overworld or dungeon tile" — dungeons
+  aren't persistent standing state the way the overworld is (their
+  monsters are rebuilt fresh every visit), so a tangle "living" inside one
+  would need a whole new persistence mechanism. The overworld alone
+  already delivers the "why open the game on a random Tuesday" goal, and
+  the notice board's self-narration (nearest dungeon ENTRANCE by distance)
+  still name-drops the dungeons without requiring a kid to walk inside one.
+- **No separate "banner" purchase.** The spec's furnishing list is "rugs,
+  banners, garden, library" — but banners already exist as permanent decor
+  from Wave 7 (the `F` tiles). Adding a second, purchasable banner type
+  alongside free ones already on the wall would read as a continuity
+  error, not a new feature, so the three purchasable pieces are rug,
+  garden, and library shelf.
+- **Statue plinths are independent, not sequential.** Unlike the Gallery
+  of Ten (which replays the kid's own story in order), the three statue
+  plinths are trophies: any of them can be commissioned first, picking any
+  boss the kid has actually beaten that isn't statued elsewhere. There's no
+  narrative reason to force an order, and forcing one would only add friction.
+- **Furnishing/statue purchases are plain gold-for-item, not routed through
+  the shop's 10%-off money-quiz.** That mechanic belongs to the shop
+  counter specifically; these are bump-to-buy fixtures around the house,
+  matching the Gallery plinths' own zero-friction precedent more closely
+  than the shop's.
+- **Pet hats gate on `s.endingDone` too**, even though a pet can exist from
+  Wave 5 onward. The whole wave's framing is "everything below gates on the
+  ending" — treating hats as an exception would need its own justification
+  the spec doesn't give, and bundling them with the castle visit ("make your
+  home nice, make your pet nice, in one trip") reads as one coherent errand
+  rather than an arbitrary early cutoff.
+
+
 
 FUTURE_LEVELS.md §5 is the design source — read it in full first. The kid
 is the New MathMaker now; tending the kingdom IS the job. Everything below
@@ -1815,6 +1880,131 @@ drive-castle or the new drive, do NOT lengthen the marathon). Evidence
 discipline applies (tests/logs/, foreground marathon, paste final lines).
 **Stop for design review of all new player-facing prose before tagging**
 (tangle notices, furnishing names, milestone lines).
+
+## Fix pass — playtest round 5 (design session) ✅ SHIPPED (2026-07-12, with the wave-9 release)
+
+Live-playtest reports on the Wave 8b stances — including one DESIGN PIVOT
+(user decision): **one track, chosen at the Ceremony.** The Strike/Soothe
+in-battle buttons are GONE ("it is confusing to have strike/soothe as
+options") — the Ceremony's "boldly, or gently?" now IS the class choice,
+battles show only ⚡ Brave + Flee, and changing your way is a deliberate
+act in the ⚙️ dialog (one warm MathMaker line; friends stay friends;
+nothing lost). Help's battle entry describes YOUR way and says where to
+change it. The becalmed/friend model got four refinements in the same
+pass (tests/drive-stances2.js + updated drive-twokids-b):
+
+- **The friend mark is a crisp pixel HEART** ("the dove is
+  unrecognizable") — one mark, drawn like the crown, replacing BOTH the
+  emoji dove and the topic pip on friends (two hovering symbols read as
+  noise; a friend isn't a target).
+- **A becalmed monster SITS where it was calmed** ("they appear in
+  different places… you don't know who is who") — zero drift, matching
+  its own settling-in flavor lines.
+- **Bumping a calmed friend is never a fight** ("I can still fight it,
+  and it starts at 0% calm" — accidentally erasing your own kindness):
+  it steps aside — you swap places — with a friendly line
+  (FRIEND_BUMP_LINES). This also guarantees a becalmed monster can never
+  block a chokepoint. The friend-ceremony "spar by walking into it" text
+  is gone with the sparring bump.
+- **The "A friend!" ceremony fires ONCE, ever** ("after every fight is
+  ridiculous") — the first friend the kid ever makes gets the modal;
+  every later kind gets its victory line and 🤍 book mark.
+
+Also in this pass (from the same playtest):
+
+1. **Brave problems now LOOK brave** ("the brave questions did not look
+   hard — 3+5"): the two FACTS topics are compressed — one-tier-up inside
+   single-digit facts barely reads — so their tier 3 became the
+   composed-chain tier (`6 + 9 + 7`, `15 − 8 + 6`, `3 × 4 × 2`,
+   `36 ÷ 4 × 5`, missing-number boxes; worked solutions show each step)
+   and braveTierFor always draws it for them. Deep topics keep the
+   adaptive one-tier-up. 80/80 sampled brave facts draws are chains or
+   boxes; zero plain two-term sums.
+2. **The ⚡ button explains itself on first touch** ("how is a kid
+   supposed to know what brave means?" — it was a hover tooltip, the
+   anti-pattern we fixed for spells in 7.1): first-ever switch-on prints
+   the whole deal in the battle message line (hardest questions, double
+   power, a miss costs nothing extra), persisted `s.seenBraveHelp`; later
+   toggles get short confirms. Also added to the first-battle tutorial
+   and the Help battles entry.
+3. **The brave latch** (found while writing #2): damage read `s.brave` at
+   ANSWER time but the problem was picked at ROUND start — toggling ⚡ on
+   mid-round doubled an easy problem. battle.js now latches the pick-time
+   flag per round and playerStrike honors it: double damage only ever
+   pays for a question actually asked the hard way.
+4. **A soothed monster STAYS, becalmed** ("they seem to disappear, like
+   ones that have been fought"): full health, softened palette + 🕊 pip
+   (its species is befriended as of that moment, so friend
+   rendering/pacify picks it up with zero new wiring), never initiates; a
+   soothed GUARD goes off duty and wanders from its post, so soothing can
+   never leave a chokepoint blocked that defeating would have cleared.
+   No ⚔ tally, no defeatedAt for soothed regulars — the 🕊 mark instead
+   (bosses/mimics/tangles keep their endings; departure-implying soothe
+   flavor lines rewritten to settling-in lines).
+5. **Soothe sounds and looks like soothing**: a landed soothe CHIMES (two
+   soft rising sine notes; a "perfectly calm" crit adds a third) instead
+   of the strike whack — and each gentle instrument sheds its own calm:
+   the Bubble Pipe blows bubbles, the Ribbon Streamer trails ribbons, the
+   Cat-Fishing Wand flicks little lure-fish, the Chime Bells shed notes.
+
+## Wave 10 — The World Notices (SONNET; prose stop before tagging)
+
+The mid-game story sag, fixed by the world visibly reacting to the kid —
+no new mechanics anywhere in this wave, only reaction, foreshadowing, and
+rare delight. STORY_BIBLE.md open throughout.
+
+1. **The Turning Stones (P1 — the centerpiece; user-approved design).**
+   A courtyard of 13 arc-carved paving stones in the castle plaza on the
+   mainland overworld (the pre-ending castle is a bump, not a building —
+   the stones must be OUTSIDE, walkable-past on the turn-in route).
+   - Stone sizes follow the Fibonacci boxes: 1, 1, 2, 3, 5, 8, 13 — the
+     kid who counts them is reading the exact sequence the ending exam
+     asks about ("1 1 2 3 5 8 13 … what comes next?" → 21). This makes
+     the finale fair-play deducible. NEVER say the word Fibonacci.
+   - Render as a drawn canvas overlay on fixed plaza tiles (the world-
+     numerals/gear-pip recipe, NOT new tile glyphs — the audit exempts
+     nothing). Each stone = one spiral arc segment; aligned stones draw
+     at their true angle, unaligned ones at a fixed skew (deterministic
+     per stone, no per-frame motion — Calm-Mode-safe by construction).
+   - Alignment count = s.tasksDone.length (monotonic, save-safe, zero
+     new state). All 13 aligned → the complete spiral + a faint golden
+     shimmer (a static tint, not animation).
+   - Narration ONCE, then silence: Sage Sylvia gains one rotating line
+     ("The courtyard stones. They turn, you know. One more every time
+     you set something right. My grandmother said they were a picture,
+     seen from high enough."), the MathMaker one dry aside ("The floor
+     out front? Older than me. It has opinions about geometry."). The
+     stones themselves never speak, never gate, never react to bumps.
+   - Reward attention, never require it: a kid who never notices loses
+     nothing; the ending reveal still works cold.
+2. **Reactive cast (P2).** After each major flag (lampLit, spireDone,
+   hallsDone, breakwaterDone, gullwrackRebuilt, endingDone), the core
+   cast each gain ONE new rotating line acknowledging it: Callie, Percy,
+   the captain, Miscount, Sylvia, Barnaby, Finn. ~30 lines total, all in
+   each voice per STORY_BIBLE. The world should notice the kid's deeds.
+3. **A mid-game event (P3).** One small map change around task 6-7 that
+   is not a new dungeon: after task 6, the two farmers finally repair
+   the broken fence east of the farm (three tiles change, one dialog
+   line each thanking the kid — the kingdom mends as confusion recedes).
+4. **The rare-surprise pool (P4).** Three once-EVER world moments, each
+   ~1% per eligible condition, persisted seen-flags: (a) a shooting star
+   crosses the overworld at night… the game has no night — instead: a
+   golden bird lands on a fence post, watches the kid pass, and leaves
+   one feather (a 3-gold treasure named "Proof It Happened"); (b) the
+   inn cat brings the kid a dead… no — a LIVE beetle, proudly (log line,
+   +nothing); (c) two slimes in any meadow dungeon are found stacked,
+   wearing one hat between them (bump = they split apart, embarrassed;
+   the hat is respectfully retired, +2 gold). All jokes on the world,
+   never the kid; none repeatable; none missable-with-regret (no
+   notification that one was missed, ever).
+
+Acceptance — tests/drive-notices.js: stones render (screenshot at 0, 6,
+13 tasks — LOOK at all three), alignment count tracks tasksDone, no new
+grid glyphs, reactive lines appear post-flag and not before, the fence
+mends after task 6, each rare event fires when forced (expose its CHANCE
+hook, pin to 1) and never twice; all existing drives + marathon green;
+evidence discipline (tests/logs/, foreground/detached marathon, paste
+final lines). **Prose stop before tagging**: every new line reviewed.
 
 ## Sizing guidance for the implementing model
 
