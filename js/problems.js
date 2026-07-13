@@ -106,11 +106,26 @@ var MM = globalThis.MM = globalThis.MM || {};
   const NAMES = ['Maya', 'Jake', 'Priya', 'Leo', 'Zoe', 'Sam', 'Ava', 'Ben', 'Mia', 'Raj', 'Tess', 'Omar', 'Lily', 'Marcus', 'Nina'];
 
   function addsub_facts(t) {
-    if (t >= 3 && R.chance(0.5)) {
-      // missing addend
-      const a = R.int(3, 12), b = R.int(3, 12), c = a + b;
-      return num(`${a} + ▢ = ${c}\nWhat number goes in the box?`, b,
-        `${c} − ${a} = ${b}, so ${a} + ${b} = ${c}.`);
+    // Tier 3 is this topic's BRAVE tier (playtest 2026-07-12: "the brave
+    // problems did not look hard — 3+5"). A facts topic can't escalate PAST
+    // facts without breaking the parent switches, so it escalates by
+    // COMPOSING them: chains and missing numbers, never plain small sums.
+    if (t >= 3) {
+      const r = R.int(0, 2);
+      if (r === 0) { // missing addend
+        const a = R.int(3, 12), b = R.int(3, 12), c = a + b;
+        return num(`${a} + ▢ = ${c}\nWhat number goes in the box?`, b,
+          `${c} − ${a} = ${b}, so ${a} + ${b} = ${c}.`);
+      }
+      if (r === 1) { // three addends
+        const a = R.int(4, 9), b = R.int(5, 9), c = R.int(4, 9);
+        return num(`${a} + ${b} + ${c} = ?`, a + b + c,
+          `${a} + ${b} = ${a + b}, then ${a + b} + ${c} = ${a + b + c}.`);
+      }
+      // two steps, up and down
+      const a = R.int(11, 18), b = R.int(3, 9), c = R.int(3, 9);
+      return num(`${a} − ${b} + ${c} = ?`, a - b + c,
+        `${a} − ${b} = ${a - b}, then ${a - b} + ${c} = ${a - b + c}.`);
     }
     const hi = t === 1 ? 10 : 20;
     if (R.chance(0.5)) {
@@ -122,13 +137,26 @@ var MM = globalThis.MM = globalThis.MM || {};
   }
 
   function muldiv_facts(t) {
-    if (t >= 3 && R.chance(0.4)) {
-      const a = R.int(3, 9), b = R.int(3, 9);
-      return num(`${a} × ▢ = ${a * b}\nWhat number goes in the box?`, b,
-        `${a * b} ÷ ${a} = ${b}, so ${a} × ${b} = ${a * b}.`);
+    // Tier 3 = the brave tier: composed facts only (see addsub_facts).
+    if (t >= 3) {
+      const r = R.int(0, 2);
+      if (r === 0) { // missing factor
+        const a = R.int(3, 9), b = R.int(3, 9);
+        return num(`${a} × ▢ = ${a * b}\nWhat number goes in the box?`, b,
+          `${a * b} ÷ ${a} = ${b}, so ${a} × ${b} = ${a * b}.`);
+      }
+      if (r === 1) { // three-factor chain, kept small
+        const a = R.int(2, 4), b = R.int(2, 5), c = R.int(2, 4);
+        return num(`${a} × ${b} × ${c} = ?`, a * b * c,
+          `${a} × ${b} = ${a * b}, then ${a * b} × ${c} = ${a * b * c}.`);
+      }
+      // divide, then multiply
+      const a = R.int(3, 8), b = R.int(3, 8), c = R.int(2, 5);
+      return num(`${a * b} ÷ ${a} × ${c} = ?`, b * c,
+        `${a * b} ÷ ${a} = ${b}, then ${b} × ${c} = ${b * c}.`);
     }
     const lo = t === 1 ? 2 : 3;
-    const hi = t === 1 ? 5 : (t === 2 ? 9 : 12);
+    const hi = t === 1 ? 5 : 9;
     const a = R.int(lo, hi), b = R.int(2, 9);
     if (t >= 2 && R.chance(0.4)) {
       return num(`${a * b} ÷ ${a} = ?`, b, `${a * b} ÷ ${a} = ${b} because ${a} × ${b} = ${a * b}.`);
@@ -136,18 +164,52 @@ var MM = globalThis.MM = globalThis.MM || {};
     return num(`${a} × ${b} = ?`, a * b, `${a} × ${b} = ${a * b}.`);
   }
 
+  // Pedagogy pass (2026-07-12): the old solutions said "line up the columns"
+  // and then just STATED the answer — hiding the regrouping step, which is
+  // the exact thing a stuck kid needs shown. This narrates the first
+  // carry/borrow column by column, in the words a teacher would use, and
+  // stays short when no regrouping happens.
+  const PLACES = ['ones', 'tens', 'hundreds', 'thousands'];
+  function addSteps(a, b) {
+    const da = String(a).split('').reverse().map(Number), db = String(b).split('').reverse().map(Number);
+    let carry = 0;
+    const steps = [];
+    for (let i = 0; i < Math.max(da.length, db.length); i++) {
+      const x = da[i] || 0, y = db[i] || 0, sum = x + y + carry;
+      if (sum >= 10 && steps.length < 2) {
+        steps.push(`${PLACES[i] || 'next column'}: ${x} + ${y}${carry ? ' + 1' : ''} = ${sum} — write ${sum % 10}, carry the 1`);
+      }
+      carry = sum >= 10 ? 1 : 0;
+    }
+    return steps.length
+      ? `Line up the columns. ${steps.join('; ')}. Keep going: ${fmt(a)} + ${fmt(b)} = ${fmt(a + b)}.`
+      : `Line up the columns — no carrying needed: ${fmt(a)} + ${fmt(b)} = ${fmt(a + b)}.`;
+  }
+  function subSteps(a, b) {
+    const da = String(a).split('').reverse().map(Number), db = String(b).split('').reverse().map(Number);
+    let borrow = 0;
+    const steps = [];
+    for (let i = 0; i < da.length; i++) {
+      const x = da[i] - borrow, y = db[i] || 0;
+      if (x < y && steps.length < 2) {
+        steps.push(`${PLACES[i] || 'next column'}: ${x} − ${y} can't — borrow a ${PLACES[i + 1] ? PLACES[i + 1].replace(/s$/, '') : 'ten'}: ${x + 10} − ${y} = ${x + 10 - y}`);
+      }
+      borrow = x < y ? 1 : 0;
+    }
+    return steps.length
+      ? `Line up the columns. ${steps.join('; ')}. Keep going: ${fmt(a)} − ${fmt(b)} = ${fmt(a - b)}.`
+      : `Line up the columns — no borrowing needed: ${fmt(a)} − ${fmt(b)} = ${fmt(a - b)}.`;
+  }
   function multidigit_addsub(t) {
     const digits = t === 1 ? [10, 99] : t === 2 ? [100, 999] : [1000, 9999];
     let a = R.int(digits[0], digits[1]), b = R.int(digits[0], digits[1]);
     if (t === 3 && R.chance(0.4)) a = R.int(1, 9) * 1000 + R.pick([0, 1, 2]); // subtraction across zeros
     if (R.chance(0.5)) {
-      return num(`${fmt(a)} + ${fmt(b)} = ?`, a + b,
-        `Line up the columns: ${fmt(a)} + ${fmt(b)} = ${fmt(a + b)}.`);
+      return num(`${fmt(a)} + ${fmt(b)} = ?`, a + b, addSteps(a, b));
     }
     if (b > a) { const s = a; a = b; b = s; }
     if (a === b) a += R.int(1, 9);
-    return num(`${fmt(a)} − ${fmt(b)} = ?`, a - b,
-      `Line up the columns: ${fmt(a)} − ${fmt(b)} = ${fmt(a - b)}.`);
+    return num(`${fmt(a)} − ${fmt(b)} = ?`, a - b, subSteps(a, b));
   }
 
   function multidigit_mult(t) {
@@ -170,9 +232,26 @@ var MM = globalThis.MM = globalThis.MM || {};
     else { dvsr = R.int(11, 19); q = R.int(11, 40); r = R.int(1, dvsr - 1); }
     const dividend = dvsr * q + r;
     const ansTxt = r === 0 ? String(q) : `${q} r ${r}`;
-    const sol = r === 0
-      ? `${dvsr} × ${q} = ${fmt(dividend)}, so the answer is ${q}.`
-      : `${dvsr} × ${q} = ${fmt(dvsr * q)}, and ${fmt(dividend)} − ${fmt(dvsr * q)} = ${r} left over. Answer: ${ansTxt}.`;
+    // Pedagogy pass (2026-07-12): the old solution VERIFIED the answer
+    // (dvsr × q = dividend) without teaching the process. This walks the
+    // actual long-division steps — divide, note the leftover, bring down —
+    // digit by digit, the way it's written on paper.
+    const walk = [];
+    {
+      const ds = String(dividend).split('').map(Number);
+      let cur = 0, started = false;
+      for (let i = 0; i < ds.length; i++) {
+        cur = cur * 10 + ds[i];
+        if (!started && cur < dvsr && i < ds.length - 1) continue;
+        const qd = Math.floor(cur / dvsr), left = cur - qd * dvsr;
+        walk.push(started
+          ? `bring down the ${ds[i]} → ${cur}; ${dvsr} into ${cur} goes ${qd}${left ? ` (${left} left)` : ''}`
+          : `${dvsr} into ${cur} goes ${qd}${left ? ` (${left} left)` : ''}`);
+        started = true;
+        cur = left;
+      }
+    }
+    const sol = `${walk.join('; ')}. Answer: ${ansTxt}. Check: ${dvsr} × ${q}${r ? ` + ${r}` : ''} = ${fmt(dividend)}.`;
     return {
       kind: 'remainder', answer: { q, r },
       text: `${fmt(dividend)} ÷ ${dvsr} = ?`,
@@ -313,7 +392,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (R.chance(0.6)) {
       const s = fadd(fa, fb);
       return num(`${a}/${dA} + ${b}/${dB} = ?`, s,
-        `Use denominator ${lcd}: ${a}/${dA} = ${a * lcd / dA}/${lcd} and ${b}/${dB} = ${b * lcd / dB}/${lcd}. Add: ${a * lcd / dA + b * lcd / dB}/${lcd} = ${fstr(s)}.`,
+        `Use denominator ${lcd}: ${a}/${dA} = ${a * lcd / dA}/${lcd} and ${b}/${dB} = ${b * lcd / dB}/${lcd}. Add: ${a * lcd / dA + b * lcd / dB}/${lcd}${fstr(s) === `${a * lcd / dA + b * lcd / dB}/${lcd}` ? "" : ` = ${fstr(s)}`}.`,
         'Type a fraction, like 5/8 or 1 1/4');
     }
     const va = a * lcd / dA, vb = b * lcd / dB;
@@ -321,7 +400,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (hiV === loV) return fractions_as(t);
     const s = frac(hiV - loV, lcd);
     return num(`${hiF} − ${loF} = ?`, s,
-      `Use denominator ${lcd}: ${hiF} = ${hiV}/${lcd} and ${loF} = ${loV}/${lcd}. Subtract: ${hiV - loV}/${lcd} = ${fstr(s)}.`,
+      `Use denominator ${lcd}: ${hiF} = ${hiV}/${lcd} and ${loF} = ${loV}/${lcd}. Subtract: ${hiV - loV}/${lcd}${fstr(s) === `${hiV - loV}/${lcd}` ? "" : ` = ${fstr(s)}`}.`,
       'Type a fraction, like 3/8');
   }
 
@@ -345,8 +424,14 @@ var MM = globalThis.MM = globalThis.MM || {};
       const d = R.pick([2, 3, 4]); const w1 = R.int(1, 3), n1 = R.int(1, d - 1);
       const w2 = R.int(1, 3), n2 = R.int(1, d - 1);
       const ans = fadd(frac(w1 * d + n1, d), frac(w2 * d + n2, d));
+      // Pedagogy pass: when the fraction parts add past a whole, SHOW the
+      // regroup ("2/2 = 1 more whole") — the old text jumped straight to the
+      // total and hid the only interesting step.
+      const overflow = n1 + n2 >= d
+        ? ` ${n1 + n2}/${d} is ${n1 + n2 === d ? 'a whole 1' : `1 and ${n1 + n2 - d}/${d}`}, so add 1 more whole.`
+        : '';
       return num(`${w1} ${n1}/${d} + ${w2} ${n2}/${d} = ?`, ans,
-        `Wholes: ${w1} + ${w2} = ${w1 + w2}. Fractions: ${n1}/${d} + ${n2}/${d} = ${n1 + n2}/${d}. Together: ${fstr(ans)}.`,
+        `Wholes: ${w1} + ${w2} = ${w1 + w2}. Fractions: ${n1}/${d} + ${n2}/${d} = ${n1 + n2}/${d}.${overflow} Together: ${fstr(ans)}.`,
         'Type it like 4 1/4');
     }
     if (style === 2) {
@@ -647,10 +732,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     const endM = totalMin % 60;
     const startS = timeStr(startH, startM), endS = timeStr(endH === 0 ? 12 : endH, endM);
     if (R.chance(0.5)) {
+      // Pedagogy pass: split durations past the hour ("90 min = 1 hour + 30
+      // min") — hopping to the hour first is the strategy worth teaching.
+      const durSol = durMin > 60
+        ? `${durMin} minutes = 1 hour + ${durMin - 60} minutes. ${startS} + 1 hour = ${timeStr(startH + 1 > 12 ? 1 : startH + 1, startM)}, then + ${durMin - 60} minutes = ${endS}.`
+        : `${startS} + ${durMin} minutes = ${endS}.`;
       return clockProblem(
         `The ${thing} ${R.pick(['opens', 'starts'])} at ${startS} and runs for ${durMin} minutes. What time does it end?`,
         endH, endM,
-        `${startS} + ${durMin} minutes = ${endS}.`,
+        durSol,
         'Type the time like 4:25.'
       );
     }
@@ -872,6 +962,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     };
   }
 
+  // Pedagogy pass: "A eighth note" is not English — the article helper
+  // writes "an eighth note" (capitalized at sentence start, lowered inside).
+  function art(name, lower) {
+    const s = `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
+    return lower ? s : s[0].toUpperCase() + s.slice(1);
+  }
   const NOTE_VALUES = [
     { name: 'whole note', d: 1 }, { name: 'half note', d: 2 },
     { name: 'quarter note', d: 4 }, { name: 'eighth note', d: 8 },
@@ -889,7 +985,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       const a = R.pick(NOTE_VALUES.slice(1, 3)); // half or quarter
       const b = R.pick(NOTE_VALUES.slice(2));    // quarter or eighth
       const sum = fadd(frac(1, a.d), frac(1, b.d));
-      return num(`A ${a.name} plus a ${b.name} — how much of a whole note is that?`, sum,
+      return num(`${art(a.name)} plus ${art(b.name, true)} — how much of a whole note is that?`, sum,
         `${a.name} = 1/${a.d}, ${b.name} = 1/${b.d}. 1/${a.d} + 1/${b.d} = ${fstr(sum)}.`);
     }
     // t3: subtraction, or three notes summed
@@ -897,12 +993,12 @@ var MM = globalThis.MM = globalThis.MM || {};
       const a = R.pick(NOTE_VALUES.slice(0, 2)); // whole or half
       const b = R.pick(NOTE_VALUES.slice(2));    // quarter or eighth
       const diff = fsub(frac(1, a.d), frac(1, b.d));
-      return num(`A ${a.name} is how much MORE of a whole note than a ${b.name}?`, diff,
+      return num(`${art(a.name)} is how much MORE of a whole note than ${art(b.name, true)}?`, diff,
         `${a.name} = 1/${a.d}, ${b.name} = 1/${b.d}. 1/${a.d} − 1/${b.d} = ${fstr(diff)}.`);
     }
     const [a, b, c] = [R.pick(NOTE_VALUES.slice(2)), R.pick(NOTE_VALUES.slice(2)), R.pick(NOTE_VALUES.slice(2))];
     const sum = fadd(fadd(frac(1, a.d), frac(1, b.d)), frac(1, c.d));
-    return num(`A ${a.name}, a ${b.name}, and a ${c.name} — how much of a whole note is that in all?`, sum,
+    return num(`${art(a.name)}, ${art(b.name, true)}, and ${art(c.name, true)} — how much of a whole note is that in all?`, sum,
       `1/${a.d} + 1/${b.d} + 1/${c.d} = ${fstr(sum)}.`);
   }
 

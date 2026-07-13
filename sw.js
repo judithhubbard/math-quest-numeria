@@ -2,14 +2,14 @@
 // Cache-first over the full static set so the game plays OFFLINE after the
 // first visit. VERSION is bumped at each release deploy; the old cache is
 // dropped on activate, so players get each tagged release cleanly.
-const VERSION = 'v1.3.0';
+const VERSION = 'v1.4.0';
 const CACHE = 'mathquest-' + VERSION;
 const ASSETS = [
   '.', 'index.html', 'manifest.json',
   'css/style.css',
   'js/tracker.js', 'js/problems.js', 'js/data.js', 'js/mastery.js',
   'js/maps.js', 'js/sprites.js', 'js/engine.js', 'js/battle.js',
-  'js/ui.js', 'js/main.js',
+  'js/ui.js', 'js/music.js', 'js/main.js',
   'assets/PressStart2P.ttf', 'assets/icon-192.png', 'assets/icon-512.png',
 ];
 

@@ -17,7 +17,10 @@ var MM = globalThis.MM = globalThis.MM || {};
   // Wave 5 item 7: exposed for the Calm Mode drive check (same "exposed for
   // tests" convention as B.current) — shake amount + live particle count,
   // both of which Calm Mode should hold at zero.
-  B.debugEffects = () => bt ? { shake: bt.shake, particles: bt.particles.length } : null;
+  B.debugEffects = () => bt ? {
+    shake: bt.shake, particles: bt.particles.length,
+    shapes: [...new Set(bt.particles.map(p => p.shape).filter(Boolean))],
+  } : null;
 
   // ---------- helpers ----------
   function el(id) { return document.getElementById(id); }
@@ -212,6 +215,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     const prob = bt.ctx.hooks.pickProblem();
     bt.problem = prob;
     B.current = prob; // exposed for tests
+    // Latch the brave state THIS problem was picked under: double damage must
+    // only ever pay for a question that was actually asked the hard way —
+    // toggling ⚡ on mid-round can't retroactively double an easy problem
+    // (and toggling off can't dodge the deal either).
+    bt.braveAtPick = !!(bt.ctx.hooks.brave && bt.ctx.hooks.brave());
     bt.locked = false;
     const intro = bt.enterLine ? `<i>${bt.enterLine}</i><br>` : '';
     bt.enterLine = null; // shown with round 1 only
@@ -238,36 +246,50 @@ var MM = globalThis.MM = globalThis.MM || {};
     el('fleeBtn').onclick = () => { if (!bt.locked) { MM.ui.log(`You flee from ${MM.data.theMon(bt.mon.name)}.`); teardown({ fled: true }); } };
   }
 
-  // ---------- Wave 8b: the stance row ----------
-  // SACRED RULE: the steady-state combat loop gains ZERO button presses. These
-  // are STICKY toggles — set once, lived in, remembered as the profile default.
-  // They are never a per-strike decision; the loop stays type-answer-press-Enter
-  // forever. Switchable between rounds, because a kid changing her mind mid-
-  // dungeon is exactly the moment the whole design is for.
+  // ---------- the stance row (round 5: ONE track, chosen at the Ceremony) ----------
+  // SACRED RULE: the steady-state combat loop gains ZERO button presses.
+  // Playtest verdict on the Wave 8b version: two verbs as in-battle buttons
+  // read as confusion, not choice ("it is confusing to have strike/soothe as
+  // options"). The kid's WAY (bold ⚔️ / gentle 🕊) is chosen at the Ceremony
+  // and lived in; battles show only ⚡ Brave and Flee. Changing your way is a
+  // deliberate act, done from the ⚙️ dialog — never a mid-fight toggle.
   function renderStanceRow() {
     const row = el('stanceRow');
     if (!row) return;
     const h = bt.ctx.hooks;
     if (!h.stance) return;   // a battle context without stances (shouldn't happen)
-    const st = h.stance(), br = h.brave();
+    const br = h.brave();
     row.innerHTML =
-      `<button class="mini stance-btn${st === 'strike' ? ' on' : ''}" id="stStrike" title="Strike: the classic. Same math.">⚔️ Strike</button>` +
-      `<button class="mini stance-btn${st === 'soothe' ? ' on soothe' : ''}" id="stSoothe" title="Soothe: identical math, identical rewards — the tangle comes loose instead of coming apart.">🕊 Soothe</button>` +
       `<button class="mini stance-btn brave${br ? ' on' : ''}" id="stBrave" title="Brave: a harder problem for DOUBLE power. A miss costs nothing extra.">⚡ Brave${br ? ' ON' : ''}</button>`;
-    const set = (id, fn) => { const b = el(id); if (b) b.onclick = () => { if (bt.locked) return; fn(); afterStanceChange(); }; };
-    set('stStrike', () => h.setStance('strike'));
-    set('stSoothe', () => h.setStance('soothe'));
-    set('stBrave', () => h.setBrave(!h.brave()));
+    const b = el('stBrave');
+    if (b) b.onclick = () => { if (bt.locked) return; h.setBrave(!h.brave()); afterStanceChange('brave'); };
   }
   // Switching stance re-skins the fight in place. It does NOT re-roll the
   // problem — that would let a kid reroll a hard question by tapping a stance,
   // and (worse) it would make the toggle feel like a move you spend a turn on.
-  function afterStanceChange() {
+  function afterStanceChange(kind) {
     renderStanceRow();
     setBars();
-    msg(soothing()
-      ? `🕊 <b>You lower your guard, and hold steady.</b> Same problem. Same answer. A gentler way of meaning it.`
-      : `⚔️ <b>You square up.</b> Same problem, same answer — you'll just be striking with it.`);
+    if (kind === 'brave') {
+      // The button must explain ITSELF the moment it's touched (playtest
+      // 2026-07-12: "how is a kid supposed to know what brave means?" — the
+      // hover tooltip isn't an answer; kids don't hover). The first-ever
+      // switch-on gets the full deal, spelled out; after that, short confirms.
+      const st = MM.engine.state;
+      const on = !!(st && st.brave);
+      if (on && st && !st.seenBraveHelp) {
+        st.seenBraveHelp = true;
+        MM.engine.save();
+        msg(`⚡ <b>Brave!</b> From the next question on, the monsters ask their <b>hardest</b> — and every right answer counts <b>double</b>. Get one wrong and it costs <b>nothing extra</b>. Press ⚡ again any time to switch back.`);
+      } else {
+        msg(on
+          ? `⚡ <b>Brave on.</b> Hardest questions, double power. A miss still costs nothing extra.`
+          : `⚡ <b>Brave off.</b> Back to the usual questions — the choice is always yours.`);
+      }
+      return;
+    }
+    // (round 5: no other stance changes happen mid-battle — the kid's way is
+    // chosen at the Ceremony and switched, deliberately, from the ⚙️ dialog)
   }
 
   function onAnswer(correct, kidAnswer) {
@@ -301,9 +323,16 @@ var MM = globalThis.MM = globalThis.MM || {};
       // Either way the kid is never the punchline. Bosses get no quip at all.
       const quip = bt.mon.boss ? '' :
         `<div class="miss-quip">${MM.data.flavor(bt.mon.sprite, soothing() ? 'fret' : 'miss', bt.mon.name)}</div>`;
+      // Struggle pass: after a run of misses in one topic, one kind line —
+      // where the kid is actually looking, under the worked solution.
+      let kind = '';
+      if (MM.engine.roughPatch) {
+        MM.engine.roughPatch = null;
+        kind = `<div class="miss-quip" style="color:#a8e6cf">${MM.data.pick(MM.data.ROUGH_PATCH_LINES)}</div>`;
+      }
       el('probFeedback').innerHTML =
         `<div class="wrong">${soothing() ? '✗ Not quite — it stays tangled.' : '✗ Not quite — your attack goes wide!'}</div>
-         <div class="solution">${bt.problem.solution}</div>${quip}`;
+         <div class="solution">${bt.problem.solution}</div>${quip}${kind}`;
       after(400, () => {
         float(HERO.x - 60, HERO.y - 160, soothing() ? '...' : 'MISS', '#9d92c9', 20);
         MM.sound.whoosh();
@@ -313,7 +342,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   }
 
   function playerAttack() {
-    const { dmg, crit, brave } = bt.ctx.hooks.playerStrike();
+    const { dmg, crit, brave } = bt.ctx.hooks.playerStrike(bt.braveAtPick);
     const soothe = soothing();
     // lunge toward the monster and back — soothing, you don't lunge, you REACH:
     // a smaller, slower movement toward it rather than a strike through it.
@@ -339,9 +368,11 @@ var MM = globalThis.MM = globalThis.MM || {};
         banner(soothe ? '🕊 PERFECTLY CALM! 🕊' : '💥 CRITICAL HIT! 💥', soothe ? '#7ee0e8' : '#ffd94a');
         burst(MON.x, MON.y - 60, soothe ? '#7ee0e8' : '#ffd94a', 18);
       }
-      // soothing sheds soft motes rather than a damage burst
+      // soothing sheds soft motes rather than a damage burst — and CHIMES
+      // rather than whacks (playtest 2026-07-12: calming something should
+      // never sound like hitting it)
       if (soothe && !crit) motes(MON.x, MON.y - 50, 5);
-      MM.sound.hit(crit);
+      if (soothe) MM.sound.soothe(crit); else MM.sound.hit(crit);
       setBars();
       // boss phase twists (e.g. the Murk thickening at 50% HP) telegraph via
       // the same one-shot "enterLine" the monster's entrance uses
@@ -353,14 +384,26 @@ var MM = globalThis.MM = globalThis.MM || {};
   }
 
   // Soft drifting motes — the calm equivalent of burst(). Same Calm Mode rule.
+  // Each gentle instrument sheds its own calm (playtest 2026-07-12: "the
+  // bubble pipe should blow BUBBLES") — same particle system, its own shape
+  // and color. Anything else (a battle axe held out gently) sheds the
+  // default teal motes.
+  const INSTRUMENT_MOTES = {
+    ribbon: { shape: 'ribbon', colors: ['#ff9ad5', '#ffc4e8'] },
+    bubblepipe: { shape: 'bubble', colors: ['#7ee0e8', '#b8f0f4'] },
+    catwand: { shape: 'fish', colors: ['#c4d8e8', '#e8f0f4'] },
+    chimebells: { shape: 'note', colors: ['#ffd94a', '#ffe98a'] },
+  };
   function motes(x, y, n) {
     if (!bt || calmOn()) return;
+    const w = MM.engine.equippedItem && MM.engine.equippedItem('weapon');
+    const style = (w && INSTRUMENT_MOTES[w.id]) || { shape: null, colors: ['#7ee0e8', '#a8e6cf'] };
     for (let i = 0; i < n; i++) {
       bt.particles.push({
         x: x + (Math.random() - 0.5) * 60, y: y + (Math.random() - 0.5) * 40,
         vx: (Math.random() - 0.5) * 0.8, vy: -0.5 - Math.random() * 0.7,
-        life: 1, color: Math.random() < 0.3 ? '#a8e6cf' : '#7ee0e8',
-        size: 3 + Math.random() * 4, soft: true,
+        life: 1, color: style.colors[Math.random() < 0.3 ? 1 : 0],
+        size: 3 + Math.random() * 4, soft: true, shape: style.shape,
       });
     }
   }
@@ -600,7 +643,21 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (p.life <= 0) return false;
       c.globalAlpha = Math.max(0, p.life) * (p.soft ? 0.85 : 1);
       c.fillStyle = p.color;
-      if (p.soft) { // round, soft-edged: motes, not shrapnel
+      if (p.shape === 'bubble') {          // an outline that pops, not a dot
+        c.strokeStyle = p.color; c.lineWidth = 1.5;
+        c.beginPath(); c.arc(p.x, p.y, p.size / 2 + 1, 0, Math.PI * 2); c.stroke();
+      } else if (p.shape === 'ribbon') {   // a short streamer, drifting
+        c.save(); c.translate(p.x, p.y); c.rotate(p.vx * 2);
+        c.fillRect(-p.size, -1, p.size * 2, 2); c.restore();
+      } else if (p.shape === 'fish') {     // a little lure-flick triangle
+        c.beginPath(); c.moveTo(p.x + p.size / 2, p.y);
+        c.lineTo(p.x - p.size / 2, p.y - p.size / 3);
+        c.lineTo(p.x - p.size / 2, p.y + p.size / 3);
+        c.fill();
+      } else if (p.shape === 'note') {     // a notehead with a stem
+        c.beginPath(); c.arc(p.x, p.y, p.size / 3, 0, Math.PI * 2); c.fill();
+        c.fillRect(p.x + p.size / 3 - 1, p.y - p.size, 1.5, p.size);
+      } else if (p.soft) { // round, soft-edged: motes, not shrapnel
         c.beginPath();
         c.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
         c.fill();

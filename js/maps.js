@@ -30,7 +30,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
     '~~....T.......TT..........T.......TT..',
     '~~..T...................T.........T...',
-    '~~.T.....T.....TTT.............T......',
+    '~~.T.....T.....TTT.H...........T......',
     '~~..T..........TT..C.n......T.....5...',
     // Wave 7.1: (34,5) was a day-one trap pocket under dungeon 5's door
     '~~.....T..............T..........eMM..',
@@ -1083,6 +1083,23 @@ var MM = globalThis.MM = globalThis.MM || {};
   // X the great doors (back outside)  P arrival  E gallery plinth (one of the
   // ten recovered treasures)  Q the MathMaker  J Miscount  V the Hall of
   // Heroes crest board  O the throne  F a hanging banner (decor, solid)
+  // Wave 9 (P3, cosmetic gold sinks): the SW room was always just empty
+  // floor, reachable via the Q/J hall's own corridor at row 10 — everything
+  // NEW lives in row 12 only (rows 9/11 are untouched, on purpose: Q and J
+  // are solid, and their only detour route runs through those two rows —
+  // furniture there silently walls off the whole room, a bug the render
+  // audit's reachability check caught before it ever shipped). d a garden
+  // bed  i a rug spot  k a library shelf  l the pet's wardrobe  n/w/r three
+  // independent boss-statue plinths — every one bump-to-buy, like the
+  // Gallery's own plinths, gated on s.endingDone (E.castleFurnishBump /
+  // MM.ui.petWardrobe / MM.ui.statuePlinth). Deliberately NOT m/g/t/b (the
+  // global monster-spawn-marker alphabet — the door audit checks their
+  // absence everywhere as "no combat in the castle") NOR any letter already
+  // claimed by MM.data.NPCS (a/c/e/f/g/h/j/p/q/u/x/y/z) — the townsfolk
+  // NPC-draw pass runs on every glyph regardless of which overworld it's
+  // on, and a reused NPC letter draws that villager sprite RIGHT OVER the
+  // furniture (caught only by actually looking at a screenshot — the
+  // automated tileSprite() checks were green the whole time).
   MM.maps.CASTLE = [
     '##########################',
     '##########################',
@@ -1096,13 +1113,154 @@ var MM = globalThis.MM = globalThis.MM || {};
     '##.......##....#...VV...##',
     '##..Q.J.................##',
     '##.......##F..F#........##',
-    '##.......##....#........##',
+    '##diklnwr##....#........##',
     '###########..P.###########',
     '############X#############',
   ];
 
+  // ===== Wave 9 (P2): the Spiral Stair — a procedural post-game tower =====
+  // "Infinite content from finite assets" (FUTURE_LEVELS.md 5c), pragmatically
+  // capped at SPIRAL_MAX_FLOOR (deviation: not literally endless — see
+  // EXPANSION_PLAN's Wave 9 deviations). Seven small 12x10 chunks rotate for
+  // ordinary floors; every 5th floor is a bigger "landing" chunk (chest + a
+  // tougher tangle) from a 2-chunk pool. Reachability for every chunk is unit-
+  // tested exactly like a hand-authored dungeon (tests/test.js).
+  MM.maps.SPIRAL_INDEX = 22;
+  MM.maps.SPIRAL_MAX_FLOOR = 60;
+  MM.maps.SPIRAL_REGULAR = [
+    [
+      '############',
+      '#X.........#',
+      '#..#.....#.#',
+      '#..........#',
+      '#....D.....#',
+      '#..........#',
+      '#.m...D....#',
+      '#..#.....#.#',
+      '#.........>#',
+      '############',
+    ],
+    [
+      '############',
+      '#X....D....#',
+      '#.##....##.#',
+      '#..........#',
+      '#....m.....#',
+      '#..........#',
+      '#.....D....#',
+      '#.##....##.#',
+      '#.........>#',
+      '############',
+    ],
+    [
+      '############',
+      '#X....D....#',
+      '#..........#',
+      '#...#..#...#',
+      '#....m.....#',
+      '#..........#',
+      '#...#..#...#',
+      '#.....m....#',
+      '#....D....>#',
+      '############',
+    ],
+    [
+      '############',
+      '#X.........#',
+      '#..........#',
+      '#..D..D..D.#',
+      '#..........#',
+      '#....m.....#',
+      '#..........#',
+      '#..........#',
+      '#.........>#',
+      '############',
+    ],
+    [
+      '############',
+      '#X....D....#',
+      '#..........#',
+      '#.m......m.#',
+      '#..........#',
+      '#....#.....#',
+      '#..........#',
+      '#.......D..#',
+      '#.........>#',
+      '############',
+    ],
+    [
+      '############',
+      '#X.........#',
+      '#.#........#',
+      '#...D......#',
+      '#.....#....#',
+      '#.......m..#',
+      '#..#.......#',
+      '#....D.....#',
+      '#.........>#',
+      '############',
+    ],
+    [
+      '############',
+      '#X.D.....D.#',
+      '#..........#',
+      '#....m.....#',
+      '#..........#',
+      '#.......D..#',
+      '#..........#',
+      '#.m........#',
+      '#.........>#',
+      '############',
+    ],
+  ];
+  MM.maps.SPIRAL_LANDING = [
+    [
+      '############',
+      '#X.........#',
+      '#..........#',
+      '#....b.....#',
+      '#..........#',
+      '#.....*....#',
+      '#..........#',
+      '#..........#',
+      '#.........>#',
+      '############',
+    ],
+    [
+      '############',
+      '#X.....b...#',
+      '#..........#',
+      '#..........#',
+      '#....*.....#',
+      '#..........#',
+      '#..........#',
+      '#..........#',
+      '#.........>#',
+      '############',
+    ],
+  ];
+  // Materialized once (floors never change shape, only their spawned
+  // monster instances — those come fresh from E.enterDungeon every visit,
+  // same as any other dungeon).
+  MM.maps._spiralCache = null;
+  MM.maps.spiralFloors = function () {
+    if (MM.maps._spiralCache) return MM.maps._spiralCache;
+    const out = [];
+    for (let f = 1; f <= MM.maps.SPIRAL_MAX_FLOOR; f++) {
+      const landing = f % 5 === 0;
+      const pool = landing ? MM.maps.SPIRAL_LANDING : MM.maps.SPIRAL_REGULAR;
+      const i = landing ? (f / 5 - 1) % pool.length : (f - 1) % pool.length;
+      const rows = pool[i].slice();
+      // the tower has a top — the last floor's stairs-up simply isn't there
+      out.push(f === MM.maps.SPIRAL_MAX_FLOOR ? rows.map(r => r.replace('>', '.')) : rows);
+    }
+    MM.maps._spiralCache = out;
+    return out;
+  };
+
   // Every dungeon as an array of floors: 1-13 are single-floor.
   MM.maps.dungeonFloors = function (idx) {
+    if (idx === MM.maps.SPIRAL_INDEX) return MM.maps.spiralFloors();
     if (idx <= 13) {
       // Wave 5: dungeons 4/7/9 gained a locked second floor (a "Deep Wing").
       // Their floor 0 was single-floor before this — enterDungeon's mapId
@@ -1169,6 +1327,19 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ch === 'F') return 'banner';
       if (ch === 'X') return 'castleDoor';
       if (ch === '#') return 'wall';
+      // Wave 9 (P3): furnishing reads its bought/empty state straight off
+      // the live state, same trick as the Spire's gear plates — no grid
+      // rewriting needed, the tile just draws differently once bought.
+      {
+        const cf = MM.engine && MM.engine.state && MM.engine.state.castleFurnish;
+        if (ch === 'i') return (cf && cf.rug) ? 'rugFull' : 'hallFloor';
+        if (ch === 'd') return (cf && cf.garden) ? 'gardenFull' : 'gardenEmpty';
+        if (ch === 'k') return (cf && cf.library) ? 'shelfFull' : 'shelfEmpty';
+        if (ch === 'l') return 'petBasket';
+        if (ch === 'n') return (cf && cf.statues[0]) ? 'statueFull' : 'plinth';
+        if (ch === 'w') return (cf && cf.statues[1]) ? 'statueFull' : 'plinth';
+        if (ch === 'r') return (cf && cf.statues[2]) ? 'statueFull' : 'plinth';
+      }
       return 'hallFloor';
     }
     if (mapId === 'isles' && (ch === 'u' || ch === 'v' || ch === 'w')) return 'murk';
@@ -1176,6 +1347,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     // the mainland's expansion entrances (A/B = dungeons 11/12, K = 13) —
     // drawWorld paints their number labels on top of the hole
     if (mapId === 'world' && (ch === 'A' || ch === 'B' || ch === 'K')) return 'hole';
+    // Wave 9 (P2): the Spiral Stair's own tower, castle-adjacent. 'H' is
+    // free on the world map (Isles already owns 'H' for the lighthouse,
+    // intercepted above and never reaching here).
+    if (mapId === 'world' && ch === 'H') return 'spiralTower';
     if (mapId === 'horologe' && ch === '5') return 'spireTower';
     if (mapId === 'chime' && ch === '6') return 'hallTower';
     if (mapId === 'gullwrack' && ch === '7') return 'breakArch';

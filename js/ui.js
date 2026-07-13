@@ -71,6 +71,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     hit(crit) { noise(0.12, 900, 0, 0.3); beep(140, 0.18, 'square', 0, 0.1); if (crit) beep(1568, 0.25, 'triangle', 0.05, 0.14); },
     thud() { noise(0.16, 400, 0, 0.35); beep(90, 0.25, 'sine', 0, 0.22); },
     dodge() { noise(0.14, 4800, 0, 0.12); beep(1400, 0.1, 'sine', 0.04, 0.05); },
+    // Wave 8b follow-up (playtest 2026-07-12): a landed SOOTHE — two soft
+    // rising sine notes, like a wind chime settling; a "perfectly calm"
+    // crit adds a third, higher and softer still. No percussion at all:
+    // calming something must never sound like hitting it.
+    soothe(crit) {
+      beep(659, 0.28, 'sine', 0, 0.07);
+      beep(880, 0.34, 'sine', 0.12, 0.06);
+      if (crit) beep(1319, 0.45, 'sine', 0.26, 0.05);
+    },
     battleStart(boss) {
       beep(196, 0.14, 'square', 0, 0.08); beep(196, 0.14, 'square', 0.16, 0.08);
       beep(boss ? 147 : 262, 0.35, 'square', 0.32, 0.1);
@@ -148,6 +157,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     ctx.imageSmoothingEnabled = false;
     modalEl = document.getElementById('overlay');
     modalBox = document.getElementById('modalBox');
+
+    // music: the AudioContext may only start from a user gesture — poke it
+    // from every input path once; cheap no-op afterwards
+    document.addEventListener('keydown', () => MM.music && MM.music.poke());
+    document.addEventListener('pointerdown', () => MM.music && MM.music.poke());
 
     canvas.addEventListener('click', (ev) => {
       const r = canvas.getBoundingClientRect();
@@ -653,6 +667,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   // ---------- world rendering (continuous, for water/idle animation) ----------
   function worldLoop(now) {
     requestAnimationFrame(worldLoop);
+    if (MM.music) MM.music.update();          // pick the moment's track (cheap)
     if (MM.battle.active()) return;           // battle has its own loop
     if (endAnim) { drawEnding(now); return; } // the ending owns the canvas
     if (sailAnim) { drawSail(now); return; }  // mid-voyage
@@ -758,6 +773,15 @@ var MM = globalThis.MM = globalThis.MM || {};
           const nbob = Math.sin(now / 450 + x * 3) * 1.5;
           ctx.drawImage(MM.sprites.get(npc.sprite, { palette: npc.pal || {}, scale: 3 }), vx * TILE, vy * TILE + nbob);
         }
+        // Wave 9 (P1): a Daily Tangle standing on the mainland — drawn as an
+        // overlay (they move day to day, never baked into the grid glyph).
+        if (s.mapId === 'world' && s.tangles) {
+          const t = s.tangles.items.find(it => !it.done && it.x === x && it.y === y);
+          if (t) {
+            const tbob = Math.sin(now / 300 + x * 2) * 2;
+            ctx.drawImage(MM.sprites.get('tangle', { scale: 3 }), vx * TILE, vy * TILE + tbob);
+          }
+        }
       }
     }
 
@@ -807,33 +831,26 @@ var MM = globalThis.MM = globalThis.MM || {};
         const crown = MM.sprites.get('crown', { scale: 2 });
         ctx.drawImage(crown, vx * TILE + TILE / 2 - crown.width / 2, vy * TILE + bob - 8);
       }
-      // (b) the constant 🕊 pip. Emoji ignore fillStyle, so — exactly like the
-      // topic icon — a dark disc behind it does the contrast work. Deliberately
-      // NOT inside the Calm Mode block below: this is STATE, not decoration, and
-      // it must never be switched off.
+      // (b) the constant friend mark — ONE crisp pixel heart, centered above
+      // the head (playtest round 5: the emoji dove was unrecognizable mush,
+      // and dove + topic icon side by side was clutter; a friend carries the
+      // heart INSTEAD of a topic pip — it isn't a target anymore).
+      // Deliberately NOT inside the Calm Mode block below: this is STATE,
+      // not decoration, and it must never be switched off.
       if (friend) {
-        const px = vx * TILE + 7, py = vy * TILE + bob + hop - 3;
-        ctx.beginPath();
-        ctx.arc(px, py, 9, 0, Math.PI * 2);
-        ctx.fillStyle = '#141221';
-        ctx.fill();
-        ctx.font = '12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🕊', px, py + 1);
-        ctx.textBaseline = 'alphabetic';
+        const heart = MM.sprites.get('heart', { scale: 2 });
+        ctx.drawImage(heart, vx * TILE + TILE / 2 - heart.width / 2, vy * TILE + bob + hop - 10);
       }
       // Wave 8a (P2, monster telegraphs): a small topic icon over its head —
       // agency for the kid who wants to pick her fights, a target list for
       // the kid hunting a specific topic's brave-problem bonus. Emoji glyphs
       // ignore fillStyle (no drop-shadow trick), so a small dark disc behind
       // it does the contrast work instead — same idea as the gear-gate pips.
-      const topicIcon = MM.engine.monsterTopicIcon && MM.engine.monsterTopicIcon(m);
+      // Friends carry the heart INSTEAD of a topic pip — one mark, no clutter
+      // (round 5: two hovering symbols read as noise, not information).
+      const topicIcon = !friend && MM.engine.monsterTopicIcon && MM.engine.monsterTopicIcon(m);
       if (topicIcon) {
-        // A befriended monster already wears a 🕊 pip on its left shoulder —
-        // shove the topic disc right so the two sit SIDE BY SIDE instead of
-        // stacked on top of each other (they collided; caught by screenshot).
-        const ix = vx * TILE + TILE / 2 + (friend ? 12 : 0), iy = vy * TILE + bob + hop - 2;
+        const ix = vx * TILE + TILE / 2, iy = vy * TILE + bob + hop - 2;
         ctx.beginPath();
         ctx.arc(ix, iy, 10, 0, Math.PI * 2);
         ctx.fillStyle = '#141221';
@@ -894,6 +911,16 @@ var MM = globalThis.MM = globalThis.MM || {};
         const scale = pet.stage >= 1 ? 3 : 2;
         const spr = MM.sprites.get(MM.data.PETS[pet.species].sprite, { scale });
         ctx.drawImage(spr, pvx * TILE + (TILE - spr.width) / 2, pvy * TILE + (TILE - spr.height) + petBob);
+        // Wave 9 (P3): a worn hat — an emoji overlay, not new pixel art per
+        // species; drawn everywhere the pet is, including here in-world.
+        if (pet.hat) {
+          const hat = MM.data.petHatById(pet.hat);
+          if (hat) {
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(hat.emoji, pvx * TILE + TILE / 2, pvy * TILE + (TILE - spr.height) + petBob - 2);
+          }
+        }
         // Wave 8a (P8, delight catalog): "curls up if the kid stands still
         // 10s" — pure cosmetic, off under Calm Mode like every other idle gag.
         if (!s.calmMode && now - lastMoveAt > 10000) {
@@ -946,16 +973,22 @@ var MM = globalThis.MM = globalThis.MM || {};
       MM.sound.fanfare();
       return;
     }
-    if (entry.befriend) { // Wave 8b: the first of a kind, calmed
+    if (entry.befriend) { // round 5: the kid's FIRST-EVER friend, once only
       const img = MM.sprites.get(entry.sprite, {
         palette: MM.sprites.softPalette(entry.sprite, entry.pal || {}, 0.45), scale: 6,
       }).toDataURL();
-      UI.dialog('🕊 A friend!',
+      UI.dialog('🤍 Your first friend!',
         `<div style="text-align:center"><img src="${img}" style="image-rendering:pixelated"></div>
-         <p style="text-align:center;font-size:16px">The <b>${entry.befriend}</b> is calm — and it isn't going anywhere.</p>
-         <p style="text-align:center" class="dim">Its kind will not start fights with you any more. They'll wave as you pass.
-         (You can still spar with one whenever you like — just walk into it.)</p>
-         <p style="text-align:center" class="dim">🕊 marked in your 📕 Monster Book, for good.</p>`);
+         <p style="text-align:center;font-size:16px">The <b>${entry.befriend}</b> is calm — and it's staying right there,
+         wearing a little 🤍 heart.</p>
+         <p style="text-align:center" class="dim">Calmed kinds won't start fights with you any more — bump one and it
+         steps aside to let you through. Every kind you calm gets its 🤍 mark in your 📕 Monster Book, for good.</p>`);
+      MM.sound.fanfare();
+      return;
+    }
+    if (entry.tangleMilestone) { // Wave 9: 10/50/100 days tended
+      const ms = MM.data.TANGLE_MILESTONES[entry.tangleMilestone];
+      UI.dialog(ms.title, `<p style="text-align:center;font-size:16px">${ms.body}</p>`);
       MM.sound.fanfare();
       return;
     }
@@ -1468,7 +1501,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         <h3>Your pet</h3>
         <div class="shop-row">
           <img src="${img}" class="beast-img" style="width:44px;height:44px" alt="">
-          <span class="shop-item"><b>${pet.name}</b> the ${species.name} ${species.emoji} — <b>${stage.name}</b>
+          <span class="shop-item"><b>${pet.name}</b> the ${species.name} ${species.emoji}${pet.hat ? ' ' + (MM.data.petHatById(pet.hat) || {}).emoji : ''} — <b>${stage.name}</b>
             <span class="quip">${next
               ? `Next: ${next.name} at ${next.correct} correct answers (${Math.min(pet.correct, next.correct)}/${next.correct}) and ${next.fed} meals (${Math.min(pet.fed, next.fed)}/${next.fed}).`
               : 'Fully grown, maximally proud of you.'}</span></span>
@@ -1540,13 +1573,26 @@ var MM = globalThis.MM = globalThis.MM || {};
       MM.engine.save();
       UI.log(`⚙️ Difficulty set to <b>${label}</b> — it takes effect in the next dungeon you enter.`);
     };
-    UI.dialogChoices('⚙️ Difficulty',
+    // Round 5 (one-track design): the kid's WAY lives here too — the one
+    // "how do I want to play" panel, one click from anywhere, never mid-fight.
+    const way = s.stance === 'soothe' ? 'gently 🕊' : 'boldly ⚔️';
+    const other = s.stance === 'soothe' ? 'strike' : 'soothe';
+    const switchWay = () => {
+      MM.engine.setStance(other);
+      UI.log(other === 'soothe'
+        ? `🕊 <b>Gently, then.</b> The MathMaker's voice, from memory: "A tangle comes loose exactly as well as it comes apart."`
+        : `⚔️ <b>Boldly, then.</b> The MathMaker's voice, from memory: "Go and meet it."`);
+    };
+    UI.dialogChoices('⚙️ Difficulty & your way',
       `How tough should the monsters be? <span class="dim">(This changes their health and how hard they hit —
-       never the math. It takes effect the next time you enter a dungeon.)</span>`,
+       never the math. It takes effect the next time you enter a dungeon.)</span><br><br>
+       You face the tangles <b>${way}</b>. <span class="dim">Most heroes change their way eventually — it costs
+       nothing, and everything you've befriended stays befriended.</span>`,
       [
         { label: `🌸 Story${mark('story')}`, onClick: pick('story', 'Story'), primary: s.difficulty === 'story' },
         { label: `⚔️ Hero${mark('hero')}`, onClick: pick('hero', 'Hero'), primary: s.difficulty === 'hero' },
         { label: `🔥 Legend${mark('legend')}`, onClick: pick('legend', 'Legend'), primary: s.difficulty === 'legend' },
+        { label: s.stance === 'soothe' ? '⚔️ Change my way: boldly' : '🕊 Change my way: gently', onClick: switchWay },
         { label: 'Cancel', onClick: () => {} },
       ]);
   };
@@ -1679,6 +1725,10 @@ var MM = globalThis.MM = globalThis.MM || {};
           <input type="checkbox" id="soundOffCheck" ${s.soundOff ? 'checked' : ''}>
           Turn off all sound (every beep, chime, and fanfare — the game plays silently)
         </label>
+        <label class="topic-check">
+          <input type="checkbox" id="musicOffCheck" ${s.musicOff ? 'checked' : ''}>
+          Turn off the background music (sound effects stay)
+        </label>
         <h3>Current progress</h3>
         <p style="font-size:14px">📗 On task <b>${Math.min(s.taskIndex, 13)}</b> ·
           answered <b>${s.totals.correct}/${s.totals.answered}</b> correctly overall.
@@ -1713,6 +1763,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       s.parent.topics = map;
       s.calmMode = document.getElementById('calmModeCheck').checked;
       s.soundOff = document.getElementById('soundOffCheck').checked;
+      s.musicOff = document.getElementById('musicOffCheck').checked;
       MM.engine.save();
       closeModal();
       const n = Object.values(map).filter(Boolean).length;
@@ -1831,10 +1882,22 @@ var MM = globalThis.MM = globalThis.MM || {};
       { title: 'The basics', entries: [
         { when: true, html: `<b>🧭 Explore.</b> Arrow keys or WASD. Bump into things to talk,
            open, and search.` },
-        { when: true, html: `<b>⚔ Battles.</b> Each round is one quick math problem. Get it right
+        { when: true, html: s.stance === 'soothe'
+        ? `<b>🕊 Battles, your way.</b> Each round is one quick math problem. Get it right and
+           the tangle in the monster comes a little looser. Then it lashes out anyway — it's
+           still frightened — your armor blocks part of that, and a right answer may dodge the
+           rest. A wrong answer just misses, and shows you the worked solution. Fully calmed
+           monsters <b>settle down right there as friends</b>, wearing a little 🤍.
+           <span class="dim">(You face the tangles gently — the ⚙️ button can change your way.)</span>`
+        : `<b>⚔ Battles, your way.</b> Each round is one quick math problem. Get it right
            and your strike lands. Then the monster swings back — your armor blocks part of it,
            and a right answer may dodge the rest. A wrong answer just misses, and shows you the
-           worked solution.` },
+           worked solution.
+           <span class="dim">(You face the tangles boldly — the ⚙️ button can change your way,
+           and the gentle way turns monsters into friends.)</span>` },
+      { when: true, html: `<b>⚡ Brave.</b> A toggle in every battle: the <b>hardest</b> questions,
+           and every right answer counts <b>double</b>. Getting one wrong costs nothing extra —
+           bravery is never a trap.` },
         { when: true, html: `<b>😵 If you lose a fight…</b> nothing you've earned is lost. You
            wake up outside the castle, patched up, keeping every level, badge, and item — it
            only costs half the gold in your pocket. The monster will still be there. Next time,
@@ -2255,6 +2318,12 @@ var MM = globalThis.MM = globalThis.MM || {};
         (st.braveSolved || 0) > 0 ? `⚡ ${st.braveSolved} brave` : '',
         Object.keys(bf).length ? `🕊 ${Object.keys(bf).length} befriended` : '',
         (st.hatsRetired || 0) > 0 ? `🎩 ${st.hatsRetired} hats` : '',
+        // Wave 9 (P4): the post-game plaque — days tended, Spiral height,
+        // students helped. Same rule as everything else here: shown only
+        // once it exists, never as a "0" that reads like a deficit.
+        (st.daysTended || 0) > 0 ? `🌀 ${st.daysTended} days tended` : '',
+        (st.spiral && st.spiral.highest > 0) ? `🌀 Floor ${st.spiral.highest} of the Spiral` : '',
+        (st.academyTotal || 0) > 0 ? `📝 ${st.academyTotal} students helped` : '',
       ].filter(Boolean).join(' · ');
       return `<div class="hero-row${name === me.name ? ' hero-me' : ''}">
         <span class="hero-crest">${crest}</span>
@@ -2356,10 +2425,21 @@ var MM = globalThis.MM = globalThis.MM || {};
     const onIsle = s.mapId === 'isles';
     if (onIsle) MM.engine.refreshIsleBounties(); else MM.engine.refreshBounties();
     const board = onIsle ? s.isleBounties : s.bounties;
+    // Wave 9 (P1): the mainland board self-narrates the day's Daily Tangles —
+    // "A tangle was spotted near X" — the bounty-board recipe, one more time.
+    let tangleSection = '';
+    if (!onIsle) {
+      MM.engine.refreshTangles();
+      if (s.tangles && s.tangles.items.some(t => !t.done)) {
+        const lines = s.tangles.items.filter(t => !t.done).map(t =>
+          `<div class="shop-row"><span class="shop-item">🌀 ${MM.data.pick(MM.data.TANGLE_LINES)(MM.engine.nearestLandmark(t.x, t.y))}</span></div>`).join('');
+        tangleSection = `<h3>🌀 Today's tangles</h3>${lines}`;
+      }
+    }
     if (!board) {
       return UI.dialog('🪧 Notice Board',
         'The board is empty — the kingdom only posts jobs for <b>working heroes</b>.<br><br>' +
-        'Visit the 🏰 <b>castle</b> and get your first task from the MathMaker!');
+        'Visit the 🏰 <b>castle</b> and get your first task from the MathMaker!' + tangleSection);
     }
     const icon = { hunt: '⚔️', solve: '✏️', streak: '🔥', spar: '🥊', gemchest: '✨', thief: '🪶', spire: '⏰' };
     const rows = board.items.map(it => {
@@ -2378,9 +2458,73 @@ var MM = globalThis.MM = globalThis.MM || {};
     }).join('');
     UI.dialog(onIsle ? '🪧 Harbor Notice Board' : '🪧 Notice Board',
       `<div class="shop-gold">${onIsle ? 'The harbor needs help too!' : 'The kingdom needs help!'} Finish a job and the reward is paid <b>on the spot</b>.</div>
-       ${rows}
+       ${rows}${tangleSection}
        <p class="dim" style="font-size:13px;margin-top:10px">New notices are posted each morning — or as soon as you finish these.</p>
        <p class="dim" style="font-size:12px;font-style:italic">${MM.data.pick(MM.data.BOARD_LINES)}</p>`);
+  };
+
+  // ---------- Wave 9 (P3): the pet's wardrobe ----------
+  UI.petWardrobe = function () {
+    const s = MM.engine.state;
+    if (!s || UI.modalOpen() || MM.battle.active()) return;
+    if (!s.endingDone) {
+      return UI.dialog('🎩 The pet\'s wardrobe', 'A little wardrobe, still locked. Perhaps once the crown is truly yours.');
+    }
+    const pet = s.isles && s.isles.pet;
+    if (!pet) {
+      return UI.dialog('🎩 The pet\'s wardrobe', 'Tiny, empty, hopeful. There\'s no pet to dress up yet.');
+    }
+    const rows = MM.data.PET_HATS.map(h => {
+      const owned = s.petHats.includes(h.id);
+      const worn = pet.hat === h.id;
+      return `<div class="shop-row${worn ? ' owned' : ''}">
+        <span class="shop-item">${h.emoji} ${h.name}</span>
+        <span class="shop-price">${owned ? (worn ? '✓ worn' : 'owned') : h.price + ' g'}</span>
+        <button class="shop-buy" data-hat="${h.id}">${owned ? (worn ? 'Take off' : 'Wear') : 'Buy'}</button>
+      </div>`;
+    }).join('');
+    openModal(`
+      <h2>🎩 ${pet.name}'s Wardrobe</h2>
+      <div class="dialog-body">
+        <div class="shop-gold">You have 💰 ${s.gold} gold.</div>
+        ${rows}
+      </div>
+      <div class="btnrow"><button id="wardrobeClose" class="secondary">Close</button></div>`);
+    document.getElementById('wardrobeClose').onclick = () => { closeModal(); UI.refresh(); };
+    document.querySelectorAll('[data-hat]').forEach(b => {
+      b.onclick = () => {
+        const r = MM.engine.petHatAction(b.dataset.hat);
+        if (!r.ok && r.msg) { closeModal(); return UI.dialog('🎩 Not quite', r.msg, () => UI.petWardrobe()); }
+        UI.petWardrobe();
+      };
+    });
+  };
+
+  // ---------- Wave 9 (P3): boss statues — three independent plinths ----------
+  UI.statuePlinth = function (idx) {
+    const s = MM.engine.state;
+    if (!s || UI.modalOpen() || MM.battle.active()) return;
+    if (!s.endingDone) {
+      return UI.dialog('🗿 An empty plinth', 'The steward\'s ledger stays shut until the crown is truly yours.');
+    }
+    const filled = s.castleFurnish.statues[idx];
+    if (filled) {
+      return UI.dialog(`🗿 ${filled}`, MM.data.STATUE_LINE(filled));
+    }
+    const taken = new Set(s.castleFurnish.statues.filter(Boolean));
+    const options = MM.engine.gauntletBosses().filter(b => !taken.has(b.name));
+    if (!options.length) {
+      return UI.dialog('🗿 An empty plinth',
+        `${MM.data.STATUE_EMPTY}<br><br><span class="dim">Every champion you've bested already has a statue elsewhere in this room. Beat a few more, or wait for a rematch.</span>`);
+    }
+    const buttons = options.map((b, i) => ({
+      label: `${b.name} — ${MM.data.STATUE_PRICE}g`,
+      primary: i === 0,
+      onClick: () => MM.engine.commissionStatue(idx, b.name),
+    }));
+    buttons.push({ label: 'Not now', onClick: () => {} });
+    UI.dialogChoices('🗿 An empty plinth',
+      `${MM.data.STATUE_EMPTY}<br><br>Commission a statue of a champion you've bested?`, buttons);
   };
 
   // ---------- the Monster Book (bestiary) ----------
