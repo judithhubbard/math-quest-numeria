@@ -749,6 +749,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Wave 6: a seventh treasure, reachable once treasureForDungeon's clamp
     // was raised — a small nod to the new geometry topic's spirals.
     { id: 'shell', name: 'Spiral Shell', emoji: '🐚', value: 130, quip: 'It repeats itself, but bigger each time. Rude, but beautiful.' },
+    // Wave 10 (P4a, rare-surprise pool): never sold from a shop or dropped
+    // from a chest roll — pushed directly into s.items.treasures by the
+    // once-ever golden-bird moment (E.walkStamina). Deliberately worth very
+    // little; the point was never the gold.
+    { id: 'feather', name: 'Proof It Happened', emoji: '🪶', value: 3, quip: 'A single golden feather. Nobody else saw the bird. You do not mind one bit.' },
   ];
   MM.data.treasureById = id => MM.data.TREASURES.find(t => t.id === id);
   MM.data.treasureForDungeon = function (i) {
@@ -1169,6 +1174,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     '"In my day, we regrouped uphill. Both directions."',
     '"I don\'t play favorites among the numbers. But between us: seven."',
     '"The Crown of Numbers isn\'t heavy. Knowledge weighs nothing. The gold, admittedly, weighs a bit."',
+    // Wave 10 (P1, the Turning Stones): the MathMaker's one dry aside about
+    // the courtyard out front. Never explains the sequence — just admits
+    // the floor is older than he is.
+    '"The floor out front? Older than me. It has opinions about geometry."',
   ];
   // Wave 6: Miscount's post-redemption small talk (the generic "nothing
   // pending, just visiting" greeting at his bank) — a pool now, mixing the
@@ -1345,6 +1354,45 @@ var MM = globalThis.MM = globalThis.MM || {};
     return rows[rows.length - 1].line;
   };
 
+  // ---------- Wave 10 (P1): the Turning Stones ----------
+  // A courtyard of 13 arc-carved paving stones on the mainland overworld,
+  // just south of the castle (world row 7, columns 13-25 — directly on the
+  // walk from the player's spawn up to the castle door, so a kid crosses it
+  // on every single turn-in without needing to seek it out). NOT new grid
+  // glyphs — every tile underneath is ordinary walkable grass ('.'); the
+  // stones are a pure canvas overlay drawn in drawWorld (ui.js), the same
+  // "read live state off fixed tiles" recipe as the dungeon-entrance number
+  // labels and the gear-gate pips. They never gate movement, never speak,
+  // never react to a bump.
+  //
+  // Sizes: the seven squares of the classic spiral diagram (1, 1, 2, 3, 5,
+  // 8, 13), each CARVED with its number so the sequence is literally
+  // readable once its stone has turned — reading the courtyard left to
+  // right IS the ending exam's question. ASCENT ONLY (design review
+  // 2026-07-13: the first draft mirrored the sizes back down to fill 13
+  // stones, and a kid who studied that would read "…13, 8" and answer the
+  // exam's "what comes next?" with 8 — the foreshadowing must never teach
+  // the wrong answer). Stones 8-13 are unnumbered, uniform curve segments
+  // that continue the spiral's sweep — tasks 8-13 turn those. 21 never
+  // appears anywhere; that is the exam's own discovery.
+  MM.data.TURNING_STONES = (() => {
+    const sizes = [1, 1, 2, 3, 5, 8, 13];
+    const y = 7, baseX = 13;
+    return Array.from({ length: 13 }, (_, i) => ({
+      x: baseX + i, y, i,
+      size: i < 7 ? sizes[i] : 6,
+      label: i < 7 ? String(sizes[i]) : null,
+    }));
+  })();
+  // A stone's "true angle" (once its task is done) rotates a quarter turn
+  // per position, so aligned stones trace a continuous curve — the classic
+  // spiral-arc look. An UNALIGNED stone sits at a fixed skew instead: a
+  // deterministic offset derived from its own index, never from Date.now()
+  // or a frame counter, so it never moves on its own (Calm-Mode-safe by
+  // construction — there is nothing to turn off).
+  MM.data.stoneTrueAngle = i => (i * 90) % 360;
+  MM.data.stoneSkew = i => ((i * 47) % 60) - 30; // degrees, always non-zero-ish
+
   MM.data.weaponById = id => MM.data.WEAPONS.find(w => w.id === id) || MM.data.WEAPONS[0];
   MM.data.armorById = id => MM.data.ARMOR.find(a => a.id === id) || MM.data.ARMOR[0];
 
@@ -1358,6 +1406,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     a: {
       name: '🧑‍🌾 Farmer Fenwick', sprite: 'villager', pal: null,
       talk(s) {
+        // Wave 10 (P3, the mid-game event): the fence east of the farm gets
+        // its own bump dialog (E.fencePost) — this is just Fenwick's own
+        // small-talk acknowledging it, above the older boar-related lines.
+        if (s.tasksDone.includes(6)) return '"The fence held fine through the last storm — first time in months." Farmer Fenwick tips his hat toward the mended rail east of here. "My hired hand keeps saying he did all the work fixing it. He did not do all the work."';
         if (s.tasksDone.includes(4)) return '"The boars have gone calm as lambs since you cleared the old ruin. The farm\'s in your debt, hero! Say — you look stronger every time I see you."';
         if (s.taskIndex >= 4) return '"The ruin\'s the one marked <b>4</b> on the map. Mind the boars — and whatever\'s making them so angry. Never seen \'em like this in thirty years."';
         return '"Boars trampled my turnips again last night! They came from the old ruin in the forest. Something\'s got \'em all stirred up — they were gentle as puppies before this confusion business began."';
@@ -1369,6 +1421,10 @@ var MM = globalThis.MM = globalThis.MM || {};
         // the running gag: Finn's catch changes after every completed task
         const boots = MM.data.FINN_BOOTS;
         const haul = `<br><br>🎣 <i>Today's catch: <b>${boots[Math.min(s.tasksDone.length, boots.length - 1)]}</b>.</i>`;
+        // Wave 10 (P2, reactive cast): word travels down the river faster
+        // than fish do, some days.
+        if (s.endingDone) return '"Crown fits, don\'t it." Old Fisher Finn nods like he called it years back. "Knew you had it in you, back when you were just a kid who couldn\'t catch a fish to save your life."' + haul;
+        if (s.isles.lampLit) return '"Heard the lighthouse is lit again, clear out on the isles." Old Fisher Finn squints at the water, like it might confirm it. "Word travels down the river faster than fish do, some days."' + haul;
         if (s.tasksDone.includes(5)) return '"You caught a whole compass, I hear! The river runs quieter now. Even the fish seem to be countin\' themselves again."' + haul;
         if (s.taskIndex >= 5) return '"The catacombs? Under the river, marked <b>5</b>. The creatures down there split into pieces when you strike \'em — and mind you count what\'s <i>left over</i>. Remainders, lad. Remainders."' + haul;
         return '"Fish aren\'t bitin\'. River\'s all confused — flows left, flows right, can\'t make up its mind. Started when the shadows came, same as everything else."' + haul;
@@ -1383,6 +1439,18 @@ var MM = globalThis.MM = globalThis.MM || {};
         // telescope line (Wave 7 spiral seed) rewards the whole harbor rebuilt.
         if (s.isles.gullwrackRebuilt) return '"The kingdom looks different from far away. I keep a telescope for the day you\'ve earned the view."';
         if (s.isles.breakwaterDone) return '"Look closely at the castle stones sometime, hero. The mortar is arithmetic. The whole kingdom is — though most folk never squint."';
+        // Wave 10 (P2, reactive cast): Sylvia hears about the isles the way
+        // she hears about everything — before the letters arrive.
+        if (s.isles.hallsDone) return '"A choir, whole again, out on Chime Isle." Sylvia hums half a note, gets it right, and looks briefly delighted with herself. "Every voice was always supposed to fit somewhere. Somebody simply had to go looking."';
+        if (s.isles.spireDone) return '"A clockwork tower, ticking again, somewhere past the horizon." Sylvia tilts her head, listening to nothing you can hear. "Numbers keep their own time, even when nobody is counting. It is rather the whole point of them."';
+        if (s.isles.lampLit) return '"The Great Lamp is lit. I felt it before Percy\'s letter ever arrived — a kind of settling in the air over the water." Sage Sylvia looks quietly pleased with herself for noticing. "Patterns don\'t stay hidden from someone who is looking."';
+        // Wave 10 (P1, the Turning Stones): Sylvia's one rotating line about
+        // the courtyard — a small chance, only while the stones still have
+        // some turning left to do (>=1 done, <13 — once they're complete the
+        // ending's own reveal takes over the job of explaining them).
+        if (s.tasksDone.length >= 1 && s.tasksDone.length < 13 && Math.random() < 0.2) {
+          return '"The courtyard stones. They turn, you know. One more every time you set something right." Sage Sylvia says it like a fact of nature, not a secret. "My grandmother said they were a picture, seen from high enough."';
+        }
         if (s.taskIndex > 10) return '"You did what no sword could do: you showed a lost student the way home. Numeria will remember, hero. And so, I think, will Miscount."';
         if (s.taskIndex >= 8) return '"Every problem you have solved, every step you have shown your work — Miscount feels them like sunlight through fog. You are closer than you know. When you face him, be brave. And be kind."';
         if (s.taskIndex >= 5) return '"Confusion is not evil, child. It is what fear becomes when nobody helps. When you meet the Lord of Confusion, bring your courage — and your patience."';
@@ -1418,6 +1486,13 @@ var MM = globalThis.MM = globalThis.MM || {};
         const L = s.isles.lenses;
         // Wave 7 epilogue: the bells, and a keeper who no longer keeps watch alone.
         if (s.endingDone) return '"They ring the bells for you now, you know. Every evening." Keeper Callie says this to her charts, not to you, which is how she says the things she means.<br><br>"Two of the harbour children have asked me to teach them the lenses. I said yes." She finally looks up. "That is <i>your</i> fault, MathMaker. I hope you are pleased."<br><br><i>She is smiling. She does not hide it this time.</i>';
+        // Wave 10 (P2, reactive cast): the harbormistress hears about every
+        // harbor. Ordered most-advanced-flag-first, same convention as the
+        // rest of the cast.
+        if (s.isles.gullwrackRebuilt) return '"Gullwrack sent word — every stone mended, roof to pier." Keeper Callie allows herself a real smile this time. "A harbor looking after a harbor. I approve enormously."';
+        if (s.isles.hallsDone) return '"They say you can hear the Resonant Halls clear across the water some evenings, all in tune." Keeper Callie almost smiles. "I always did like a choir that knows where every voice belongs."';
+        if (s.isles.spireDone) return '"Ships came through with the oddest report — a tower on Horologe Isle, ticking, like it never stopped." Keeper Callie taps her own pocket-watch fondly. "Mine\'s been six minutes slow for years. I have opinions about which of us needed the help more."';
+        if (s.isles.lampLit) return '"The lamp is lit." Keeper Callie says it plainly, the way you say a thing you have waited nine years to say without your voice breaking on it. "The bells rang themselves silly last night. I let them."';
         if (L.cinderforge) return '"Three lenses. THREE." Keeper Callie is quietly crying and not hiding it well. "Nine years I kept one lamp burning in a window, and now the whole sky is stitched with light. The Murk around the <b>Great Lighthouse</b> is thinning by the hour — when the tower opens its doors, hero, it will be because of you."';
         if (L.frostbite) return '"Two beams cross over the water every night now. I leave the curtains open on purpose." She slides the final chart across the table. "The pass to the <b>Cinderforge Depths</b> is drawn — east, past the smoke. Its <b>Cinder Lens</b> is three floors down. Mind the drop chutes: <i>the mine only lets you fall one way.</i>"';
         if (L.tidepool) return '"The Tide Lens shines and the shallows are clear — first light on this coast in nine years, hero." She slides a fresh chart across the table. "The pass to <b>Frostbite Hollow</b> is drawn — northeast, past where the fog was. Its <b>Frost Lens</b> sleeps under the ice. Dress warm, and mind the frozen lake: <i>once you\'re sliding, you don\'t stop until something stops you.</i>"';
@@ -1449,6 +1524,11 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (s.endingDone) return '"So the charts DID know something." Old Salt Percy is enormously pleased with himself, and has clearly been waiting weeks to be.<br><br>"Past the spiral\'s edge, they curl right off the paper. There\'s a sea out there nobody\'s finished drawing."<br><br><i>He taps the blank corner of the map, twice.</i> "Needs someone good at working things out."';
         // Wave 7 spiral seed: the charts themselves start hinting at something.
         if (s.isles.breakwaterDone) return '"Charts of this sea always want to curl at the edges. Like they know something."';
+        // Wave 10 (P2, reactive cast): the old salt hears everything, and is
+        // always accidentally right about it.
+        if (s.isles.gullwrackRebuilt) return '"Gullwrack, mended stone to stone? Ha!" Old Salt Percy slaps his knee. "Told \'em the sea gives back what you\'re willing to rebuild. Nobody believes the old salt till it happens."';
+        if (s.isles.hallsDone) return '"Heard bells and voices both, out past Chime Isle, singing in step." He squints at the horizon like he\'s proud of it personally. "Knew that hum wanted company. Everything tangled just wants company, if you ask me — which nobody does."';
+        if (s.isles.spireDone) return '"That clocktower\'s keeping proper time again, they tell me." Percy checks the sun instead of a watch, same as always. "Never trusted gears myself. Still — good on it. Good on you."';
         if (s.isles.lenses.frostbite) return '"Two lenses lit! The fish are practically navigating themselves into my net."<br><br>"That smoky pass east is the last one before the tower. Callie\'s been up three nights charting it. Bring her a kind word, would you?"';
         if (s.isles.lenses.tidepool) return '"Saw the beam sweep past my window last night. Cried a bit. Don\'t tell the gulls."<br><br>"The cold pass northeast is open — <b>Frostbite Hollow</b>. Word to the wise: on that lake ice, <b>you slide till you hit something</b>. Them frozen Sentinels? They don\'t chase. They just <i>wait</i>. Rude, honestly."';
         return '"Word to the wise, sailor: in the grotto, them <b>gulls will lift the gold right off you</b> — chase \'em down, they always keep it on \'em. And if a wall looks <b>cracked</b>, give it a shove."' + (pet ? `<br><br>"That little ${MM.data.PETS[pet.species].name} of yours has a nose for hidden things. Watch when it perks up!"` : '');
@@ -1465,6 +1545,14 @@ var MM = globalThis.MM = globalThis.MM || {};
         const goldLine = golds
           ? `<br><br>🥇 <i>"And ${golds} gold badge${golds > 1 ? 's' : ''}! I'm working ${golds > 1 ? 'them' : 'it'} into the next verse. Nothing rhymes with 'badge.' I'll manage."</i>`
           : '';
+        // Wave 10 (P2, reactive cast): the isles are only ever reachable
+        // once every mainland/east-bank task is done (n is already 10+ by
+        // then) — so these sit above the numeric verses, most-advanced-flag
+        // first, or they'd never be reachable.
+        if (s.isles.gullwrackRebuilt) return '🎵 <i>"Stone by stone and slab by slab, a harbor stands that a hero built up — never once needing a sword to win, just chalk, and math, and showing them in!"</i> 🎵<br><br>"That last bit\'s a stretch. I stand by it."' + goldLine;
+        if (s.isles.hallsDone) return '🎵 <i>"One voice was missing from the choir\'s great song — the hero went looking, and it wasn\'t gone long!"</i> 🎵' + goldLine;
+        if (s.isles.spireDone) return '🎵 <i>"Tick, tock, the old tower wound down slow — the hero showed up and the gears turned, you know!"</i> 🎵<br><br>"Doesn\'t scan, I know. The gears don\'t much care about scansion."' + goldLine;
+        if (s.isles.lampLit) return '🎵 <i>"A light that stood dark for nine long years, now sweeps \'cross the water and calms every fear!"</i> 🎵<br><br>"That one\'s got a proper chorus. Wrote it in a night."' + goldLine;
         if (n >= 10) return '🎵 <i>"Sing, Numeria, sing of the day — the hero who counted the shadows away! The student came home and the sums all came right — Barnaby\'s ballads shall run through the night!"</i> 🎵<br><br>"That one\'s about YOU, you know."' + goldLine;
         if (n >= 7) return '🎵 <i>"Three tasks left, the tower looms tall, fractions and stories and shadows and all! But heroes who show every step of their work — no Lord of Confusion can lurk!"</i> 🎵' + goldLine;
         if (n >= 4) return '🎵 <i>"Halfway there, with treasures in hand — the bravest young counter in all of the land!"</i> 🎵<br><br>"Getting good material out of you, hero. Keep it up!"' + goldLine;

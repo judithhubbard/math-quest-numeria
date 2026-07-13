@@ -200,7 +200,20 @@ const SHOTS = path.join(__dirname, 'shots-touch');
   check(/Not quite/.test(feedback) && /=/.test(feedback), 'a miss shows the worked solution');
   check(/stubborn today|meet you where you are|every hero has them/.test(feedback),
     'after a rough patch, the miss feedback says one kind thing');
+  check(/Parent Settings/.test(feedback),
+    '...and points honestly at the parent topic switches (the real remedy)');
   await page.screenshot({ path: SHOTS + '/2-rough-patch-kindness.png' });
+  // parent side: the struggling topic wears a ⚠ in the panel; healthy ones don't
+  const struggle = await ev(() => {
+    const s = MM.engine.state;
+    const badSkill = MM.data.TASKS[0].skill; // seeded 4 misses above, add more for "sustained"
+    for (let i = 0; i < 8; i++) MM.engine.recordAnswer(badSkill, false, { text: 'x', kidAnswer: 'y' });
+    return {
+      bad: MM.ui.isStrugglingTopic(s, badSkill),
+      healthy: MM.ui.isStrugglingTopic(s, 'geometry'),
+    };
+  });
+  check(struggle.bad && !struggle.healthy, 'the ⚠ marks a sustained-struggle topic and never a healthy one');
   await ev(() => { const f = document.getElementById('fleeBtn'); if (f) f.click(); });
   await page.waitForFunction(() => !MM.battle.active(), null, { timeout: 8000 }).catch(() => {});
   // musicOff: the track stops; soundOff stays independent

@@ -371,6 +371,25 @@ a dock, and rest), and the sail-destination registry.
   one-track design (no Strike/Soothe battle buttons; Help describes your
   way; the ⚙️ dialog switches it in one click with every friend kept).
 
+- `drive-notices.js` — Wave 10 ("The World Notices", reaction-only content,
+  37 checks): **the Turning Stones** (screenshots at 0/6/13 tasks done —
+  looked at all three; alignment count tracks `s.tasksDone.length` exactly,
+  fills left-to-right, and every stone tile is still plain `.` grass
+  underneath — no new grid glyph); **the reactive cast** (a sample across
+  Callie, Percy, Sylvia, Barnaby, Finn, and Miscount's own UI-driving
+  greeting, each toggled flag-off/flag-on to prove the new line is absent
+  before and present after — the full ~25-line sweep across all seven
+  characters and six flags is unit-tested in `tests/test.js`); **the mended
+  fence** (broken before task 6, mended after, both readable straight off
+  `tileSprite()`, the first mended bump's two-line thank-you dialog, the
+  second bump's plain log line, and `seenFenceThanks` persisted); and **the
+  rare-surprise pool** (`E.GOLDEN_BIRD_CHANCE` / `E.CAT_BEETLE_CHANCE` /
+  `E.HATTED_SLIMES_CHANCE` each pinned to 1 to force the moment, each
+  verified to fire exactly once and never again with the chance still
+  pinned — the golden bird's feather treasure, the inn cat's beetle log
+  line, and the hatted-slimes pair's screenshot, +2 gold, and log line on
+  the bump that splits them apart without a fight).
+
 Operational note (2026-07-11): do NOT run drives while Dropbox is
 indexing a big file operation (e.g. right after refreshing the play
 copy) — the I/O contention can starve headless Chrome past even 90s

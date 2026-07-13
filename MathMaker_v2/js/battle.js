@@ -328,7 +328,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       let kind = '';
       if (MM.engine.roughPatch) {
         MM.engine.roughPatch = null;
-        kind = `<div class="miss-quip" style="color:#a8e6cf">${MM.data.pick(MM.data.ROUGH_PATCH_LINES)}</div>`;
+        // and the honest pointer (user decision 2026-07-13): the real
+        // remedy for a topic that's truly too early is the parent switch —
+        // say where it lives, information not stigma.
+        kind = `<div class="miss-quip" style="color:#a8e6cf">${MM.data.pick(MM.data.ROUGH_PATCH_LINES)}<br>
+          If these keep feeling too tricky, a grown-up can choose which kinds show up — 👪 Parent Settings.</div>`;
       }
       el('probFeedback').innerHTML =
         `<div class="wrong">${soothing() ? '✗ Not quite — it stays tangled.' : '✗ Not quite — your attack goes wide!'}</div>

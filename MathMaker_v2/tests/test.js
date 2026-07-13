@@ -2199,5 +2199,133 @@ for (const skill of skills) {
   MM.engine.state = null;
 }
 
+// ---------- Wave 10 (P1): the Turning Stones — data completeness ----------
+{
+  const stones = MM.data.TURNING_STONES;
+  if (!Array.isArray(stones) || stones.length !== 13) fail(`Turning Stones: expected 13 stones, got ${stones && stones.length}`);
+  const sizes = stones.map(s => s.size);
+  // ascent only + uniform curve stones (design review 2026-07-13: a
+  // mirrored descent would teach "after 13 comes 8" — the wrong exam answer)
+  const wantSizes = [1, 1, 2, 3, 5, 8, 13, 6, 6, 6, 6, 6, 6];
+  if (JSON.stringify(sizes) !== JSON.stringify(wantSizes)) fail(`Turning Stones: sizes ${JSON.stringify(sizes)} !== ${JSON.stringify(wantSizes)}`);
+  const labels = stones.map(s => s.label);
+  if (JSON.stringify(labels.slice(0, 7)) !== JSON.stringify(['1', '1', '2', '3', '5', '8', '13'])) {
+    fail(`Turning Stones: the seven sequence stones must be carved 1,1,2,3,5,8,13 — got ${JSON.stringify(labels.slice(0, 7))}`);
+  }
+  if (labels.slice(7).some(l => l !== null)) fail('Turning Stones: curve stones carry no number');
+  if (labels.includes('21')) fail('Turning Stones: 21 must never appear on a stone — it would spoil the ending exam\'s answer');
+  const xs = new Set(stones.map(s => s.x));
+  if (xs.size !== 13) fail('Turning Stones: x coordinates must be unique');
+  if (!stones.every(s => s.y === 7)) fail('Turning Stones: every stone should sit on row 7');
+  // every stone tile must be ordinary walkable grass on the raw overworld —
+  // NOT a new glyph (the whole point of the overlay recipe)
+  stones.forEach(st => {
+    const ch = ow[st.y][st.x];
+    if (ch !== '.') fail(`Turning Stones: tile (${st.x},${st.y}) is '${ch}', not plain grass — the overlay recipe requires it stay ordinary walkable ground`);
+  });
+  // alignment reads s.tasksDone.length live — sanity-check the helper
+  // functions never throw and stay in range
+  for (let i = 0; i < 13; i++) {
+    const a = MM.data.stoneTrueAngle(i);
+    if (a < 0 || a >= 360 || a % 90 !== 0) fail(`Turning Stones: stoneTrueAngle(${i}) = ${a}, expected a multiple of 90`);
+    const sk = MM.data.stoneSkew(i);
+    if (typeof sk !== 'number' || Number.isNaN(sk)) fail(`Turning Stones: stoneSkew(${i}) is not a number`);
+  }
+}
+
+// ---------- Wave 10 (P3): the fence east of the farm ----------
+{
+  const fenceTiles = MM.maps.find(ow, 'F');
+  if (fenceTiles.length !== 3) fail(`fence: expected 3 'F' tiles, found ${fenceTiles.length}`);
+  fenceTiles.forEach(p => {
+    const adj = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+      const nx = p.x + dx, ny = p.y + dy;
+      return ny >= 0 && ny < ow.length && nx >= 0 && nx < ow[0].length && ow[ny][nx] === '.';
+    });
+    if (!adj) fail(`fence: 'F' at ${p.x},${p.y} has no walkable neighbor to bump it from`);
+  });
+  // tileSprite reads s.tasksDone.includes(6) live, no grid rewrite
+  const savedEngine = MM.engine.state;
+  MM.engine.state = { tasksDone: [1, 2, 3, 4, 5] };
+  if (MM.maps.tileSprite('F', 32, 13, 'world', 0) !== 'fenceBroken') fail('fence: should read as broken before task 6');
+  MM.engine.state = { tasksDone: [1, 2, 3, 4, 5, 6] };
+  if (MM.maps.tileSprite('F', 32, 13, 'world', 0) !== 'fenceMended') fail('fence: should read as mended once task 6 is done');
+  MM.engine.state = savedEngine;
+  // 'F' must render as its own sprite everywhere, not fall back to castle's
+  // banner meaning (mapId-gated, like every other reused-letter precedent)
+  if (MM.maps.tileSprite('F', 5, 5, 'castle', 0) !== 'banner') fail("fence: 'F' should still mean banner inside the castle (mapId-gated)");
+}
+
+// ---------- Wave 10 (P4): the rare-surprise pool's exposed CHANCE hooks ----------
+{
+  for (const key of ['GOLDEN_BIRD_CHANCE', 'CAT_BEETLE_CHANCE', 'HATTED_SLIMES_CHANCE']) {
+    const v = MM.engine[key];
+    if (typeof v !== 'number' || v <= 0 || v > 1) fail(`Wave 10: E.${key} should be a small positive probability, got ${v}`);
+  }
+  if (!MM.data.treasureById('feather')) fail("Wave 10: TREASURES should include 'feather' (Proof It Happened)");
+}
+
+// ---------- Wave 10 (P1): Sylvia's rotating stones line ----------
+{
+  const mid = { tasksDone: [1, 2, 3, 4, 5], taskIndex: 6, isles: { lenses: {}, metCallie: false, pet: null }, endingDone: false };
+  let sawIt = false;
+  for (let i = 0; i < 200; i++) if (/turn, you know/.test(MM.data.NPCS.g.talk(mid))) sawIt = true;
+  if (!sawIt) fail('Sylvia: the courtyard-stones aside never appeared in 200 tries mid-game (chance too low or broken)');
+  const fresh = { tasksDone: [], taskIndex: 1, isles: { lenses: {}, metCallie: false, pet: null }, endingDone: false };
+  for (let i = 0; i < 50; i++) if (/turn, you know/.test(MM.data.NPCS.g.talk(fresh))) fail('Sylvia: the stones aside should never appear before the first stone has turned');
+  const done = { tasksDone: [1,2,3,4,5,6,7,8,9,10,11,12,13], taskIndex: 14, isles: { lenses: {}, metCallie: false, pet: null }, endingDone: false };
+  for (let i = 0; i < 50; i++) if (/turn, you know/.test(MM.data.NPCS.g.talk(done))) fail('Sylvia: the stones aside should stop once all thirteen have turned');
+}
+
+// ---------- Wave 10 (P2): reactive cast — lines appear post-flag, not before ----------
+{
+  const base = () => ({
+    tasksDone: [1,2,3,4,5,6,7,8,9,10,11,12,13], taskIndex: 14, gold: 0, badges: {},
+    isles: { lenses: { tidepool: true, frostbite: true, cinderforge: true }, metCallie: false, pet: null },
+    endingDone: false, sparWins: 0, metMiscount: true,
+  });
+  // Callie
+  {
+    const s = base();
+    if (/lamp is lit/.test(MM.data.NPCS.c.talk(s))) fail("Callie: lampLit line shows before the flag is set");
+    s.isles.lampLit = true;
+    if (!/lamp is lit/.test(MM.data.NPCS.c.talk(s))) fail("Callie: lampLit line missing once the flag is set");
+    s.isles.gullwrackRebuilt = true;
+    if (!/Gullwrack sent word/.test(MM.data.NPCS.c.talk(s))) fail("Callie: gullwrackRebuilt should outrank lampLit");
+  }
+  // Percy
+  {
+    const s = base();
+    if (/mended stone to stone/.test(MM.data.NPCS.p.talk(s))) fail("Percy: gullwrackRebuilt line shows before the flag is set");
+    s.isles.gullwrackRebuilt = true;
+    if (!/mended stone to stone/.test(MM.data.NPCS.p.talk(s))) fail("Percy: gullwrackRebuilt line missing once the flag is set");
+  }
+  // Sylvia
+  {
+    const s = base();
+    if (/settling in the air/.test(MM.data.NPCS.g.talk(s))) fail("Sylvia: lampLit line shows before the flag is set");
+    s.isles.lampLit = true;
+    if (!/settling in the air/.test(MM.data.NPCS.g.talk(s))) fail("Sylvia: lampLit line missing once the flag is set");
+  }
+  // Barnaby
+  {
+    const s = base();
+    if (/light that stood dark/.test(MM.data.NPCS.q.talk(s))) fail("Barnaby: lampLit verse shows before the flag is set");
+    s.isles.lampLit = true;
+    if (!/light that stood dark/.test(MM.data.NPCS.q.talk(s))) fail("Barnaby: lampLit verse missing once the flag is set");
+  }
+  // Finn
+  {
+    const s = base();
+    if (/faster than fish/.test(MM.data.NPCS.e.talk(s))) fail("Finn: lampLit line shows before the flag is set");
+    s.isles.lampLit = true;
+    if (!/faster than fish/.test(MM.data.NPCS.e.talk(s))) fail("Finn: lampLit line missing once the flag is set");
+  }
+  // Miscount's own greeting (E.miscountArena) is UI-driving (dialogChoices),
+  // not a pure string-returning function like the NPCS.*.talk() pool — it's
+  // covered by tests/drive-notices.js instead, which has a real DOM to read
+  // #modalBox from.
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');
 process.exit(fails ? 1 : 0);

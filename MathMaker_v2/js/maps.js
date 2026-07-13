@@ -41,7 +41,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     '~~.......T.....T...............T....M.',
     '~~.T.......................g..M...MM..',
     '~~........TT........T....T...M.....8..',
-    '~~..T....................4...a........',
+    // Wave 10 (P3): the fence east of the farm, at (32-34,13) — 'F' reads
+    // its broken/mended sprite live off s.tasksDone.includes(6) (see
+    // tileSprite below), the same "no grid rewrite needed" trick as the
+    // Open Castle's furnishing tiles.
+    '~~..T....................4...a..FFF...',
     '~~....T......T...........T....T...M...',
     '~~....3..........T....................',
     '~~.........T.................T....M...',
@@ -1351,6 +1355,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     // free on the world map (Isles already owns 'H' for the lighthouse,
     // intercepted above and never reaching here).
     if (mapId === 'world' && ch === 'H') return 'spiralTower';
+    // Wave 10 (P3): the farm fence — reads its broken/mended state live off
+    // s.tasksDone (same "no grid rewrite" trick as the Open Castle's
+    // furnishing tiles), so mending it needs no persisted flag of its own.
+    if (mapId === 'world' && ch === 'F') {
+      const st = MM.engine && MM.engine.state;
+      return (st && st.tasksDone && st.tasksDone.includes(6)) ? 'fenceMended' : 'fenceBroken';
+    }
     if (mapId === 'horologe' && ch === '5') return 'spireTower';
     if (mapId === 'chime' && ch === '6') return 'hallTower';
     if (mapId === 'gullwrack' && ch === '7') return 'breakArch';

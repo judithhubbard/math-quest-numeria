@@ -750,6 +750,50 @@ var MM = globalThis.MM = globalThis.MM || {};
           ctx.fillStyle = '#7ee0e8';
           ctx.fillText(expLabel, vx * TILE + TILE / 2, vy * TILE + 11);
         }
+        // Wave 10 (P1): the Turning Stones — a canvas overlay on fixed,
+        // ordinary grass tiles, never new grid glyphs (the courtyard's tile
+        // audit has nothing to classify). Alignment count is
+        // s.tasksDone.length, read live — zero new persisted state. An
+        // unaligned stone's skew is a pure function of its own index, never
+        // of time or a frame counter, so there is nothing for Calm Mode to
+        // turn off — it never moved to begin with.
+        if (s.mapId === 'world') {
+          const stone = MM.data.TURNING_STONES.find(st => st.x === x && st.y === y);
+          if (stone) {
+            const aligned = s.tasksDone.length > stone.i;
+            const angle = aligned ? MM.data.stoneTrueAngle(stone.i) : MM.data.stoneSkew(stone.i);
+            const cx = vx * TILE + TILE / 2, cy = vy * TILE + TILE / 2;
+            const r = TILE * (0.14 + 0.018 * stone.size);
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle * Math.PI / 180);
+            ctx.strokeStyle = aligned ? '#e0d8ec' : '#8a8578';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(-r * 0.4, -r * 0.4, r, 0, Math.PI / 2);
+            ctx.stroke();
+            // the seven sequence stones carry their carved number, rotating
+            // WITH the stone — askew while untended, upright once turned, so
+            // the sequence literally straightens out as the kingdom heals
+            if (stone.label) {
+              ctx.font = '8px "Press Start 2P", monospace';
+              ctx.textAlign = 'center';
+              ctx.fillStyle = '#141221';
+              ctx.fillText(stone.label, 1, 4);
+              ctx.fillStyle = aligned ? '#fdfaf3' : '#a8a294';
+              ctx.fillText(stone.label, 0, 3);
+            }
+            ctx.restore();
+            // all thirteen aligned: a faint golden shimmer — a STATIC tint,
+            // never an animation, so it needs no Calm Mode gate either.
+            if (s.tasksDone.length >= 13) {
+              ctx.globalAlpha = 0.16;
+              ctx.fillStyle = '#ffd94a';
+              ctx.fillRect(vx * TILE, vy * TILE, TILE, TILE);
+              ctx.globalAlpha = 1;
+            }
+          }
+        }
         // Wave 7 (gear-plate readability): pips say WHICH gate. A gate wears
         // its own • / •• / ••• ; the plate wears the pips of whichever gate is
         // currently open, so plate state is readable BEFORE you step on it.
@@ -830,6 +874,14 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (m.boss) {
         const crown = MM.sprites.get('crown', { scale: 2 });
         ctx.drawImage(crown, vx * TILE + TILE / 2 - crown.width / 2, vy * TILE + bob - 8);
+      }
+      // Wave 10 (P4c, rare-surprise pool): the hatted-slimes moment — an
+      // emoji overlay, not new pixel art, same idiom as the thief's 🪙 and
+      // the guard's 💤. Uses the monster's ordinary bob; no new motion.
+      if (m.hattedPair) {
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🎩', vx * TILE + TILE / 2, vy * TILE + bob - 6);
       }
       // (b) the constant friend mark — ONE crisp pixel heart, centered above
       // the head (playtest round 5: the emoji dove was unrecognizable mush,
@@ -1685,21 +1737,40 @@ var MM = globalThis.MM = globalThis.MM || {};
       `<div class="miss-row">${String(m.text || '').replace(/</g, '&lt;')} — answered <b>${String(m.kidAnswer || '').replace(/</g, '&lt;')}</b></div>`).join('');
     return `<details class="miss-details"><summary>Recent misses (${list.length})</summary>${rows}</details>`;
   }
+  // Parent alert (user decision 2026-07-13): sustained struggle in a topic
+  // is a PARENT decision point, not a kid problem — the honest remedy is
+  // the topic switch, because the game gives practice; it does not teach a
+  // topic from scratch. "Sustained" = last-10 accuracy ≤ 30% with at least
+  // 10 lifetime attempts — one bad battle can't trip it.
+  function isStrugglingTopic(s, skill) {
+    const m = (s.mastery || {})[skill];
+    if (!m || (m.attempts || 0) < 10 || !m.recent || m.recent.length < 10) return false;
+    return m.recent.filter(Boolean).length / m.recent.length <= 0.3;
+  }
+  MM.ui.isStrugglingTopic = (s, skill) => isStrugglingTopic(s, skill); // for tests
   function parentSettings() {
     const s = MM.engine.state;
     const topics = s.parent.topics || {};
+    let anyStruggling = false;
     const checks = MM.data.PARENT_TOPICS.map(skill => {
       const m = (s.mastery || {})[skill];
       const acc = m && m.attempts ? ` <span class="dim">(${m.correct}/${m.attempts})</span>` : '';
       const tier = (s.badges || {})[skill] || 0;
+      const hard = isStrugglingTopic(s, skill);
+      if (hard) anyStruggling = true;
       return `<div class="topic-row">
         <label class="topic-check">
           <input type="checkbox" data-skill="${skill}" ${topics[skill] !== false ? 'checked' : ''}>
-          ${MM.data.SKILL_NAMES[skill]}${tier ? ' ' + MM.data.BADGES[tier].emoji : ''}${acc}${weeklyTrend(s, skill)}
+          ${MM.data.SKILL_NAMES[skill]}${hard ? ' <b style="color:#ff9d5c">⚠</b>' : ''}${tier ? ' ' + MM.data.BADGES[tier].emoji : ''}${acc}${weeklyTrend(s, skill)}
         </label>
         ${missesBlock(s, skill)}
       </div>`;
     }).join('');
+    const struggleNote = anyStruggling
+      ? `<p style="font-size:13px;color:#ff9d5c;margin-top:4px">⚠ means your child has been finding that topic genuinely
+         hard recently. If it hasn't been covered at school yet, consider unchecking it — the game gives
+         <b>practice</b>; it doesn't teach a topic from scratch.</p>`
+      : '';
     const bugs = MM.bugs.list();
     const bugRows = bugs.length
       ? bugs.slice(-3).reverse().map(b =>
@@ -1714,6 +1785,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         only from <b>checked topics</b>. All dungeons still play — problems just stay within what's allowed.
         Difficulty inside each topic still adapts automatically.</p>
         <div class="topic-grid">${checks}</div>
+        ${struggleNote}
         <p class="dim" style="font-size:12.5px;margin-top:6px">If "Multi-Digit Add & Subtract" is unchecked,
         the shop's money quizzes are skipped too. At least one topic must stay checked.</p>
         <h3>🧘 Calm Mode</h3>

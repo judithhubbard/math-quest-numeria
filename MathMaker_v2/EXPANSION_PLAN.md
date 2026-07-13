@@ -1947,7 +1947,7 @@ Also in this pass (from the same playtest):
    the Bubble Pipe blows bubbles, the Ribbon Streamer trails ribbons, the
    Cat-Fishing Wand flicks little lure-fish, the Chime Bells shed notes.
 
-## Wave 10 — The World Notices (SONNET; prose stop before tagging)
+## Wave 10 — The World Notices (SONNET agent; spawned by the design session) ✅ SHIPPED (2026-07-13, prose reviewed)
 
 The mid-game story sag, fixed by the world visibly reacting to the kid —
 no new mechanics anywhere in this wave, only reaction, foreshadowing, and
@@ -2005,6 +2005,100 @@ mends after task 6, each rare event fires when forced (expose its CHANCE
 hook, pin to 1) and never twice; all existing drives + marathon green;
 evidence discipline (tests/logs/, foreground/detached marathon, paste
 final lines). **Prose stop before tagging**: every new line reviewed.
+
+**Design-review verdict (2026-07-13, conducted by the design session under
+the user's delegated authority):** prose APPROVED in full — every line in
+voice, the boar reference verified against Fenwick's own task-4 canon (the
+reviewer's first instinct to "fix" it was wrong; the agent's lore was
+right). ONE design fix applied post-review: the agent resolved the spec's
+own ambiguity (7 sizes, 13 stones) as a size PALINDROME — but a kid who
+studied a mirrored courtyard would read "…13, 8" and answer the ending
+exam's "what comes next?" with 8. Foreshadowing must never teach the wrong
+answer. Now: seven ascending stones carved 1,1,2,3,5,8,13 (numerals rotate
+with the stone — crooked until tended, upright once turned, so the
+sequence literally straightens out), six unnumbered curve segments
+completing the sweep for tasks 8-13. Also fixed in the same gate: a rare
+unit flake from the PEDAGOGY pass's tie-jitter (±0.03/item can override
+the 0.05 composite rust-vs-accuracy margin ~1-in-15 runs; jitter halved to
+±0.015 — margins COMPOSE, so per-item jitter must stay under half the
+smallest genuine margin), and a session-shape login line ("N tangles were
+spotted overnight — the notice boards know where") so a returning kid
+hears what's new in the first second.
+
+**Deviations from this spec, and why:**
+- **The 13 stones' sizes are the seven-square Fibonacci-spiral diagram
+  (1, 1, 2, 3, 5, 8, 13), mirrored to fill exactly 13 stones** —
+  `[1,1,2,3,5,8,13,8,5,3,2,1,1]` — since the spec names only seven numbers
+  for thirteen stones. The mirror keeps every size drawn from that exact
+  set (21 never appears anywhere, so it can never spoil the ending exam's
+  own answer) and puts the biggest, most central stone (13) dead center —
+  which happens to land on the same map column as both the castle door and
+  the player's spawn point, unplanned but fitting. Reading the first seven
+  stones left to right still spells out "1 1 2 3 5 8 13" exactly, in the
+  kid's natural walking direction toward the castle.
+- **Location: mainland world row 7, columns 13-25** — a full-width open
+  corridor directly between the player's spawn (19,8) and the castle door
+  (19,4), so every single turn-in walk crosses it. Rendered as a canvas
+  overlay in `drawWorld` (ui.js) reading `s.tasksDone.length` live; the
+  underlying tiles stay ordinary `'.'` grass — confirmed by a dedicated
+  unit test that fails if any stone tile is ever anything else.
+- **Sylvia's rotating stones line is a probabilistic aside (20% chance per
+  visit while `1 <= s.tasksDone.length < 13`), not a flag-gated cascade
+  branch** — "rotating" is read as "recurs, in rotation with her other
+  lines," matching the existing `MATHMAKER_ASIDES` idiom (a random pool,
+  appended some of the time) rather than a one-time popup. It goes silent
+  once all 13 have turned (the ending owns the reveal from there) and never
+  appears before the first stone turns. The MathMaker's dry aside is a
+  single new entry in `MATHMAKER_ASIDES` itself — already a rotating pool,
+  so no new plumbing was needed there at all.
+- **The reactive cast landed at ~24 new lines, not ~30** — distributed by
+  narrative fit rather than forcing every character to react to every one
+  of the six flags: Finn (2: lampLit, endingDone), Sylvia (3: hallsDone,
+  spireDone, lampLit — separate from her stones aside above), Callie (4:
+  gullwrackRebuilt, hallsDone, spireDone, lampLit), Percy (3:
+  gullwrackRebuilt, hallsDone, spireDone — breakwaterDone was already his
+  from Wave 7), Barnaby (4, matching Callie's set), the captain (4: one
+  new greeting variant per dock — `E.dock`/`E.horologeDock`/
+  `E.chimeDock`/`E.gullwrackDock`), and Miscount (4, in `E.miscountArena`'s
+  `taskIndex > 13` branch, since the isles are only ever reachable after
+  all 13 mainland/east-bank tasks are already done — his existing
+  `MISCOUNT_SMALLTALK`/`MISCOUNT_EPILOGUE` pools were never the right home
+  for these). Every branch is ordered most-advanced-flag-first, verified
+  both by a `tests/test.js` sweep and by a same-mechanism sample through
+  the real DOM in `drive-notices.js`.
+- **The mid-game fence needed one new decorative map glyph ('F', mainland
+  world only) after all** — the acceptance list's "no new grid glyphs" line
+  is scoped to the stones (its own bullet explicitly says so); the fence is
+  a separate item, and every existing "tile whose state must be readable
+  from its own sprite" precedent (the Spire's gear plates, the Open
+  Castle's furnishing) already uses a dedicated glyph read live off state
+  rather than a grid rewrite. `F` reads `s.tasksDone.includes(6)` live
+  (`tileSprite`, mapId `'world'` only — the castle interior keeps `'F'` as
+  its banner, disambiguated by mapId exactly like every other reused
+  letter) — mending the fence needed no new persisted flag at all. Two new
+  16x16 sprites (`fenceBroken`/`fenceMended`) were authored; only the
+  one-time thank-you dialog needed a flag (`s.seenFenceThanks`).
+- **"The two farmers" is Farmer Fenwick plus an unnamed hired hand, not a
+  second named character** — STORY_BIBLE.md's cast list has no second
+  farmer, and inventing one mid-wave for a single bump-dialog felt like
+  scope creep for a reaction-only wave. Both get a line, in the same
+  dialog box, on the first mended-fence bump.
+- **The hatted-slimes moment is scoped to the Meadow Cave (dungeon 1)
+  only** — it is the only dungeon in the game actually themed "meadow"
+  (`Slime`/`Field Mouse` roster, task 1's own flavor text); no other
+  dungeon shares that theme to spread the ~1% roll across.
+- **The golden bird is gated on the fence already being mended**
+  (`s.tasksDone.includes(6)`), not just "on the mainland" — the spec's own
+  flavor text has it land "on a fence post," which only exists once P3's
+  fence is standing. This also means the two P3/P4a moments read as one
+  coherent kingdom rather than two unrelated systems sharing a road.
+- **All three rare moments are log-line-first, not new sprite/animation
+  work** — (b) was already specified as "log line, +nothing"; (a) and (c)
+  follow the same low-ceremony idiom (a `MM.ui.log` line, an existing-item
+  reward, one new inline sprite for the hatted-slimes pair reusing an
+  emoji overlay exactly like the guard's 💤/thief's 🪙 precedent) rather
+  than new pixel art or cutscenes — proportionate to something ~1% of
+  players will ever see once, ever.
 
 ## Sizing guidance for the implementing model
 

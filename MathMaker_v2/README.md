@@ -557,6 +557,36 @@ especially for a kid who's frightened of making her own. Miscount is enormously
 proud of his students, and quietly delighted every time you catch something he
 missed.
 
+### 🌍 The World Notices
+
+The mid-game used to feel quiet between big dungeons. Now the kingdom
+visibly notices what you've done, in small ways that never gate anything
+and never require you to go looking for them.
+
+- **The courtyard, out front of the castle.** Thirteen worn paving stones,
+  laid in a row you cross every single time you walk up to turn in a task.
+  Each one turns a little straighter every time you set something right —
+  by the time all thirteen line up, they've traced a complete spiral. Sage
+  Sylvia has a line about them if you ask; the MathMaker has exactly one
+  dry remark ("the floor out front has opinions about geometry"). Neither
+  of them explains it further. Nobody has to notice the stones at all —
+  the ending works just fine without them — but a kid who *does* count
+  them has, quietly, already been handed the answer to the game's very
+  last question.
+- **The cast remembers you.** Callie, Percy, the captain, Miscount, Sylvia,
+  Barnaby, and old Fisher Finn each pick up new lines once the lighthouse
+  is lit, the Spire ticks again, the Halls sing, or a harbor gets rebuilt —
+  word travels, even to people who were never there.
+- **A fence gets mended.** Sometime around the middle of the mainland
+  quest, the gap in Farmer Fenwick's fence — the one you've walked past
+  since task one — finally gets fixed. He and his hired hand say thank you,
+  once, and then it's just a fence again.
+- **Three things that happen, at most, once.** Somewhere out there: a bird
+  that isn't native to Numeria, a very proud cat, and two slimes who have
+  clearly been sharing a hat for far too long. None of them are worth
+  chasing — if you never see one, you haven't missed anything, and the
+  game will never tell you that you did.
+
 ### A few playtest fixes
 
 A real play session turned up some friction, since fixed: every locked door

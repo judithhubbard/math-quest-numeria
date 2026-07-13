@@ -103,9 +103,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     // every tie by list order, quietly biasing "weakest" toward whichever
     // topics sit earliest in the array (measured: at uniform accuracy, three
     // list-early topics ate ~60% of every mixed pool). A jitter smaller than
-    // any real signal (±0.03 vs 0.1 accuracy steps and the 0.15 rust bonus)
-    // breaks ties fairly without ever overriding a genuine difference.
-    const jitter = () => (Math.random() - 0.5) * 0.06;
+    // any real signal breaks ties fairly without ever overriding a genuine
+    // difference. Sizing note (a flake taught this): margins COMPOSE — the
+    // smallest genuine margin is 0.05 (a 0.10 accuracy step minus the 0.15
+    // rust bonus), and jitter applies to BOTH items, so each item's jitter
+    // must stay under 0.05/2. ±0.015 each (±0.03 combined) clears it.
+    const jitter = () => (Math.random() - 0.5) * 0.03;
     return skills.slice().sort((a, b) => {
       const aa = recentAccuracy(state, a), bb = recentAccuracy(state, b);
       let av = (aa == null ? 0.5 : aa) + jitter(), bv = (bb == null ? 0.5 : bb) + jitter();
