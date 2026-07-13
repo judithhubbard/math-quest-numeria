@@ -263,6 +263,118 @@ var MM = globalThis.MM = globalThis.MM || {};
       size: 9 + Math.random() * 4, glyph: Math.random() < 0.3 ? '🤍' : '✦', rise: true,
     });
   }
+  // ---------- the Turning Stones (v1.7.1 ground-up rework) ----------
+  // The courtyard curl is ONE continuous stroke through every ALIGNED
+  // stone's center — connection is guaranteed by construction (playtest
+  // 2026-07-13: thirteen per-tile arcs with per-number radii could never
+  // meet at tile edges, and didn't). Untended stones stay faint, skewed,
+  // DISCONNECTED fragments: tending the kingdom is literally what joins
+  // the curl up, one stone per task, until it runs out of the courtyard
+  // and dies at the Spiral Stair's door. Alignment reads s.tasksDone.length
+  // live, as before; the glint + all-thirteen shimmer recipes are unchanged.
+  function drawTurningStones(camX, camY, now) {
+    const s = MM.engine.state;
+    if (!s || s.mapId !== 'world') return;
+    const stones = MM.data.TURNING_STONES;
+    const k = Math.min(s.tasksDone.length, stones.length);
+    const px = st => (st.x - camX) * TILE + TILE / 2;
+    const py = st => (st.y - camY) * TILE + TILE / 2;
+    const onScreen = st => st.x >= camX - 1 && st.y >= camY - 1 && st.x < camX + VIEW_W + 1 && st.y < camY + VIEW_H + 1;
+    if (!stones.some(onScreen)) return;
+    // the newest-turned stone's glint (tile wash, under the carving)
+    for (const st of stones) {
+      if (!onScreen(st)) continue;
+      if (MM.engine.spiralStoneGlinting && MM.engine.spiralStoneGlinting(st.i)) {
+        ctx.globalAlpha = 0.30 + 0.25 * Math.sin(now / 120);
+        ctx.fillStyle = '#ffd94a';
+        ctx.fillRect((st.x - camX) * TILE, (st.y - camY) * TILE, TILE, TILE);
+        ctx.globalAlpha = 1;
+      }
+    }
+    // all thirteen aligned: the golden shimmer follows the CURL, not the
+    // tiles (v1.7.1 screenshot audit: per-tile gold fills completed into a
+    // boxy highlighted rectangle with the castle — a wide soft under-stroke
+    // makes the finished curl itself glow). Static, Calm-Mode-safe.
+    if (s.tasksDone.length >= 13) {
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = '#ffd94a';
+      ctx.lineWidth = 11;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(px(stones[0]), py(stones[0]));
+      for (let i = 1; i < stones.length - 1; i++) ctx.arcTo(px(stones[i]), py(stones[i]), px(stones[i + 1]), py(stones[i + 1]), TILE * 0.42);
+      ctx.lineTo(px(stones[stones.length - 1]), py(stones[stones.length - 1]));
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    // the carved curl through the aligned prefix, corners gently rounded
+    if (k >= 2) {
+      ctx.strokeStyle = '#fff6d8';
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(px(stones[0]), py(stones[0]));
+      for (let i = 1; i < k - 1; i++) ctx.arcTo(px(stones[i]), py(stones[i]), px(stones[i + 1]), py(stones[i + 1]), TILE * 0.42);
+      ctx.lineTo(px(stones[k - 1]), py(stones[k - 1]));
+      ctx.stroke();
+    }
+    for (const st of stones) {
+      if (!onScreen(st)) continue;
+      const cx = px(st), cy = py(st);
+      const aligned = s.tasksDone.length > st.i;
+      if (aligned) {
+        // a round stone sitting ON the curl; its radius grows with its
+        // carved number, so the sequence is readable as growth even before
+        // a kid reads a single numeral (v1.7.1 sizes bumped — playtest:
+        // "the numbers on the spiral are too small")
+        const r = 6 + st.size * 0.6;
+        ctx.fillStyle = '#fff6d8';
+        ctx.strokeStyle = '#8a7a58';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // untended: the old faint skewed fragment (deterministic skew,
+        // never time-driven — nothing for Calm Mode to turn off)
+        const r = TILE * 0.2;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(MM.data.stoneSkew(st.i) * Math.PI / 180);
+        ctx.strokeStyle = '#8a8578';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(-r * 0.4, -r * 0.4, r, 0, Math.PI / 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+      // the seven sequence stones carry their carved number — upright once
+      // aligned ("upright once turned" is the ending exam's fair-play
+      // promise), crooked while untended, matching the fragment's skew
+      if (st.label) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        if (!aligned) ctx.rotate(MM.data.stoneSkew(st.i) * Math.PI / 180);
+        ctx.font = '11px "Press Start 2P", monospace'; // v1.7.1: was 8px, unreadable at play size
+        ctx.textAlign = 'center';
+        if (aligned) {
+          ctx.fillStyle = '#3a3020'; // carved into the pale stone
+          ctx.fillText(st.label, 0, 4);
+        } else {
+          ctx.fillStyle = '#141221';
+          ctx.fillText(st.label, 1, 5);
+          ctx.fillStyle = '#a8a294';
+          ctx.fillText(st.label, 0, 4);
+        }
+        ctx.restore();
+      }
+    }
+  }
+
   function drawWorldParticles(camX, camY) {
     if (!worldParticles.length) return;
     for (let i = worldParticles.length - 1; i >= 0; i--) {
@@ -844,64 +956,8 @@ var MM = globalThis.MM = globalThis.MM || {};
         // geometry); an UNALIGNED stone keeps the old deterministic skew —
         // flavor only, a pure function of its own index, never of time or a
         // frame counter, so there is nothing for Calm Mode to turn off.
-        if (s.mapId === 'world') {
-          const stone = MM.data.TURNING_STONES.find(st => st.x === x && st.y === y);
-          if (stone) {
-            const aligned = s.tasksDone.length > stone.i;
-            const cx = vx * TILE + TILE / 2, cy = vy * TILE + TILE / 2;
-            const r = TILE * (0.14 + 0.018 * stone.size);
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.strokeStyle = aligned ? '#fff6d8' : '#8a8578';
-            // aligned strokes draw thicker + brighter (design pass, screenshot
-            // review 2026-07-13): at TILE=48 a 2px lavender line on green read
-            // as scattered fragments, not a connected curl — a kid's own
-            // complaint this whole rework exists to fix. 3.5px near-white
-            // reads as one continuous line at normal viewing size.
-            ctx.lineWidth = aligned ? 3.5 : 2;
-            ctx.lineCap = 'round';
-            ctx.rotate((aligned ? stone.angle : MM.data.stoneSkew(stone.i)) * Math.PI / 180);
-            ctx.beginPath();
-            if (aligned && stone.shape === 'straight') { ctx.moveTo(-r, 0); ctx.lineTo(r, 0); }
-            else { ctx.arc(-r * 0.4, -r * 0.4, r, 0, Math.PI / 2); }
-            ctx.stroke();
-            ctx.restore();
-            // the seven sequence stones carry their carved number, drawn
-            // UNROTATED once aligned so it is always legible — "upright
-            // once turned" is the promise the ending exam's fair-play
-            // deducibility depends on; only an UNTENDED stone's numeral
-            // stays crooked, matching its skew.
-            if (stone.label) {
-              ctx.save();
-              ctx.translate(cx, cy);
-              if (!aligned) ctx.rotate(MM.data.stoneSkew(stone.i) * Math.PI / 180);
-              ctx.font = '8px "Press Start 2P", monospace';
-              ctx.textAlign = 'center';
-              ctx.fillStyle = '#141221';
-              ctx.fillText(stone.label, 1, 4);
-              ctx.fillStyle = aligned ? '#fdfaf3' : '#a8a294';
-              ctx.fillText(stone.label, 0, 3);
-              ctx.restore();
-            }
-            // all thirteen aligned: a faint golden shimmer — a STATIC tint,
-            // never an animation, so it needs no Calm Mode gate either.
-            if (s.tasksDone.length >= 13) {
-              ctx.globalAlpha = 0.16;
-              ctx.fillStyle = '#ffd94a';
-              ctx.fillRect(vx * TILE, vy * TILE, TILE, TILE);
-              ctx.globalAlpha = 1;
-            }
-            // v1.7.0: the newest-turned stone glints once, on the kid's next
-            // plaza crossing (same "notice the CHANGE" recipe as the gear-
-            // gate glint) — armed by E.checkSpiralGlint on every step.
-            if (MM.engine.spiralStoneGlinting && MM.engine.spiralStoneGlinting(stone.i)) {
-              ctx.globalAlpha = 0.30 + 0.25 * Math.sin(now / 120);
-              ctx.fillStyle = '#ffd94a';
-              ctx.fillRect(vx * TILE, vy * TILE, TILE, TILE);
-              ctx.globalAlpha = 1;
-            }
-          }
-        }
+        // (Turning Stones moved out of the tile loop — the curl is ONE
+        // continuous stroke across tiles now; see drawTurningStones below.)
         // v1.7.0: the Spiral Stair's entrance glints once, the first time
         // the in-order courtyard walk is completed after the ending — same
         // recipe, a distant change told by a shimmer, not a popup.
@@ -945,6 +1001,8 @@ var MM = globalThis.MM = globalThis.MM || {};
         }
       }
     }
+
+    drawTurningStones(camX, camY, now);
 
     // Scout: secret walls on this floor shimmer for 10s
     if (MM.engine.scoutActive && MM.engine.scoutActive()) {
@@ -990,7 +1048,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       // Becalmed friends keep their TRUE colors + the heart + the slow sway.
       const spr = MM.sprites.get(m.sprite, { palette: m.pal || {}, scale: 3 });
       ctx.drawImage(spr, vx * TILE, vy * TILE + bob + hop);
-      if (cheering && friend && !s.calmMode) worldSparkle(m.x, m.y - 0.6);
+      // ~3 sparkles a second, not one per FRAME — at 60fps the unthrottled
+      // stream stacked into a solid rising column that read as the friends
+      // being ON FIRE (playtest 2026-07-13). The hop carries the joy; the
+      // sparkle is a garnish.
+      if (cheering && friend && !s.calmMode && Math.random() < 0.05) worldSparkle(m.x, m.y - 0.6);
       if (m.boss) {
         const crown = MM.sprites.get('crown', { scale: 2 });
         ctx.drawImage(crown, vx * TILE + TILE / 2 - crown.width / 2, vy * TILE + bob - 8);
@@ -2268,10 +2330,15 @@ var MM = globalThis.MM = globalThis.MM || {};
       horologe: '🛒 The Dockside Cart', chime: '🛒 The Dockside Cart',
     };
     const onIsles = isleTier; // legacy name used below
-    const gearSection = (slot, blurb) => {
+    // v1.7.1 (playtest 2026-07-13, "looking at the shop is overwhelming"):
+    // every section sits in its own softly tinted block, so the rack reads
+    // as rooms in a shop rather than one long ledger. Pure presentation —
+    // ordering, rows, and buttons are untouched.
+    const sec = (tint, inner) => inner ? `<div class="shop-sec shop-sec-${tint}">${inner}</div>` : '';
+    const gearSection = (slot, blurb, tint) => {
       const items = MM.data.GEAR[slot].filter(it => it.price > 0 && !it.notForSale && !!it.isle === onIsles)
         .map(it => row(it, slot, (s.gear[slot] || []).includes(it.id))).join('');
-      return items ? `<h3>${MM.data.SLOT_NAMES[slot]} — ${blurb}</h3>${items}` : '';
+      return items ? sec(tint || 'armor', `<h3>${MM.data.SLOT_NAMES[slot]} — ${blurb}</h3>${items}`) : '';
     };
     // ---------- Wave 8b: the weapon rack, organized by stance ----------
     // ORGANIZED, never FILTERED. The kid's own kind of instrument is listed
@@ -2285,14 +2352,14 @@ var MM = globalThis.MM = globalThis.MM || {};
       const owned = it => (s.gear.weapon || []).includes(it.id);
       const gentle = all.filter(it => it.gentle);
       const bold = all.filter(it => !it.gentle);
-      if (!gentle.length || !bold.length) return gearSection('weapon', 'hit harder with every correct answer');
+      if (!gentle.length || !bold.length) return gearSection('weapon', 'hit harder with every correct answer', 'bold');
       const softFirst = MM.engine.isSoothing();
       const groups = [
-        { on: softFirst, head: '🕊 For gentle hands', items: gentle },
-        { on: !softFirst, head: '⚔️ For bold arms', items: bold },
+        { on: softFirst, head: '🕊 For gentle hands', items: gentle, tint: 'gentle' },
+        { on: !softFirst, head: '⚔️ For bold arms', items: bold, tint: 'bold' },
       ].sort((a, b) => (b.on ? 1 : 0) - (a.on ? 1 : 0));   // the kid's kind, first
       return groups.map(g =>
-        `<h3>${g.head}</h3>${g.items.map(it => row(it, 'weapon', owned(it))).join('')}`).join('');
+        sec(g.tint, `<h3>${g.head}</h3>${g.items.map(it => row(it, 'weapon', owned(it))).join('')}`)).join('');
     };
     const food = MM.data.FOODS.map(f => row(f, 'food', false)).join('');
     // Bulk potion buying: ×5 / ×10 always shown now (carry-over rework —
@@ -2319,7 +2386,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         ${ownsHearthmoss ? '<span class="shop-buy">✓ owned</span>' : `<button class="shop-buy" data-kind="charm" data-id="hearthmoss" ${s.gold < hearthmoss.price ? 'disabled' : ''}>Buy</button>`}
       </div>`;
     const isleGoods = onIsles
-      ? `<h3>Isle specialties</h3>${row(MM.data.MYSTERY, 'mystery', false)}${row(MM.data.TREAT, 'treat', false)}${hearthmossRow}`
+      ? sec('isle', `<h3>Isle specialties</h3>${row(MM.data.MYSTERY, 'mystery', false)}${row(MM.data.TREAT, 'treat', false)}${hearthmossRow}`)
       : '';
     // sellables: treasures at full value, unequipped gear at half price
     const treasureSell = (s.items.treasures || []).map((id, i) => {
@@ -2349,13 +2416,13 @@ var MM = globalThis.MM = globalThis.MM || {};
         ${gearSection('body', 'block more of every monster hit')}
         ${gearSection('helmet', 'a bit more block, up top')}
         ${gearSection('boots', 'block — and some help your dodging')}
-        ${gearSection('ring', 'one finger, one power — choose!')}`;
+        ${gearSection('ring', 'one finger, one power — choose!', 'ring')}`;
     const suppliesTab = `
-        <h3>Food — restores stamina (eat from your 🎒 bag)</h3>${food}
-        <h3>Potions & supplies</h3>${potionRow}
+        ${sec('food', `<h3>Food — restores stamina (eat from your 🎒 bag)</h3>${food}`)}
+        ${sec('potion', `<h3>Potions & supplies</h3>${potionRow}`)}
         ${isleGoods}`;
     const sellTab = (treasureSell || gearSell)
-      ? `<h3>💰 The shopkeeper buys treasures & used gear</h3>${treasureSell}${gearSell}`
+      ? sec('sell', `<h3>💰 The shopkeeper buys treasures & used gear</h3>${treasureSell}${gearSell}`)
       : `<p class="dim">Nothing to sell right now — treasures and unequipped gear show up here.</p>`;
     // carts are supplies-only: no gear tab, no sell counter
     // carts sell supplies AND buy treasures/gear (user decision 2026-07-11:
@@ -2666,10 +2733,15 @@ var MM = globalThis.MM = globalThis.MM || {};
       const napping = !it.done && it.type === 'hunt' && it.dungeon && MM.engine.dungeonClearedToday(it.dungeon);
       // Wave 8a (P5, rust): a job whose topic has gone stale says so
       const rusty = !it.done && !napping && it.flavor;
+      // the streak job reads the LIVE streak — its stored counter only ever
+      // jumps 0→done at completion, so a kid three-right-in-a-row still saw
+      // "0/4" and reasonably concluded the board was broken (playtest
+      // 2026-07-13). A miss resets the streak; the board shows that too.
+      const have = it.type === 'streak' && !it.done ? Math.min(s.streak || 0, it.need) : it.have;
       return `
       <div class="shop-row${it.done ? ' owned' : ''}">
         <span class="shop-item">${it.done ? '✅' : icon[it.type]} ${it.label}${napping ? '<span class="quip">cleared for today — the monsters creep back tomorrow</span>' : ''}${rusty ? `<span class="quip">${it.flavor}</span>` : ''}</span>
-        <span class="shop-stat">${it.done ? 'done!' : `${it.have}/${it.need}`}</span>
+        <span class="shop-stat">${it.done ? 'done!' : `${have}/${it.need}`}</span>
         <span class="shop-price">${it.reward} g</span>
       </div>`;
     }).join('');

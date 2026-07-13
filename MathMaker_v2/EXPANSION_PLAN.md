@@ -2867,3 +2867,79 @@ drives (28 pre-existing + the new `tests/drive-wonder.js`) + the detached
 marathon — final results and log paths are in the implementer's report to
 the design session (not duplicated here to avoid drift; see `tests/logs/`
 for the raw logs, named `<drive>-v170-*.log` and `marathon-v170.log`).
+
+---
+
+## v1.7.1 SHIPPED (2026-07-13, design session) — live-playtest batch on v1.7.0
+
+Eight user reports from the deployed v1.7.0, same afternoon. Every fix below
+cites its report.
+
+1. **Soothe still whacked.** The unconditional lunge `whoosh()` played on
+   every soothe reach (landed AND missed) — the one percussive sound left on
+   the gentle path. Both call sites now skip it while soothing; the soothe
+   chime/fret carry the moment.
+2. **"A TANGLED THING" opened every soothe fight.** The stance banner was a
+   hardcoded philosophy quote; in practice it read as the game forgetting
+   the monster's name. Now: `THE FRIGHTENED SWAMP RAT` — names the creature
+   in the calm meter's own established language. (Follow-up in the same
+   session: the 🕊 bookends were "too small to see clearly" — dropped, along
+   with every other MICRO-dove: the name-bar prefix, the calm-sub prefixes,
+   the atk-label prefix. The dove survives only at banner size, where it is
+   actually visible. Words carry small-size state now.)
+3. **Cheering friends looked ON FIRE.** `worldSparkle` emitted one particle
+   per FRAME per celebrant (~60/s) — a solid rising column. Now gated at
+   0.05/frame (~3/s). The hop is the celebration; the sparkle is a garnish.
+4. **Dungeon-2 boss one-shot by a plain strike (post-game gear).** The Wave
+   8b boss floor capped only BRAVE strikes; its sim never walked endgame
+   attack into early dungeons. The ⌈maxhp/3⌉ cap now applies to EVERY strike
+   on a boss: three correct answers minimum, always. Regulars stay uncapped.
+5. **Shop overwhelming + calming rack thin.** (a) Every shop section now
+   sits in a softly tinted block with a colored spine (`.shop-sec-*`,
+   presentation only). (b) The gentle rack fills its two missing tiers,
+   power-matched exactly: 🪈 Reed Flute (atk 3, 40g — dagger tier) and
+   🥣 Singing Bowl (atk 10, 450g — Star Blade tier), each with its own
+   calm-mote style. Identity never costs power.
+6. **Streak bounty read "0/4" after right answers.** Its stored counter only
+   ever jumped 0→done; the board now shows the LIVE streak, capped at need
+   (display-only; completion logic untouched).
+7. **THE SPIRAL, GROUND-UP (the headline).** Report: "little curves on the
+   squares, but they do not connect… and the spiral staircase is nowhere
+   near the end of the spiral. Rethink it from the ground up." Two
+   structural causes: per-stone arcs with per-number radii can never meet at
+   tile edges; and "points at the Stair" was an invisible 6-tile ray through
+   the castle. Rework: (a) ui.js strokes ONE continuous rounded path through
+   the aligned stones' centers — connection is true by construction, and the
+   untended suffix stays visibly broken fragments, so tending the kingdom is
+   literally what joins the curl up; (b) exhaustive search (every anchor ×
+   all 8 orientations of the unit-step rect-spiral against the raw map)
+   found exactly ONE placement whose outer stone TOUCHES the Stair tile:
+   anchor (17,4), walk N,E,S,S,W,W,N,N,N,E,E,E, 13th stone at (19,2) against
+   the tower at (19,3). Three decorative trees moved one column west
+   (maps.js); no POI touched. Numbered stones (1,1,2,3,5,8,13 ascending
+   center-out), sequence-walk chimes, glint, and stoneSkew all preserved;
+   shape/angle fields deleted (nothing derives per-tile geometry anymore).
+   Screenshot audit fix: the all-13 golden shimmer now glows the CURL (wide
+   soft under-stroke), not the tiles — per-tile fills completed into a boxy
+   rectangle with the castle. Numerals 8px→11px, discs enlarged ("the
+   numbers on the spiral are too small").
+8. **"463 ÷ 16 is too hard" (mainland door).** long_division tier 3 drops
+   its two-digit-divisor branch: trial-multiplying a 2-digit divisor is a
+   different skill from the bring-down process the ladder teaches, and
+   nothing else builds toward it. 3-digit-quotient ÷ single-digit stays —
+   still real tier-3 work. Same calibration class as v1.6.0's ×100 removal.
+
+**Test changes:** unit spiral-geometry block rewritten (orthogonal unit
+steps; outer stone ADJACENT to 'H'; center === stone 0; shape/angle checks
+gone); drive-wonder geometry checks updated the same way; drive-wonder's
+boss-falsehood section pinned `dodgeChance` to 0 — base dodge is 0.35 and
+the section fires exactly ONE counterattack, so the check had been a 65%
+coin flip since v1.7.0 (it finally came up tails in this batch's sweep;
+flaky-by-design, now deterministic).
+
+**Evidence:** unit ALL PASSED; full 29-drive sweep + detached marathon
+green (`tests/logs/*-v171*.log`, `sweep-v171-summary.txt`,
+`marathon-v171.log`; drive-wonder re-run green after the dodge pin, logs
+`drive-wonder-v171-{2,3,4}.log`); spiral + soothe-battle screenshots
+audited by eye (curl connects, ends at the tower, numerals legible, no
+boxy shimmer, calm labels read in words).

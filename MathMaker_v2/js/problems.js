@@ -226,10 +226,15 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   function long_division(t) {
     let dvsr, q, r;
+    // Tier 3 is single-digit divisors ONLY (calibration, playtest 2026-07-13:
+    // "463 ÷ 16" at a mainland door was judged too hard — a two-digit divisor
+    // means trial-multiplying the divisor at every step, a different skill
+    // from the bring-down process the ladder actually teaches; nothing else
+    // in the game builds toward it. A 3-digit quotient like 463 ÷ 7 is still
+    // genuinely tier-3 work. Same calibration class as v1.6.0's ×100 removal.)
     if (t === 1) { dvsr = R.int(2, 9); q = R.int(11, 99); r = 0; }
     else if (t === 2) { dvsr = R.int(2, 9); q = R.int(11, 99); r = R.int(1, dvsr - 1); }
-    else if (R.chance(0.5)) { dvsr = R.int(3, 9); q = R.int(101, 999); r = R.int(1, dvsr - 1); }
-    else { dvsr = R.int(11, 19); q = R.int(11, 40); r = R.int(1, dvsr - 1); }
+    else { dvsr = R.int(3, 9); q = R.int(101, 999); r = R.int(1, dvsr - 1); }
     const dividend = dvsr * q + r;
     const ansTxt = r === 0 ? String(q) : `${q} r ${r}`;
     // Pedagogy pass (2026-07-12): the old solution VERIFIED the answer

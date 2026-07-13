@@ -2448,12 +2448,14 @@ for (const skill of skills) {
   // (x,y) PAIR is guaranteed unique) ...
   const posKey = new Set(stones.map(s => `${s.x},${s.y}`));
   if (posKey.size !== 13) fail('Turning Stones: all 13 (x,y) positions must be unique');
-  // ...each CONSECUTIVE pair adjacent (the walk property — a spiral, not a
-  // teleporting scatter of stones)...
+  // ...each CONSECUTIVE pair exactly one ORTHOGONAL step apart (v1.7.1:
+  // tightened from king-move adjacency — the curl is stroked straight
+  // through the stone centers now, so a diagonal step would draw a cut
+  // corner and break the sequence-walk's step-by-step chimes)...
   for (let i = 1; i < stones.length; i++) {
     const dx = Math.abs(stones[i].x - stones[i - 1].x), dy = Math.abs(stones[i].y - stones[i - 1].y);
-    if (dx > 1 || dy > 1 || (dx === 0 && dy === 0)) {
-      fail(`Turning Stones: stone ${i - 1}->${i} are not adjacent ((${stones[i - 1].x},${stones[i - 1].y}) -> (${stones[i].x},${stones[i].y}))`);
+    if (dx + dy !== 1) {
+      fail(`Turning Stones: stone ${i - 1}->${i} are not one orthogonal step apart ((${stones[i - 1].x},${stones[i - 1].y}) -> (${stones[i].x},${stones[i].y}))`);
     }
   }
   // ...every tile plain walkable grass on the raw overworld, NOT a new glyph
@@ -2463,27 +2465,20 @@ for (const skill of skills) {
     const ch = ow[st.y][st.x];
     if (ch !== '.') fail(`Turning Stones: tile (${st.x},${st.y}) is '${ch}', not plain grass — the overlay recipe requires it stay ordinary walkable ground`);
   });
-  // stone 13's outward direction (the walk's own last step, continued) must
-  // ray straight into the Spiral Stair's tile ('H' on the mainland world map)
-  const last = stones[stones.length - 1], prev = stones[stones.length - 2];
-  const rdx = last.x - prev.x, rdy = last.y - prev.y;
+  // v1.7.1 (playtest: "the spiral staircase is nowhere near the end of the
+  // spiral"): the 13th stone must TOUCH the Spiral Stair's tile — not point
+  // at it down a ray, not gesture at its column. Orthogonally adjacent.
+  const last = stones[stones.length - 1];
   const towers = MM.maps.find(ow, 'H');
   if (towers.length !== 1) fail(`Turning Stones: expected exactly one 'H' (Spiral Stair) tile on the mainland, found ${towers.length}`);
-  else {
-    let hit = false;
-    for (let t = 1, x = last.x, y = last.y; t <= 20; t++) {
-      x += rdx; y += rdy;
-      if (x === towers[0].x && y === towers[0].y) { hit = true; break; }
-      if (x < 0 || y < 0 || x >= ow[0].length || y >= ow.length) break;
-    }
-    if (!hit) fail(`Turning Stones: stone 13's outward ray from (${last.x},${last.y}) dir (${rdx},${rdy}) never reaches the Stair tile (${towers[0].x},${towers[0].y})`);
+  else if (Math.abs(last.x - towers[0].x) + Math.abs(last.y - towers[0].y) !== 1) {
+    fail(`Turning Stones: the outer stone (${last.x},${last.y}) must sit touching the Stair tile (${towers[0].x},${towers[0].y})`);
   }
-  // shape/angle fields exist and are well-formed for every stone
+  // the center constant matches stone 0 (engine's glint-proximity check
+  // and Sylvia's dialog both key off it)
+  const c = MM.data.TURNING_STONES_CENTER;
+  if (!c || c.x !== stones[0].x || c.y !== stones[0].y) fail('Turning Stones: TURNING_STONES_CENTER must be stone 0\'s tile');
   for (const st of stones) {
-    if (st.shape !== 'turn' && st.shape !== 'straight') fail(`Turning Stones: stone ${st.i} has an invalid shape '${st.shape}'`);
-    if (typeof st.angle !== 'number' || st.angle < 0 || st.angle >= 360 || st.angle % 90 !== 0) {
-      fail(`Turning Stones: stone ${st.i} angle ${st.angle} must be a multiple of 90`);
-    }
     const sk = MM.data.stoneSkew(st.i);
     if (typeof sk !== 'number' || Number.isNaN(sk)) fail(`Turning Stones: stoneSkew(${st.i}) is not a number`);
   }

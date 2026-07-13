@@ -29,9 +29,14 @@ var MM = globalThis.MM = globalThis.MM || {};
   const WEST = [
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
     '~~....T.......TT..........T.......TT..',
-    '~~..T...................T.........T...',
-    '~~.T.....T.....TTT.H...........T......',
-    '~~..T..........TT..C.n......T.....5...',
+    // v1.7.1: the grove beside the castle shifted one column west (three
+    // decorative trees MOVED to (14,2)/(14,3)/(14,4), none removed) to clear
+    // the Turning Stones' relocated walk — the one placement on the whole
+    // overworld where the spiral's outer end lands touching the Spiral
+    // Stair (see the exhaustive-search note on TURNING_STONES in data.js).
+    '~~..T.........T.........T.........T...',
+    '~~.T.....T....TT...H...........T......',
+    '~~..T.........TT...C.n......T.....5...',
     // Wave 7.1: (34,5) was a day-one trap pocket under dungeon 5's door
     '~~.....T..............T..........eMM..',
     '~~...........j.S.......I...q...M.MM...',

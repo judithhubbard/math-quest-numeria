@@ -100,14 +100,17 @@ function canonicalize(p) {
     let adjacent = true;
     for (let i = 1; i < stones.length; i++) {
       const dx = Math.abs(stones[i].x - stones[i - 1].x), dy = Math.abs(stones[i].y - stones[i - 1].y);
-      if (dx > 1 || dy > 1 || (dx === 0 && dy === 0)) adjacent = false;
+      if (dx + dy !== 1) adjacent = false; // v1.7.1: strictly orthogonal unit steps
     }
-    return { unique: posSet.size === 13, adjacent, shapes: stones.map(s => s.shape) };
+    // v1.7.1: the walk's whole point — the outer stone TOUCHES the Stair
+    const last = stones[stones.length - 1];
+    const tower = MM.maps.find(MM.maps.OVERWORLD, 'H')[0];
+    const atStair = tower && Math.abs(last.x - tower.x) + Math.abs(last.y - tower.y) === 1;
+    return { unique: posSet.size === 13, adjacent, atStair };
   });
   check(geom.unique, 'spiral: all 13 stone positions are unique');
-  check(geom.adjacent, 'spiral: every consecutive pair of stones is adjacent (a walk, not a scatter)');
-  check(geom.shapes.filter(s => s === 'turn').length === 5 && geom.shapes.filter(s => s === 'straight').length === 8,
-    `spiral: 5 corner turns + 8 straight runs, matching the rectangular-spiral walk (got ${JSON.stringify(geom.shapes)})`);
+  check(geom.adjacent, 'spiral: every consecutive pair of stones is one orthogonal step apart (a walk, not a scatter)');
+  check(geom.atStair, 'spiral: the outer stone sits touching the Spiral Stair\'s tile (the curl ends AT the tower)');
 
   // ================= 2. The sequence walk =================
   await ev(() => { MM.engine.state.tasksDone = []; MM.engine.save(); });
@@ -217,7 +220,13 @@ function canonicalize(p) {
   // ================= 5. Golem battle cry =================
   await ev(() => { MM.battle.GOLEM_CRY_CHANCE = 1; MM.engine.startArenaBattle(1); });
   await page.waitForFunction(() => MM.battle.active());
-  await page.waitForTimeout(800); // the enter-flavor renders with round 1 (after(650, nextRound))
+  // the enter-flavor renders with round 1 (after(650, nextRound)) — WAIT for
+  // the message, don't race it (a fixed 800ms lost to the 650ms timer under
+  // sweep load, v1.7.1)
+  await page.waitForFunction(() => {
+    const el = document.getElementById('battleMsg');
+    return el && el.innerText.trim().length > 0;
+  }, null, { timeout: 8000 }).catch(() => {});
   const cryLine = await ev(() => document.getElementById('battleMsg').innerText);
   check(/SEVEN|CARRY NOTHING|ALWAYS TWELVE/.test(cryLine), `golem cry: a rare battle cry appears in the opening flavor ("${cryLine.slice(0, 60)}…")`);
   await page.screenshot({ path: SHOTS + '/8-golem-cry.png' });
@@ -231,6 +240,12 @@ function canonicalize(p) {
     const b = s.monsters.find(m => m.boss && m.hp > 0);
     b.hp = b.maxhp = 999; // survive at least one strike, deterministically, so the counter always lands
     MM.engine.WRONG_ATTACK_CHANCE = 1;
+    // pin the hero's dodge too (base chance is 0.35!) — the section fires
+    // exactly ONE counterattack, and a dodged counter renders no lie, so
+    // without this pin the whole check was a 65% coin flip (it came up
+    // tails in the v1.7.1 sweep; flaky by design since v1.7.0)
+    MM.engine._realDodgeChance = MM.engine.dodgeChance;
+    MM.engine.dodgeChance = () => 0;
     MM.engine.startCombat(b);
   });
   await page.waitForFunction(() => MM.battle.active());
@@ -268,7 +283,11 @@ function canonicalize(p) {
     check(true, 'correction beat: skipped (boss fell before ever lying)');
   }
   await fleeIfBattling();
-  await ev(() => { MM.engine.WRONG_ATTACK_CHANCE = 0.5; });
+  await ev(() => {
+    MM.engine.WRONG_ATTACK_CHANCE = 0.5;
+    MM.engine.dodgeChance = MM.engine._realDodgeChance;
+    delete MM.engine._realDodgeChance;
+  });
 
   // ================= 7. Inn cat moments =================
   await ev(() => {
