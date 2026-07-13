@@ -3025,17 +3025,16 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (crit) dmg *= 2;
         if (crit && E.hasEnchant('leech')) s.hp = Math.min(s.maxhp, s.hp + 2);
         if (E.hasEnchant('frost')) frost[0] = true;
-        // THE BOSS FLOOR. A boss must always be a real fight: no single brave
-        // strike may take more than a third of one, so even a perfect brave run
-        // with a crit and best-in-slot gear still needs three correct answers.
-        //
-        // This is load-bearing, not a nicety. Simulated across the whole gear
-        // ladder, a flat 2× (compounding with a 2× crit) drops bosses to TWO
-        // answers from dungeon 1 to dungeon 21 — a boss you barely meet. Brave
-        // keeps its full double damage everywhere else; it just cannot make a
-        // boss trivial. Regular monsters are uncapped: halving those fights is
-        // exactly the power the kid opted in for.
-        if (brave && mon.boss) dmg = Math.min(dmg, Math.ceil(mon.maxhp / 3));
+        // THE BOSS FLOOR. A boss must always be a real fight: no single
+        // strike may take more than a third of one, so every boss needs at
+        // least three correct answers — whatever the gear, whatever the
+        // stance. Originally this capped only BRAVE strikes (the sim that
+        // set it only walked the intended gear-per-dungeon ladder), until a
+        // post-game replay one-shot the dungeon-2 boss with a plain strike
+        // (playtest 2026-07-13): endgame attack against an early boss's
+        // health needs the same cap for the same reason. Regular monsters
+        // stay uncapped: flattening those IS earned power.
+        if (mon.boss) dmg = Math.min(dmg, Math.ceil(mon.maxhp / 3));
         return { dmg, crit, brave, soothing: E.isSoothing() };
       },
       applyMonsterHit(m) {
@@ -3066,7 +3065,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       playerAtkLabel: () => {
         const r = E.strikeRange();
         const b = s.brave ? 2 : 1;
-        const verb = E.isSoothing() ? '🕊 calms' : '⚔️ strikes';
+        // v1.7.1: the word "calms" carries the stance — the tiny 🕊 was "too
+        // small to see clearly" (playtest), so at this size, no dove
+        const verb = E.isSoothing() ? 'calms' : '⚔️ strikes';
         return `${verb} ${r.min * b}–${r.max * b} per correct answer${s.brave ? ' ⚡' : ''}`;
       },
       playerDefLabel: () => `🛡️ blocks ${E.totalDef()}`,

@@ -102,7 +102,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     buildDom();
     setBars(true);
     const s = soothing();
-    banner(mon.boss ? '☠️ BOSS BATTLE ☠️' : (s ? '🕊 A TANGLED THING 🕊' : '⚔️ BATTLE! ⚔️'),
+    // the soothe banner NAMES the creature, in the calm meter's own words
+    // (playtest 2026-07-13, twice: every fight opening with the same
+    // "A TANGLED THING" read as the game forgetting the monster's name —
+    // Miscount's line stays in the reveal, where it lands — and the 🕊
+    // bookends were "too small to see clearly"; words carry this better)
+    banner(mon.boss ? '☠️ BOSS BATTLE ☠️' : (s ? MM.data.theMon('Frightened ' + mon.name, true).toUpperCase() : '⚔️ BATTLE! ⚔️'),
       mon.boss ? '#ff6b5c' : (s ? '#7ee0e8' : '#ffd94a'));
     MM.sound.battleStart(mon.boss);
     el('battleOverlay').classList.remove('hidden');
@@ -191,15 +196,19 @@ var MM = globalThis.MM = globalThis.MM || {};
   function refreshBarLabels() {
     const s = bt.ctx.hooks;
     const nm = el('monBarName'), sub = el('monBarSub'), hsub = el('heroBarSub');
-    if (nm) nm.innerHTML = `${bt.mon.boss ? '👑 ' : ''}${soothing() ? '🕊 ' : ''}${bt.mon.name}`;
+    // v1.7.1 (playtest: "the bird symbol is too small to see clearly"): the
+    // tiny 🕊 prefixes are gone from these small labels — the teal calm bar
+    // and the words "% calm" carry the state legibly; the dove survives only
+    // at sizes where it can actually be seen (the PERFECTLY CALM banner).
+    if (nm) nm.innerHTML = `${bt.mon.boss ? '👑 ' : ''}${bt.mon.name}`;
     if (sub) {
       const k = calm();
       sub.innerHTML = !soothing()
         ? `⚔️ attacks for ${bt.mon.atk} each round`
         // At 100% it is not frightened any more — that's the whole point, and
         // this line is what the kid is looking at in the victory freeze-frame.
-        : k >= 1 ? '🕊 Completely calm.'
-        : `🕊 ${Math.round(k * 100)}% calm · still frightened, still swinging (${bt.mon.atk})`;
+        : k >= 1 ? 'Completely calm.'
+        : `${Math.round(k * 100)}% calm · still frightened, still swinging (${bt.mon.atk})`;
     }
     if (hsub) hsub.innerHTML = `${s.playerAtkLabel()} · ${s.playerDefLabel()}${s.rangedNote ? s.rangedNote() : ''}`;
   }
@@ -401,7 +410,10 @@ var MM = globalThis.MM = globalThis.MM || {};
          <div class="solution">${bt.problem.solution}</div>${quip}${kind}`;
       after(400, () => {
         float(HERO.x - 60, HERO.y - 160, soothing() ? '...' : 'MISS', '#9d92c9', 20);
-        MM.sound.whoosh();
+        // the whoosh is a SWIPE sound — a soothing miss is just a breath
+        // that didn't land, so it stays silent (playtest 2026-07-13:
+        // "when I try to soothe a creature, there is still a whack sound")
+        if (!soothing()) MM.sound.whoosh();
         after(700, () => monsterTurn(false));
       });
     }
@@ -419,7 +431,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     // lunge toward the monster and back — soothing, you don't lunge, you REACH:
     // a smaller, slower movement toward it rather than a strike through it.
     tween(v => { bt.heroOx = (soothe ? 46 : 90) * Math.sin(v * Math.PI); }, soothe ? 520 : 360);
-    MM.sound.whoosh();
+    // the reach is silent — the whoosh is the strike's swipe, and "calming
+    // something must never sound like hitting it" applies to the wind-up
+    // too (playtest 2026-07-13). The soothe chime lands with the calm.
+    if (!soothe) MM.sound.whoosh();
     after(190, () => {
       bt.mon.hp -= dmg;
       bt.monFlash = 1;
@@ -465,6 +480,8 @@ var MM = globalThis.MM = globalThis.MM || {};
     bubblepipe: { shape: 'bubble', colors: ['#7ee0e8', '#b8f0f4'] },
     catwand: { shape: 'fish', colors: ['#c4d8e8', '#e8f0f4'] },
     chimebells: { shape: 'note', colors: ['#ffd94a', '#ffe98a'] },
+    reedflute: { shape: 'note', colors: ['#a8d8a0', '#cceac4'] },   // reedy green
+    singingbowl: { shape: 'bubble', colors: ['#e8c48a', '#f4e0b8'] }, // slow warm rings
   };
   function motes(x, y, n) {
     if (!bt || calmOn()) return;

@@ -586,8 +586,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     // battle line; plain weapons fall back to a generic soothing verb.
     { id: 'ribbon', name: 'Ribbon Streamer', emoji: '🎀', atk: 1, price: 0, gentle: true, verb: 'sweeps a slow ribbon around',
       quip: 'Technically a weapon. Mostly a very long ribbon.' },
+    // v1.7.1 (playtest 2026-07-13, "more variety in the calming section"):
+    // the gentle rack fills the two tiers it was missing — the dagger's
+    // (3/40) and the Star Blade's (10/450) — so the ladder reads complete
+    // whichever header a kid shops under.
+    { id: 'reedflute', name: 'Reed Flute', emoji: '🪈', atk: 3, price: 40, gentle: true, verb: 'plays a low, patient note for',
+      quip: 'One note, played very kindly. It is always the right note.' },
     { id: 'bubblepipe', name: 'Bubble Pipe', emoji: '🫧', atk: 5, price: 120, gentle: true, verb: 'drifts a bubble toward',
       quip: 'Blows perfect spheres. Refuses to blow anything else.' },
+    { id: 'singingbowl', name: 'Singing Bowl', emoji: '🥣', atk: 10, price: 450, gentle: true, verb: 'circles the rim of the bowl for',
+      quip: 'One slow circle, and the whole room breathes out.' },
     // ranged, and one atk below its melee peer (the Battle Axe, 7) — exactly the
     // trade the Smuggler's Crossbow makes against the Tidal Blade. A dangled
     // lure IS a reach weapon, so it inherits the round-1-miss rule for free.
@@ -1419,55 +1427,47 @@ var MM = globalThis.MM = globalThis.MM || {};
   // foreshadowing must never teach the wrong answer). Stones 8-13 are
   // unnumbered curve segments continuing the sweep. 21 never appears
   // anywhere; that is the exam's own discovery.
+  // v1.7.1 GROUND-UP REWORK (playtest 2026-07-13: "little curves on the
+  // squares, but they do not connect into a spiral… and the spiral
+  // staircase is nowhere near the end of the spiral"). Two root causes in
+  // the v1.7.0 version, both structural:
+  //   1. Each stone drew its OWN arc, with a radius that grew with its
+  //      carved number — thirteen different-sized arcs centered on their
+  //      own tiles can never meet at tile edges. Per-stone {shape, angle}
+  //      is gone entirely; ui.js now strokes ONE continuous path through
+  //      the aligned stones' centers, so connection is guaranteed by
+  //      construction (and the untended suffix stays visibly broken —
+  //      the curl literally joins up as the kingdom is tended).
+  //   2. The old anchor's "outer end POINTS AT the Stair" was a 6-tile ray
+  //      through the castle — invisible. The walk is now the one placement
+  //      on the entire overworld (exhaustive search over every anchor ×
+  //      all 8 orientations of the unit-step rect-spiral, against the raw
+  //      map) whose 13th stone lands at (19,2), TOUCHING the Spiral
+  //      Stair's tile (19,3) — the carved curl runs out of the courtyard
+  //      and dies at the tower door. Three decorative trees moved
+  //      (maps.js); no POI touched.
+  // Still: 13 stones, unit steps, center-out ascending 1,1,2,3,5,8,13 on
+  // the first seven (ASCENT ONLY — the ending exam's fair-play rule), six
+  // unnumbered curve stones, pure canvas overlay on walkable grass, never
+  // gates movement, never speaks. 21 appears nowhere; that is the exam's
+  // own discovery.
   MM.data.TURNING_STONES = (() => {
     const sizes = [1, 1, 2, 3, 5, 8, 13];
+    // N,E,S,S,W,W,N,N,N,E,E,E from the center stone — an outward
+    // rectangular spiral whose last arm runs east along row 2 into the
+    // tower: …(16,2)→(17,2)→(18,2)→(19,2), with the Stair at (19,3).
     const OFFSETS = [
-      [0, 0], [1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1],
-      [1, 1], [2, 1], [2, 0], [2, -1], [2, -2],
+      [0, 0], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0],
+      [-1, -1], [-1, -2], [0, -2], [1, -2], [2, -2],
     ];
-    // Anchor: CX=17 is FORCED — stone 12 must land at column 19 (directly
-    // below the castle/tower column) so its outward direction (due north,
-    // the walk's own last step) rays straight through the castle to the
-    // Spiral Stair's tile at (19,3). CY=11 is the nearest row south of the
-    // player's own spawn (19,8) whose whole 4×4 footprint clears the
-    // castle, the tower, and the spawn tile — checked exhaustively against
-    // the raw overworld (see the unit test); every row from 7 (the old row)
-    // through 10 collides with the castle, the tower, or the spawn point on
-    // the shared column 19, because four consecutive offsets (dx=2) all
-    // fall on that column.
-    const CX = 17, CY = 11;
-    // direction codes, clockwise from East (matches ctx.rotate() in ui.js's
-    // y-down coordinate system): E=0 S=90 W=180 N=270
-    const DIR = { E: 0, S: 90, W: 180, N: 270 };
-    const OPPOSITE = { E: 'W', W: 'E', N: 'S', S: 'N' };
-    const dirOf = (dx, dy) => (dx === 1 ? 'E' : dx === -1 ? 'W' : dy === 1 ? 'S' : 'N');
-    // The default unrotated "turn" glyph (drawn by ui.js) bridges an EAST
-    // arm to a SOUTH arm. turnAngle finds the multiple-of-90 rotation that
-    // carries that {E,S} pair onto whichever two edges THIS stone's turn
-    // actually uses, so the carving genuinely connects its path neighbors.
-    function turnAngle(inCh, outCh) {
-      const entry = DIR[OPPOSITE[inCh]], exit = DIR[outCh];
-      for (const t of [0, 90, 180, 270]) {
-        const a = (0 + t) % 360, b = (90 + t) % 360;
-        if ((a === entry && b === exit) || (a === exit && b === entry)) return t;
-      }
-      return 0; // unreachable for a well-formed orthogonal turn
-    }
-    return OFFSETS.map(([dx, dy], i) => {
-      const inD = i > 0 ? dirOf(dx - OFFSETS[i - 1][0], dy - OFFSETS[i - 1][1]) : null;
-      const outD = i < OFFSETS.length - 1 ? dirOf(OFFSETS[i + 1][0] - dx, OFFSETS[i + 1][1] - dy) : null;
-      const turning = !!(inD && outD && inD !== outD);
-      const axisD = outD || inD; // whichever exists, for a straight/end stone
-      return {
-        x: CX + dx, y: CY + dy, i,
-        size: i < 7 ? sizes[i] : 6,
-        label: i < 7 ? String(sizes[i]) : null,
-        shape: turning ? 'turn' : 'straight',
-        angle: turning ? turnAngle(inD, outD) : (axisD === 'E' || axisD === 'W' ? 0 : 90),
-      };
-    });
+    const CX = 17, CY = 4;
+    return OFFSETS.map(([dx, dy], i) => ({
+      x: CX + dx, y: CY + dy, i,
+      size: i < 7 ? sizes[i] : 6,
+      label: i < 7 ? String(sizes[i]) : null,
+    }));
   })();
-  MM.data.TURNING_STONES_CENTER = { x: 17, y: 11 };
+  MM.data.TURNING_STONES_CENTER = { x: 17, y: 4 };
   // An UNALIGNED stone sits at a fixed skew instead of its true geometric
   // angle: a deterministic offset derived from its own index, never from
   // Date.now() or a frame counter, so it never moves on its own

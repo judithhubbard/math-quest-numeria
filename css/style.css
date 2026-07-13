@@ -368,6 +368,19 @@ body.big-text #modalBox h2 { font-size: 23px; }
 }
 .shop-row:nth-child(odd) { background: #251f48; }
 .shop-row.owned { opacity: 0.55; }
+/* v1.7.1 (playtest 2026-07-13, "the shop is overwhelming"): each section
+   sits in its own softly tinted block with a colored spine, so the rack
+   reads as rooms in a shop rather than one long ledger. */
+.shop-sec { border-radius: 10px; padding: 6px 8px 8px; margin: 10px 0; background: rgba(255,255,255,0.03); border-left: 4px solid #4a4076; }
+.shop-sec h3 { margin: 2px 0 6px; }
+.shop-sec-gentle { background: rgba(126,224,232,0.07); border-left-color: #7ee0e8; }
+.shop-sec-bold  { background: rgba(255,184,74,0.07); border-left-color: #ffb84a; }
+.shop-sec-armor { background: rgba(157,146,201,0.08); border-left-color: #8a7cc8; }
+.shop-sec-ring  { background: rgba(232,138,196,0.07); border-left-color: #e88ac4; }
+.shop-sec-food  { background: rgba(110,232,126,0.07); border-left-color: #6ee87e; }
+.shop-sec-potion{ background: rgba(255,122,146,0.07); border-left-color: #ff7a92; }
+.shop-sec-isle  { background: rgba(82,168,224,0.08); border-left-color: #52a8e0; }
+.shop-sec-sell  { background: rgba(255,217,74,0.06); border-left-color: #c8a838; }
 .shop-item { flex: 1; }
 .shop-item .quip { display: block; font-size: 11.5px; color: #9d92c9; font-style: italic; margin-top: 1px; }
 .shop-stat { width: 64px; color: #b4a9df; }
