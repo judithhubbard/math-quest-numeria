@@ -88,6 +88,9 @@ is rewarded — over-armor and hits shrink to 1s.
 - **⚙️ Difficulty** (kid-accessible): 🌸 Story / ⚔️ Hero / 🔥 Legend scales
   monster **health and damage** (0.7× / 1× / ~1.3×) — never the math. Takes
   effect the next time a dungeon is entered.
+- **Accessibility switches** (in Parent Settings, next to Calm Mode): all
+  sound off, background music off (effects stay), and **larger reading
+  text** for dialogs, problems, and the story log.
 
 ### 🍗 Stamina & food (TaskMaker-style)
 
@@ -516,12 +519,12 @@ way. Most heroes do, eventually.")*
   goes in the book for a calmed friend — only the 🤍. If it was wearing a tiny
   hat, it tips it to you.
 
-Calming a monster **befriends its whole kind, forever**. Befriended monsters
-show up in your Monster Book on a second collection page (🤍), they wear the
-heart in every dungeon — and **they never start fights with you**. Bump into
-one and it politely steps aside to let you through. (Guards still guard
-their posts and thieves are still thieves — until you calm them.) When a
-floor's boss goes down, every friend in the room bounces.
+Taming is **one creature at a time**: the monster you calm stays calm —
+heart above its head, settled where you soothed it, politely stepping aside
+if you bump it — while its wild kin stay wild until you calm them too. Your
+Monster Book still collects the **kinds** you've befriended on a second
+collection page (🤍), for good. When a floor's boss goes down, every calmed
+friend in the room bounces.
 
 The shop lays its weapons out under **🕊 For gentle hands** and **⚔️ For bold
 arms** — your kind first, everything else right below it, all of it always

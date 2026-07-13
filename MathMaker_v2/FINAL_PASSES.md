@@ -53,6 +53,15 @@ else can.
 tests/README, and kept green thereafter (they join every future
 regression).
 
+**Pass B re-run (2026-07-13, post-Brave/Wave-9):** healthy, no tuning.
+Bosses hold at worst 3 brave answers (the ⌈maxhp/3⌉ floor working) / 5
+normal across all 21 dungeons at expected gear. The marathon's real
+credits surplus (~1,800g) covers Wave 9's full sink set (1,530g:
+rug+garden+library 470, three statues 660, four pet hats 400) with a
+little left — the post-game economy fits without grinding, and daily
+tangles (~6-11g × 1-3/day) plus Spiral chests keep a trickle for late
+buyers. Sim harness: scratchpad balance-resim.js (session 2134568d).
+
 ## Pass B — Balance simulation (half session, after Wave 6)
 
 `tests/sim-balance.js` (node script, no browser): model the expected

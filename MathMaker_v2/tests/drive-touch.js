@@ -221,6 +221,34 @@ const SHOTS = path.join(__dirname, 'shots-touch');
   await page.waitForTimeout(300);
   check(await ev(() => MM.music.currentTrack() === null), 'musicOff silences the track picker (SFX untouched)');
 
+  // ---------- big text + mid-dungeon resume narration ----------
+  await ev(() => { const s = MM.engine.state; s.bigText = true; MM.engine.save(); });
+  await page.reload();
+  await page.waitForSelector('.profile-load');
+  await page.click('.profile-load[data-name="TouchKid"]');
+  await page.waitForSelector('#profileScreen.hidden', { state: 'attached' });
+  await page.waitForTimeout(400);
+  check(await ev(() => document.body.classList.contains('big-text')), 'bigText persists and applies on load');
+  const probSize = await ev(() => {
+    MM.ui.helpDialog();
+    const sz = getComputedStyle(document.querySelector('.dialog-body')).fontSize;
+    document.getElementById('dlgOk').click();
+    return parseFloat(sz);
+  });
+  check(probSize >= 17, `big-text actually enlarges reading text (dialog body ${probSize}px)`);
+  // loading ALWAYS resumes on the overworld (dungeons rebuild per visit) —
+  // a save made mid-dungeon must now SAY so instead of silently relocating
+  await ev(() => { MM.engine.enterDungeon(1); MM.engine.save(); });
+  await page.reload();
+  await page.waitForSelector('.profile-load');
+  await page.click('.profile-load[data-name="TouchKid"]');
+  await page.waitForSelector('#profileScreen.hidden', { state: 'attached' });
+  await page.waitForTimeout(400);
+  const resumeLog2 = await ev(() => document.getElementById('log').innerText);
+  check(await ev(() => MM.engine.state.mapId === 'world'), 'a mid-dungeon save still resumes on the overworld (existing rule)');
+  check(/made camp outside/.test(resumeLog2) && /Meadow Cave/.test(resumeLog2),
+    'and the pull-out narrates itself ("made camp outside the Meadow Cave")');
+
   await page.screenshot({ path: SHOTS + '/1-final-state.png' });
   console.log('=== CHECKS ===');
   console.log(checks.join('\n'));

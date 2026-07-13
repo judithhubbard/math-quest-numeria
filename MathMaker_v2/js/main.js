@@ -43,11 +43,14 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   function start() {
     document.getElementById('profileScreen').classList.add('hidden');
+    document.body.classList.toggle('big-text', !!MM.engine.state.bigText);
     MM.ui.refresh();
     MM.ui.log('Use the arrow keys (or WASD) to move.');
     if (MM.engine.state.taskIndex === 0) {
       MM.ui.log('Find the castle 🏰 and meet the MathMaker!');
     }
+    // (Resume narration lives in E.load — loading always pulls to the
+    // overworld, and the "made camp outside" line explains it there.)
   }
 
   window.addEventListener('DOMContentLoaded', () => {

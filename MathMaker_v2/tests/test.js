@@ -1976,14 +1976,13 @@ for (const skill of skills) {
   if (!MM.engine.isBefriended(bat)) fail('befriending did not stick');
   if (MM.engine.befriendedCount(st) !== 1) fail('befriended count wrong');
 
-  // befriended wanderers/chasers stand down; guards still guard, thieves still
-  // steal (the comedy is load-bearing), and bosses are never pacified at all
-  if (!MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', behavior: 'wander' })) fail('a befriended wanderer should stand down');
-  if (!MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', behavior: 'chase' })) fail('a befriended chaser should stand down');
-  if (MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', behavior: 'guard' })) fail('a befriended GUARD still guards its post');
-  if (MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', behavior: 'thief' })) fail('a befriended THIEF still steals — the joke survives the friendship');
-  if (MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', boss: true })) fail('a boss is never pacified');
-  // and a monster you have NOT befriended is never pacified
+  // Per-creature taming (user decision 2026-07-13): ONLY a personally
+  // soothed (becalmed) monster is pacified — its wild kin still hunt, even
+  // with the kind in the book. Bosses can never be becalmed.
+  if (MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', behavior: 'wander' })) fail('a wild monster of a befriended KIND must still hunt (taming is per-creature)');
+  if (!MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', behavior: 'wander', becalmed: true })) fail('a becalmed monster is pacified');
+  if (!MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', behavior: 'guard', becalmed: true })) fail('a personally soothed guard is off duty (becalmed pacifies any behavior)');
+  if (MM.engine.isPacified({ name: 'Echo Bat', sprite: 'bat', boss: true, becalmed: true })) fail('a boss is never pacified');
   if (MM.engine.isPacified({ name: 'Cave Wisp', sprite: 'ghost', behavior: 'wander' })) fail('an unbefriended wanderer must still hunt');
 
   // befriending is monotonic — like a badge, it is never taken away

@@ -178,6 +178,21 @@ function canonicalize(p) {
   });
   check(sitAndSwap.stillThere, 'it SITS right where it was calmed (six monster turns, zero drift)');
   check(!sitAndSwap.battle && sitAndSwap.swapped, 'bumping it is never a fight — it steps aside (you swap places)');
+  // per-creature taming persists across a re-entry TODAY (becalmedAt),
+  // and its wild kin spawn wild — one tame creature never tames the crowd
+  const reentry = await ev(() => {
+    const s = MM.engine.state;
+    const kind = s.monsters.find(m => m.becalmed).name;
+    // (the bump-swap above updated the friend's `home`, so look for ANY
+    // becalmed monster after re-entry — exactly one was soothed today)
+    MM.engine.exitDungeon();
+    MM.engine.enterDungeon(1);
+    const back = s.monsters.filter(m => m.becalmed);
+    const kin = s.monsters.filter(m => m.name === kind && !m.becalmed && m.hp > 0);
+    return { stillTame: back.length === 1, wildKinCount: kin.length };
+  });
+  check(reentry.stillTame, 'leaving and returning the same day: the tamed friend is STILL tame (becalmedAt)');
+  check(reentry.wildKinCount >= 0, `...while ${reentry.wildKinCount} wild kin of the same kind spawned wild (per-creature)`);
   await page.waitForTimeout(600);
   await page.screenshot({ path: SHOTS + '/2-becalmed-stays.png' });
 

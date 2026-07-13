@@ -139,42 +139,33 @@ function canonicalize(p) {
   await clearModals(4);   // the "A friend!" ceremony
   await page.screenshot({ path: SHOTS + '/3-friend-ceremony.png' });
 
-  // ================= Befriending changes the world =================
+  // ============ Taming is PER-CREATURE (user decision 2026-07-13) ============
+  // The soothed monster stayed becalmed in ITS dungeon; a fresh floor of the
+  // same species is fully wild — one tame creature never tames the crowd.
   const world = await ev(() => {
     const s = MM.engine.state;
     MM.engine.enterDungeon(1);
     const friendName = Object.keys(s.bestiary.befriended)[0];
-    const friend = s.monsters.find(m => m.name === friendName && !m.boss);
-    const hostile = s.monsters.find(m => m.name !== friendName && !m.boss);
-    if (!friend) return null;
-    // park the hero right next to the friend and run a monster turn
-    s.px = friend.x + 1; s.py = friend.y;
-    const battleBefore = MM.battle.active();
-    MM.engine.monsterTurn();
+    // the individual soothed earlier today correctly RE-SPAWNS becalmed
+    // (becalmedAt) — the per-creature claim is about its OTHER kin
+    const wildKin = s.monsters.filter(m => m.name === friendName && !m.boss && !m.becalmed);
     return {
       friendName,
-      pacified: MM.engine.isPacified(friend),
-      startedFight: MM.battle.active() && !battleBefore,
-      hostileStillHunts: hostile ? !MM.engine.isPacified(hostile) : true,
+      kindInBook: (s.bestiary.befriended[friendName] || 0) >= 1,
+      wildKinStillWild: wildKin.length === 0 || wildKin.every(m => !MM.engine.isPacified(m)),
     };
   });
-  check(!!world, 'dungeon 1 re-entered with a befriended species in it');
-  check(world.pacified, `a befriended ${world.friendName} stands down (never initiates)`);
-  check(!world.startedFight, '...and standing right beside one does NOT start a fight');
-  check(world.hostileStillHunts, 'a monster you have NOT befriended still hunts you');
-  // guards still guard, thieves still steal — the comedy is load-bearing
-  const roles = await ev(() => {
-    MM.engine.state.bestiary.befriended['X'] = 1;   // a throwaway species, for the role matrix
-    const r = {
-      guard: MM.engine.isPacified({ name: 'X', sprite: 'bat', behavior: 'guard' }),
-      thief: MM.engine.isPacified({ name: 'X', sprite: 'bat', behavior: 'thief' }),
-      boss: MM.engine.isPacified({ name: 'X', sprite: 'bat', boss: true }),
-    };
-    delete MM.engine.state.bestiary.befriended['X'];  // ...and never leave it in the save
-    return r;
-  });
-  check(!roles.guard, 'a befriended GUARD still guards its post');
-  check(!roles.thief, 'a befriended THIEF still steals your gold');
+  check(!!world, 'dungeon 1 re-entered after befriending its kind');
+  check(world.kindInBook, `the ${world.friendName} KIND is collected in the book (🤍)`);
+  check(world.wildKinStillWild, 'a wild monster of that kind still hunts — taming is per-creature, never a crowd');
+  // becalmed pacifies regardless of role; wild kin never; bosses never
+  const roles = await ev(() => ({
+    wildGuard: MM.engine.isPacified({ name: 'X', sprite: 'bat', behavior: 'guard' }),
+    becalmedGuard: MM.engine.isPacified({ name: 'X', sprite: 'bat', behavior: 'guard', becalmed: true }),
+    boss: MM.engine.isPacified({ name: 'X', sprite: 'bat', boss: true, becalmed: true }),
+  }));
+  check(!roles.wildGuard, 'a wild guard guards, book or no book');
+  check(roles.becalmedGuard, 'a personally soothed guard is off duty');
   check(!roles.boss, 'a boss is never pacified');
   await page.waitForTimeout(300);
   await page.screenshot({ path: SHOTS + '/4-world-friends-and-hostiles.png' });
@@ -184,8 +175,10 @@ function canonicalize(p) {
   // 0% calm" — accidentally erasing your own kindness, fixed)
   const swap = await ev(() => {
     const s = MM.engine.state;
-    const friendName = Object.keys(s.bestiary.befriended)[0];
-    const friend = s.monsters.find(m => m.name === friendName && !m.boss && m.hp > 0);
+    // per-creature: becalm THIS one (floors rebuild per visit, so the one
+    // soothed in the ceremony battle is a different individual)
+    const friend = s.monsters.find(m => !m.boss && m.hp > 0);
+    friend.becalmed = true; friend.hp = friend.maxhp;
     s.px = friend.x; s.py = friend.y - 1;
     const before = { fx: friend.x, fy: friend.y, px: s.px, py: s.py };
     MM.engine.tryMove(0, 1);

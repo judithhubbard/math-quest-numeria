@@ -28,6 +28,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       calmMode: false,                       // Wave 5: no shakes/particles/ambient motion
       soundOff: false,                       // Pass D: silence every beep/chime/fanfare
       musicOff: false,                       // music pass: background loops off (SFX stay)
+      bigText: false,                        // accessibility: larger reading text
       // parent-only, PIN-protected. topics = all-on until set, EXCEPT
       // Every topic defaults ON (user decision 2026-07-11): missing from
       // parent.topics means enabled; only an explicit parent choice in
@@ -51,6 +52,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       opened: {},          // chest/door keys like "d3:12,5"
       bossesDefeated: {},
       defeatedAt: {},      // "mapId:x,y" -> date string; today's kills stay gone today
+      becalmedAt: {},      // "mapId:x,y" -> date string; today's tamed friends stay tame today
       streak: 0,
       totals: { answered: 0, correct: 0 },
       worldPos: null,
@@ -133,6 +135,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.calmMode == null) s.calmMode = false;
     if (s.soundOff == null) s.soundOff = false;
     if (s.musicOff == null) s.musicOff = false;
+    if (s.bigText == null) s.bigText = false;
     if (!s.badges) { s.badges = {}; s.pendingBadges = []; }
     if (!s.bestiary) s.bestiary = { seen: {}, kills: {}, gauntlet: {} };
     if (!s.bestiary.gauntlet) s.bestiary.gauntlet = {};
@@ -148,9 +151,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.potionsBought == null) s.potionsBought = 0;
     if (s.seenBulkQuip == null) s.seenBulkQuip = false;
     if (s.defeatedAt == null) s.defeatedAt = {};
-    else { // prune yesterday-and-older entries so saves stay small
+    if (s.becalmedAt == null) s.becalmedAt = {};
+    { // prune yesterday-and-older entries so saves stay small
       const today = E.todayStr();
       for (const k of Object.keys(s.defeatedAt)) if (s.defeatedAt[k] !== today) delete s.defeatedAt[k];
+      for (const k of Object.keys(s.becalmedAt)) if (s.becalmedAt[k] !== today) delete s.becalmedAt[k];
     }
     if (!s.parent) s.parent = { pin: null };
     if (!s.parent.topics) {
@@ -214,7 +219,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.seenHattedSlimes == null) s.seenHattedSlimes = false;
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
+    // Session-shape pass (2026-07-13): resuming has ALWAYS pulled you to the
+    // overworld (dungeons rebuild per visit — resuming inside one could
+    // strand you among respawned monsters). Now it SAYS so, kindly, instead
+    // of leaving a kid to wonder how she got outside.
+    const wasInside = s.mapId && String(s.mapId).startsWith('d') && s.dungeonIndex
+      ? MM.data.TASKS[s.dungeonIndex - 1] : null;
     E.enterWorld();  // always resume on the overworld
+    if (wasInside) MM.ui.log(`⛺ You'd made camp outside the <b>${wasInside.dungeon}</b> — it's waiting whenever you're ready.`);
     return true;
   };
 
@@ -1237,11 +1249,15 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (s.defeatedAt[`${s.mapId}:${pos.x},${pos.y}`] === today) { skippedAny = true; continue; }
         const type = typeFor(marker);
         const st = E.monsterStats(statIdx, false);
+        // Per-creature taming (2026-07-13): a monster the kid soothed today
+        // is STILL HER FRIEND when she walks back in — same spot, heart on,
+        // at peace (day-keyed exactly like defeatedAt; tomorrow is new).
+        const becalmedToday = s.becalmedAt && s.becalmedAt[`${s.mapId}:${pos.x},${pos.y}`] === today;
         s.monsters.push({
           name: type.name, sprite: type.sprite, pal: type.pal, verb: type.verb,
           x: pos.x, y: pos.y, hp: st.hp, maxhp: st.hp, atk: st.atk, xp: st.xp,
           boss: false, stun: 0, behavior: type.behavior || 'chase',
-          shouts: !!type.shouts, alerted: 0,
+          shouts: !!type.shouts, alerted: 0, becalmed: becalmedToday,
           skill: type.skill || null, // Wave 8a (P2): the telegraph icon's topic
           home: { x: pos.x, y: pos.y },
         });
@@ -1463,7 +1479,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     // accidentally erasing your own kindness is the worst feeling in the
     // game). It steps aside — you swap places — with a friendly word. This
     // also means a becalmed monster can never block a chokepoint.
-    if (mon && (mon.becalmed || E.isPacified(mon))) {
+    if (mon && E.isPacified(mon)) {
       const ox = s.px, oy = s.py;
       s.px = mon.x; s.py = mon.y;
       mon.x = ox; mon.y = oy;
@@ -1898,24 +1914,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       // does not chase, does not attack, and cannot be woken by a thief's shout
       // (that's the whole promise — a friend stays a friend even when the room
       // goes loud). Bump it and you can still spar, by choice.
-      // Round 5: a just-becalmed monster SITS — right where the kid calmed
-      // it, so she always knows who is who ("they appear in different places
-      // than where the fight happened"). It settled; let it stay settled.
+      // Per-creature taming (2026-07-13): a becalmed monster — the one the
+      // kid personally soothed — SITS right where it was calmed, can't be
+      // woken by a thief's shout, and never acts. Wild species-mates take
+      // their normal turns below, because they are still wild.
       if (m.becalmed) { m.alerted = 0; continue; }
-      if (E.isPacified(m)) {
-        m.alerted = 0;
-        if (Math.random() < 0.5) continue;   // mostly it just stays put, at ease
-        const drift = [[1, 0], [-1, 0], [0, 1], [0, -1]].sort(() => Math.random() - 0.5);
-        for (const [dx, dy] of drift) {
-          const nx = m.x + dx, ny = m.y + dy;
-          if ((s.grid[ny] && s.grid[ny][nx]) !== '.') continue;
-          if (nx === s.px && ny === s.py) continue;
-          if (s.monsters.some(o => o !== m && o.hp > 0 && o.x === nx && o.y === ny)) continue;
-          m.x = nx; m.y = ny;
-          break;
-        }
-        continue;
-      }
       const forcedChase = (m.alerted || 0) > 0;
       if (forcedChase) m.alerted--;
       const beh = forcedChase ? 'chase' : (m.behavior || 'chase');
@@ -2632,11 +2635,14 @@ var MM = globalThis.MM = globalThis.MM || {};
   // unaffected. For the anxious kid this turns every soothed species from
   // ambush-anxiety into visible friendliness: her collection pays out in
   // CONTROL of her own encounters, which is the entire point of the dial.
+  // Taming scope (user decision 2026-07-13, playtest: "when I tame one
+  // creature, many creatures become tamed" read as a bug): taming is now
+  // PER-CREATURE — only a monster the kid personally soothed is tame
+  // (becalmed: sits, wears the heart, steps aside). Others of its kind stay
+  // wild until soothed themselves. The Monster Book's 🤍 still records the
+  // KIND (the collection is unchanged); the in-world effect is individual.
   E.isPacified = function (mon) {
-    if (!mon || mon.boss) return false;
-    const beh = mon.behavior || 'chase';
-    if (beh !== 'wander' && beh !== 'chase') return false;   // guards guard, thieves thieve
-    return E.isBefriended(mon);
+    return !!(mon && !mon.boss && mon.becalmed);
   };
 
   // Topic badges: persist the best tier ever reached (never taken away).
@@ -2825,6 +2831,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (soothed && !m.boss && !m.mimicChest) {
       m.hp = m.maxhp;
       m.becalmed = true;
+      // ...and STAYS a friend if the kid leaves and comes back today
+      // (day-keyed like defeatedAt; the spawn loop re-becalms it)
+      if (m.home) {
+        s.becalmedAt = s.becalmedAt || {};
+        s.becalmedAt[`${s.mapId}:${m.home.x},${m.home.y}`] = E.todayStr();
+      }
     }
     // Wave 8b: the calmed monster's own send-off, and the friendship, spelled
     // out. Bosses keep their existing sincere endings — they were always being
@@ -2832,8 +2844,8 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (soothed) {
       if (!m.boss) lines.push(`🕊 <i>${MM.data.sootheLine(m)}</i>`);
       lines.push(firstFriend
-        ? `🕊 <b>${E.beastKey(m)} is your friend now.</b> Its card is marked in your 📕 Monster Book.`
-        : `🕊 Another ${E.beastKey(m)}, calmed.`);
+        ? `🤍 <b>This ${E.beastKey(m)} is your friend now.</b> Its kind's card is marked in your 📕 Monster Book.`
+        : `🤍 This ${E.beastKey(m)} is your friend now — it'll stay right here, at peace.`);
     }
     // Wave 8a (P8, delight catalog): "post-boss high-five hop" — one small
     // pet cheer on any boss win, zero design weight, no state to track.
@@ -2872,7 +2884,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.friendCheer = null;   // {until, boss?} — read by ui.drawWorld; in memory only
   E.friendsCelebrate = function (boss, soothed) {
     const s = E.state;
-    const friends = (s.monsters || []).filter(m => m.hp > 0 && E.isBefriended(m));
+    const friends = (s.monsters || []).filter(m => m.hp > 0 && m.becalmed);
     if (!friends.length && !soothed) return;
     E.friendCheer = {
       until: Date.now() + 2200,
