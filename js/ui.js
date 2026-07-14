@@ -1806,48 +1806,83 @@ var MM = globalThis.MM = globalThis.MM || {};
     });
   };
 
-  // ---------- difficulty (kid-settable): monster health & damage ----------
+  // ---------- the ⚙️ Settings dialog (kid-facing) ----------
+  // v1.7.3 reorg (playtest 2026-07-13: "the Difficulty menu is poorly
+  // organized"): it had grown into seven identical buttons in one flat list
+  // — a three-way monster-toughness pick, the way switch, and two sound
+  // toggles all dressed alike, and every click CLOSED the dialog so a kid
+  // couldn't watch a choice stick. Now: three labelled rooms (the same
+  // tinted-block recipe as the shop), the current choice visibly marked,
+  // and changes apply IN PLACE — the dialog re-renders so the ✓ moves
+  // under your finger. One Close.
   UI.difficultyDialog = function () {
     const s = MM.engine.state;
     if (!s || UI.modalOpen() || MM.battle.active()) return;
-    const mark = d => s.difficulty === d ? ' ✓' : '';
-    const pick = (d, label) => () => {
-      s.difficulty = d;
-      MM.engine.save();
-      UI.log(`⚙️ Difficulty set to <b>${label}</b> — it takes effect in the next dungeon you enter.`);
-    };
-    // Round 5 (one-track design): the kid's WAY lives here too — the one
-    // "how do I want to play" panel, one click from anywhere, never mid-fight.
+    const diffBtn = (d, emoji, label, blurb) => `
+      <button class="set-choice${s.difficulty === d ? ' primary' : ''}" data-diff="${d}" data-label="${label}">
+        ${emoji} ${label}${s.difficulty === d ? ' ✓' : ''}<span class="quip">${blurb}</span>
+      </button>`;
     const way = s.stance === 'soothe' ? 'gently 🕊' : 'boldly ⚔️';
-    const other = s.stance === 'soothe' ? 'strike' : 'soothe';
-    const switchWay = () => {
+    openModal(`
+      <h2>⚙️ Settings</h2>
+      <div class="dialog-body">
+        <div class="shop-sec shop-sec-bold">
+          <h3>🐉 How tough are the monsters?</h3>
+          <p class="dim">Changes their health and how hard they hit — never the math. Takes effect in the next dungeon you enter.</p>
+          <div class="set-row">
+            ${diffBtn('story', '🌸', 'Story', 'gentler fights')}
+            ${diffBtn('hero', '⚔️', 'Hero', 'the standard adventure')}
+            ${diffBtn('legend', '🔥', 'Legend', 'for heroes who like a scrap')}
+          </div>
+        </div>
+        <div class="shop-sec shop-sec-gentle">
+          <h3>${s.stance === 'soothe' ? '🕊' : '⚔️'} Your way</h3>
+          <p>You face the tangles <b>${way}</b>. <span class="dim">Most heroes change their way eventually — it costs
+          nothing, and everything you've befriended stays befriended.</span></p>
+          <div class="set-row">
+            <button id="setWay">${s.stance === 'soothe' ? '⚔️ Change my way: boldly' : '🕊 Change my way: gently'}</button>
+          </div>
+        </div>
+        <div class="shop-sec shop-sec-ring">
+          <h3>🎵 Sound</h3>
+          <div class="set-row">
+            <button id="setMusic">${s.musicOff ? '🎵 Music is OFF — turn on' : '🎵 Music is ON — turn off'}</button>
+            <button id="setSound">${s.soundOff ? '🔇 Sound is OFF — turn on' : '🔊 Sound is ON — turn off'}</button>
+          </div>
+          <p class="dim">Music is the background tunes. Sound is everything — chimes included. Parents have the same switches.</p>
+        </div>
+      </div>
+      <div class="btnrow"><button id="setClose" class="secondary">Close</button></div>`);
+    const rerender = () => { closeModal(); UI.difficultyDialog(); };
+    document.querySelectorAll('.set-choice').forEach(b => {
+      b.onclick = () => {
+        if (s.difficulty !== b.dataset.diff) {
+          s.difficulty = b.dataset.diff;
+          MM.engine.save();
+          UI.log(`⚙️ Difficulty set to <b>${b.dataset.label}</b> — it takes effect in the next dungeon you enter.`);
+        }
+        rerender();
+      };
+    });
+    document.getElementById('setWay').onclick = () => {
+      const other = s.stance === 'soothe' ? 'strike' : 'soothe';
       MM.engine.setStance(other);
       UI.log(other === 'soothe'
         ? `🕊 <b>Gently, then.</b> The MathMaker's voice, from memory: "A tangle comes loose exactly as well as it comes apart."`
         : `⚔️ <b>Boldly, then.</b> The MathMaker's voice, from memory: "Go and meet it."`);
+      rerender();
     };
-    UI.dialogChoices('⚙️ Difficulty & your way',
-      `How tough should the monsters be? <span class="dim">(This changes their health and how hard they hit —
-       never the math. It takes effect the next time you enter a dungeon.)</span><br><br>
-       You face the tangles <b>${way}</b>. <span class="dim">Most heroes change their way eventually — it costs
-       nothing, and everything you've befriended stays befriended.</span>`,
-      [
-        { label: `🌸 Story${mark('story')}`, onClick: pick('story', 'Story'), primary: s.difficulty === 'story' },
-        { label: `⚔️ Hero${mark('hero')}`, onClick: pick('hero', 'Hero'), primary: s.difficulty === 'hero' },
-        { label: `🔥 Legend${mark('legend')}`, onClick: pick('legend', 'Legend'), primary: s.difficulty === 'legend' },
-        { label: s.stance === 'soothe' ? '⚔️ Change my way: boldly' : '🕊 Change my way: gently', onClick: switchWay },
-        // 2026-07-13: sound controls live where a player looks (the user
-        // couldn't find the parent-panel copies — two doors, one state)
-        { label: s.musicOff ? '🎵 Music: off → on' : '🎵 Music: on → off', onClick: () => {
-          s.musicOff = !s.musicOff; MM.engine.save();
-          UI.log(s.musicOff ? '🎵 Music off — the sound effects stay.' : '🎵 Music on.');
-        } },
-        { label: s.soundOff ? '🔊 Sound: off → on' : '🔊 Sound: on → off', onClick: () => {
-          s.soundOff = !s.soundOff; MM.engine.save();
-          UI.log(s.soundOff ? '🔇 All sound off.' : '🔊 Sound on.');
-        } },
-        { label: 'Cancel', onClick: () => {} },
-      ]);
+    document.getElementById('setMusic').onclick = () => {
+      s.musicOff = !s.musicOff; MM.engine.save();
+      UI.log(s.musicOff ? '🎵 Music off — the sound effects stay.' : '🎵 Music on.');
+      rerender();
+    };
+    document.getElementById('setSound').onclick = () => {
+      s.soundOff = !s.soundOff; MM.engine.save();
+      UI.log(s.soundOff ? '🔇 All sound off.' : '🔊 Sound on.');
+      rerender();
+    };
+    document.getElementById('setClose').onclick = () => { closeModal(); UI.refresh(); };
   };
 
   // ---------- parent settings (PIN-protected) ----------
@@ -2336,7 +2371,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     // ordering, rows, and buttons are untouched.
     const sec = (tint, inner) => inner ? `<div class="shop-sec shop-sec-${tint}">${inner}</div>` : '';
     const gearSection = (slot, blurb, tint) => {
+      // v1.7.3: racks always read cheapest-first, whatever the data array's
+      // order (playtest caught the Singing Bowl filed before the cheaper
+      // wand — sorting at render makes that class of slip impossible)
       const items = MM.data.GEAR[slot].filter(it => it.price > 0 && !it.notForSale && !!it.isle === onIsles)
+        .sort((a, b) => a.price - b.price)
         .map(it => row(it, slot, (s.gear[slot] || []).includes(it.id))).join('');
       return items ? sec(tint || 'armor', `<h3>${MM.data.SLOT_NAMES[slot]} — ${blurb}</h3>${items}`) : '';
     };
@@ -2350,8 +2389,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       const all = MM.data.GEAR.weapon.filter(it => it.price > 0 && !it.notForSale && !!it.isle === onIsles);
       if (!all.length) return '';
       const owned = it => (s.gear.weapon || []).includes(it.id);
-      const gentle = all.filter(it => it.gentle);
-      const bold = all.filter(it => !it.gentle);
+      const byPrice = (a, b) => a.price - b.price; // cheapest first, always (v1.7.3)
+      const gentle = all.filter(it => it.gentle).sort(byPrice);
+      const bold = all.filter(it => !it.gentle).sort(byPrice);
       if (!gentle.length || !bold.length) return gearSection('weapon', 'hit harder with every correct answer', 'bold');
       const softFirst = MM.engine.isSoothing();
       const groups = [

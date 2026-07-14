@@ -594,13 +594,16 @@ var MM = globalThis.MM = globalThis.MM || {};
       quip: 'One note, played very kindly. It is always the right note.' },
     { id: 'bubblepipe', name: 'Bubble Pipe', emoji: '🫧', atk: 5, price: 120, gentle: true, verb: 'drifts a bubble toward',
       quip: 'Blows perfect spheres. Refuses to blow anything else.' },
-    { id: 'singingbowl', name: 'Singing Bowl', emoji: '🥣', atk: 10, price: 450, gentle: true, verb: 'circles the rim of the bowl for',
-      quip: 'One slow circle, and the whole room breathes out.' },
     // ranged, and one atk below its melee peer (the Battle Axe, 7) — exactly the
     // trade the Smuggler's Crossbow makes against the Tidal Blade. A dangled
     // lure IS a reach weapon, so it inherits the round-1-miss rule for free.
     { id: 'catwand', name: 'Cat-Fishing Wand', emoji: '🎣', atk: 6, price: 250, gentle: true, ranged: true, verb: 'dangles the lure for',
       quip: 'Irresistible to monsters. Utterly irresistible to your pet, who must be discouraged.' },
+    // v1.7.3 (playtest: "the cat-fishing wand is listed after the singing
+    // bowl"): the racks read in PRICE order, so the array stays in price
+    // order — the bowl sits between the wand (250g) and the bells (700g).
+    { id: 'singingbowl', name: 'Singing Bowl', emoji: '🥣', atk: 10, price: 450, gentle: true, verb: 'circles the rim of the bowl for',
+      quip: 'One slow circle, and the whole room breathes out.' },
     { id: 'chimebells', name: 'Chime Bells', emoji: '🔔', atk: 13, price: 700, isle: true, gentle: true, verb: 'rings a long clear note over',
       quip: 'Rings in a key nobody can name but everybody recognises.' },
   ];
