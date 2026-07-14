@@ -126,12 +126,17 @@ function canonicalize(p) {
   await page.waitForTimeout(400);
   await page.screenshot({ path: SHOTS + '/2-soothe-battle.png' });
 
-  // the calm bar FILLS as the fight goes on (the same number, read the other way)
+  // v1.7.3: the wildness bar DRAINS as the fight goes on — same direction
+  // as the hero's own bar (playtest 2026-07-13: "my health bar goes down,
+  // their calmness bar goes up" was two gauges running opposite ways). The
+  // label speaks the same language ("% wild").
   const before = await ev(() => parseFloat(document.getElementById('monFill').style.width));
   await answerBattleOnce();
   await page.waitForTimeout(900);
   const after = await ev(() => parseFloat(document.getElementById('monFill').style.width));
-  check(after > before, `the calm meter FILLS with each correct answer (${before}% -> ${after}%)`);
+  check(after < before, `the wildness bar DRAINS with each correct answer (${before}% -> ${after}%)`);
+  check(/% wild|Completely calm/.test(await ev(() => document.getElementById('monBarSub').innerText)),
+    'the bar label speaks the same draining language ("% wild")');
   await winBattle();
 
   // victory: befriended, and the gold arrived as a gift

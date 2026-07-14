@@ -2970,3 +2970,94 @@ complete the job. Two real fixes shipped anyway:
 Evidence: unit ALL PASSED; drive-bounty (check updated: hunt/solve must
 regenerate fresh, streak may pay on sight) + drive-notices green; headless
 repro of both the NaN-heal and pay-on-sight paths in the session log.
+
+## v1.7.3 SHIPPED (2026-07-13): settings reorg + wildness bar + rack order
+
+1. **⚙️ Settings dialog rebuilt** (report: "the Difficulty menu is poorly
+   organized" — seven identical buttons, three unrelated categories, closed
+   on every click). Now three tinted rooms (shop-sec recipe): monster
+   toughness (three-way, current choice marked), your way (named + one
+   switch button — drive-stances2's "Change my way" contract kept), sound
+   (plain "is ON — turn off" labels). Changes re-render IN PLACE so the ✓
+   moves under your finger. Toolbar button renamed ⚙️ Settings (in-game
+   prose always said "the ⚙️ button" — nothing else referenced the name).
+2. **The soothe bar drains WILDNESS** (report: "my health bar goes down,
+   their calmness bar goes up" — two gauges running opposite directions).
+   Same number as Strike's health, same direction as the hero's bar, warm
+   red (aggression, shrinking), label speaks the bar's language ("64% wild ·
+   still frightened, still swinging"). The kid's calm still lands as "+N
+   calm" floaters. drive-twokids-b's FILLS assertion rewritten to DRAINS +
+   a label-language check. Wave 8b's "never paint a filling calm bar red"
+   rule retired honestly: nothing fills anymore.
+3. **Racks sort by price at render** (report: Cat-Fishing Wand listed after
+   the Singing Bowl — my v1.7.1 array-insertion slip). Data array fixed AND
+   gearSection/weaponRack now sort cheapest-first structurally, so display
+   order can never depend on array order again.
+
+Evidence: unit ALL PASSED; drive-stances2, drive-twokids-b, drive-equip,
+drive-shopstress green (tests/logs/*-v173*.log).
+
+## QUEUED NEXT — the TRUE golden spiral (user directive 2026-07-13, design COMPLETE, geometry SOLVED)
+
+User: "The spiral still does not look good. Consider what a golden spiral
+actually looks like… much larger, with a true spiral drawn across the map."
+Design session solved it; IMPLEMENT NEXT SESSION. Everything needed:
+
+- **Shape**: true golden spiral of quarter-circle arcs in Fibonacci squares
+  (radii 1,1,2,3,5,8,13 TILES), clockwise chain, then an UNNUMBERED partial
+  continuation arc — the next square (21), begun but never finished —
+  whose end lands at the Spiral Stair door (19,3). 21 still never appears;
+  the sequence's continuation physically leads to the tower.
+- **THE placement (exhaustive search, the map admits exactly one)**: chain
+  anchor P0=(35,8), H0=(1,0), rot = ([x,y])=>[-y,x] (clockwise). Corners
+  (numbered stones 1,1,2,3,5,8,13): (35,8),(36,9),(35,10),(33,8),(36,5),
+  (41,10),(33,18). Arc centers: (35,9),(35,9)?—NO, recompute in code from
+  the chain (arc i: L=rot(H); C=P+L·r; E=C+H·r; H'=L). Verified arcs:
+  0:r1 C(35,9); 1:r1 C(35,9)→wait arc1 C=(35,9) E=(35,10); 2:r2 C(35,8);
+  3:r3 C(36,8); 4:r5 C(36,10); 5:r8 C(33,10); 6:r13 C(33,5) ending (20,5)
+  heading north. Tip-to-tower: tangent-matched short curve (quadratic
+  bezier, control ≈(20,3.8)) from (20,5) to (19,3) — NOT a trued 21-radius
+  arc (that leaves a 1.1-tile radial gap at the tip).
+- **Curve stones** (6, on the 13-arc, walk order after the 13 corner), with
+  one slide of -0.015 at k=2 for walkability: (30,18) f=.1429, (28,17)
+  f=.2707, (25,15) f=.4286, (23,13) f=.5714, (21,11) f=.7143, (20,8)
+  f=.8571. Stone 5 (the 8) at (41,10) is ACROSS the river — reachable when
+  the bridge rises (task 10), before the exam needs it. Store stones with
+  int tile (x,y) for stepping AND float (fx,fy) exact arc position for
+  drawing, so discs sit ON the line.
+- **Render (ui.js)**: sample the whole chain at ~0.15-tile steps into
+  polyline subpaths, drawing ONLY over plain grass '.' — the carving
+  vanishes under the river, the mountains, trees, buildings (they were
+  built/grew/flow OVER the old curl; tile pass paints them first and the
+  overlay must not paint on top). Faint full curve always; bright portion
+  up to the aligned frontier stone's chain-param (arcIdx + frac); at 13/13
+  the whole curl brightens + the golden glow follows it + the tower nub
+  brightens. Stones: discs at (fx,fy); unaligned = gray + skewed numeral
+  (stoneSkew); aligned = pale + upright numeral. Numerals 11px. Old
+  per-tile fragments die entirely.
+- **maps.js**: REVERT the v1.7.1 grove edits (rows y=2,3,4 return to
+  pre-v1.7.1: '~~..T...................T.........T...' /
+  '~~.T.....T.....TTT.H...........T......' /
+  '~~..T..........TT..C.n......T.....5...') — the compact spiral is gone.
+  Move ONE tree: (35,8) → (37,7) (both verified against the raw map).
+- **engine.js**: checkSpiralGlint proximity = within 3 of ANY stone (the
+  center-±3 check assumed the compact plaza). Flourish log line rewording
+  (drive asserts /settles into place/ — keep those words).
+- **Prose updates (paste for user review)**: SPIRAL_SEALED "the same
+  curling line as the courtyard stones" → the stones are no longer in the
+  courtyard (suggest: "the same curling line as the old stones out in the
+  grass"); Sylvia's rotating stone line '"The courtyard stones. They
+  turn…"' → '"The old stones, out in the grass. They turn…"' (her
+  "a picture, seen from high enough" line becomes LITERALLY true — keep!);
+  MathMaker's "floor out front" aside still works (leave).
+- **Tests**: unit spiral block — REPLACE adjacency/at-Stair invariants
+  (stones are far apart now, by design) with: 13 unique stones, labels
+  1,1,2,3,5,8,13 + 6 nulls, every stone tile '.' on the raw map, corner
+  stones exactly on their arc corners, curve stones within 0.6 of the
+  13-arc circle, arc chain continuous (each E = next P) and tangent, nub
+  endpoint within 0.6 of the tower tile. drive-wonder: geometry checks
+  same replacement; the sequence walk section must TELEPORT beside each
+  stone and tryMove onto it (stones aren't adjacent anymore) — chimes
+  still 13, out-of-order still silent-resets. Full sweep + marathon +
+  SCREENSHOT AUDIT (the whole point is how it LOOKS — check the eye, the
+  river gap, the mountain gaps, the tower approach) before deploy.

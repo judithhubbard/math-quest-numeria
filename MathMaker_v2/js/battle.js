@@ -166,12 +166,15 @@ var MM = globalThis.MM = globalThis.MM || {};
   function setBars(instant) {
     const s = bt.ctx.hooks;
     const soothe = soothing();
-    // The SAME number, read the other way round: under Strike the bar is the
-    // monster's health draining away; under Soothe it is its calm filling up.
-    // Nothing about the fight changes — only what the kid is watching.
-    const monPct = soothe
-      ? Math.max(0, 100 - bt.mon.hp / bt.mon.maxhp * 100)
-      : Math.max(0, bt.mon.hp / bt.mon.maxhp * 100);
+    // v1.7.3 (playtest 2026-07-13): BOTH bars drain. Wave 8b inverted the
+    // soothe bar to "calm filling up" — but the hero's bar next to it still
+    // drained, and tracking two gauges running OPPOSITE directions mid-fight
+    // was confusing ("my health goes down, their calmness goes up"). Under
+    // Soothe the bar now shows the monster's remaining WILDNESS draining
+    // away — same number as Strike's health, same direction as the hero's
+    // bar, honest color (red = aggression, and it shrinks). The calm the kid
+    // GIVES still lands as "+N calm" floaters and the wildness label.
+    const monPct = Math.max(0, bt.mon.hp / bt.mon.maxhp * 100);
     const hp = Math.max(0, s.playerHp() / s.playerMaxHp() * 100);
     for (const [fillId, ghostId, pct] of [['monFill', 'monGhost', monPct], ['heroFill', 'heroGhost', hp]]) {
       const f = el(fillId), g = el(ghostId);
@@ -180,9 +183,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       f.style.width = pct + '%';
       g.style.width = pct + '%';
       if (instant) requestAnimationFrame(() => { f.style.transition = ''; g.style.transition = ''; });
-      // "low" means DANGER — meaningless on a calm meter, which is good news
-      // all the way up. Never paint a filling calm bar red.
-      f.classList.toggle('low', fillId === 'heroFill' ? pct < 35 : (!soothe && pct < 35));
+      f.classList.toggle('low', pct < 35);
     }
     const mf = el('monFill');
     if (mf) mf.classList.toggle('calm', soothe);
@@ -203,12 +204,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (nm) nm.innerHTML = `${bt.mon.boss ? '👑 ' : ''}${bt.mon.name}`;
     if (sub) {
       const k = calm();
+      // the label speaks the BAR's language (v1.7.3: the bar drains wildness
+      // now — a "64% calm" caption over a 36%-full bar would re-create the
+      // exact two-directions confusion the bar swap fixed)
       sub.innerHTML = !soothing()
         ? `⚔️ attacks for ${bt.mon.atk} each round`
-        // At 100% it is not frightened any more — that's the whole point, and
-        // this line is what the kid is looking at in the victory freeze-frame.
+        // At the end it is not frightened any more — that's the whole point,
+        // and this is the line in the victory freeze-frame.
         : k >= 1 ? 'Completely calm.'
-        : `${Math.round(k * 100)}% calm · still frightened, still swinging (${bt.mon.atk})`;
+        : `${Math.max(1, Math.round((1 - k) * 100))}% wild · still frightened, still swinging (${bt.mon.atk})`;
     }
     if (hsub) hsub.innerHTML = `${s.playerAtkLabel()} · ${s.playerDefLabel()}${s.rangedNote ? s.rangedNote() : ''}`;
   }
