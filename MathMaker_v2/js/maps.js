@@ -29,19 +29,18 @@ var MM = globalThis.MM = globalThis.MM || {};
   const WEST = [
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
     '~~....T.......TT..........T.......TT..',
-    // v1.7.1: the grove beside the castle shifted one column west (three
-    // decorative trees MOVED to (14,2)/(14,3)/(14,4), none removed) to clear
-    // the Turning Stones' relocated walk — the one placement on the whole
-    // overworld where the spiral's outer end lands touching the Spiral
-    // Stair (see the exhaustive-search note on TURNING_STONES in data.js).
-    '~~..T.........T.........T.........T...',
-    '~~.T.....T....TT...H...........T......',
-    '~~..T.........TT...C.n......T.....5...',
+    // The grove beside the castle sits in its original pre-v1.7.1 layout
+    // (the compact-spiral edits were reverted for the true golden spiral —
+    // see the TURNING_STONES note in data.js). ONE decorative tree moved,
+    // (35,8)→(37,7), to clear the numbered "1" stone at the chain anchor.
+    '~~..T...................T.........T...',
+    '~~.T.....T.....TTT.H...........T......',
+    '~~..T..........TT..C.n......T.....5...',
     // Wave 7.1: (34,5) was a day-one trap pocket under dungeon 5's door
     '~~.....T..............T..........eMM..',
     '~~...........j.S.......I...q...M.MM...',
-    '~~W.T.....T...........................',
-    '~~...........TT....P..h..T...2.....T..',
+    '~~W.T.....T..........................T',
+    '~~...........TT....P..h..T...2........',
     '~~..T...1..............T..............',
     '~~.......T.....T...............T....M.',
     '~~.T.......................g..M...MM..',

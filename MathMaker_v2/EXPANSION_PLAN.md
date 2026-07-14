@@ -2997,7 +2997,55 @@ repro of both the NaN-heal and pay-on-sight paths in the session log.
 Evidence: unit ALL PASSED; drive-stances2, drive-twokids-b, drive-equip,
 drive-shopstress green (tests/logs/*-v173*.log).
 
-## QUEUED NEXT — the TRUE golden spiral (user directive 2026-07-13, design COMPLETE, geometry SOLVED)
+## DONE (in tree, uncommitted) — the TRUE golden spiral (2026-07-14)
+
+Implemented per the work order below. **Geometry matched the solved values
+exactly** (numbered corners (35,8),(36,9),(35,10),(33,8),(36,5),(41,10),(33,18);
+curve tiles (30,18),(28,17),(25,15),(23,13),(21,11),(20,8); tip (20,5)→nub→
+door (19,3)). Changes: `data.js` (SPIRAL_ARCS chain, SPIRAL_NUB bezier,
+TURNING_STONES with int tile + float fx,fy + chain-param t, spiralChain()
+land-only sampler, TURNING_STONES_CENTER = stone 0), `ui.js` (drawTurningStones
+rewritten: whole chain sampled ~0.15 tile, stroked ONLY over '.' — faint full
+curve always, bright to the aligned frontier's chain-param, golden glow + lit
+nub at 13/13, discs at fx,fy), `engine.js` (checkSpiralGlint = within 3 of ANY
+stone), `maps.js` (v1.7.1 grove rows reverted, ONE tree (35,8)→(37,7)),
+`data.js` prose (below), `tests/test.js` + `tests/drive-wonder.js` (adjacency/
+at-Stair invariants replaced with arc-corner / chain-continuity / on-13-arc /
+nub-at-door / monotone-chain-param checks; drive walk teleports beside each
+stone and steps on, since stones are no longer adjacent).
+
+**Verification (all green):** unit ALL PASSED (incl. overworld reachability
+BFS — map edits valid); full drive sweep **29/29, 0 fail** (flaky trio
+halls/spire/blankmodal all passed in-sweep, no solo re-runs needed); marathon
+**COMPLETE, 0 fail, no JS errors** ("the spiral answered 21" — ending exam
+intact); **SCREENSHOT AUDIT PASSED** (full-map overview + in-game frames: tight
+eye winding out clockwise 5→8-across-river→13→tower, clean river/mountain gaps,
+nub arriving at the Stair door; untended = faint curve + gray skewed discs).
+Logs: `tests/logs/*-spiral.log`, `sweep-spiral-summary.txt`, `marathon-spiral.log`.
+
+**Deviations from the work order:** none of substance. The old fragment-arc for
+untended stones is gone (per "Old per-tile fragments die entirely") — untended
+stones now draw a gray disc + skewed numeral, aligned draw a pale disc + upright
+numeral. Faint-curve color #d8cca6 @0.28α, bright #fff6d8, glow #ffd94a 11px
+@0.20α (values chosen at implementation; tune on audit if desired).
+
+**PROSE CHANGED — PASTE FOR USER REVIEW (both minimal; the stones left the
+courtyard, so "courtyard stones" is now false):**
+- SPIRAL_SEALED (the sealed Stair door): "Carved above it: the same curling
+  line as the **old stones out in the grass**." (was "…the courtyard stones.")
+- Sage Sylvia: '"**The old stones, out in the grass.** They turn, you know. One
+  more every time you set something right." … "My grandmother said they were a
+  picture, seen from high enough."' (was '"The courtyard stones. They turn…"';
+  her "a picture, seen from high enough" line is now LITERALLY true — kept.)
+
+**STILL OPEN before deploy:** user prose review (the two lines above + still-
+pending v1.7.0 implementer lines & Reed Flute/Singing Bowl quips), user
+playtest of the deployed build, and the family close+reopen after redeploy.
+Tree is uncommitted — nothing committed or deployed this session.
+
+---
+
+## (original work order) — the TRUE golden spiral (user directive 2026-07-13, design COMPLETE, geometry SOLVED)
 
 User: "The spiral still does not look good. Consider what a golden spiral
 actually looks like… much larger, with a true spiral drawn across the map."

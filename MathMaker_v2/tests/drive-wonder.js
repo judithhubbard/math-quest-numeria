@@ -93,24 +93,32 @@ function canonicalize(p) {
   check(full.every(Boolean), '13 tasks done: the complete spiral, every stone aligned');
 
   // geometry, read straight off the live data (mirrors the unit test, but
-  // through the same object the renderer actually reads)
+  // through the same object the renderer actually reads): the true golden
+  // spiral of Fibonacci quarter-arcs, ending in a nub to the tower door.
   const geom = await ev(() => {
     const stones = MM.data.TURNING_STONES;
+    const arcs = MM.data.SPIRAL_ARCS;
+    const nub = MM.data.SPIRAL_NUB;
     const posSet = new Set(stones.map(s => `${s.x},${s.y}`));
-    let adjacent = true;
-    for (let i = 1; i < stones.length; i++) {
-      const dx = Math.abs(stones[i].x - stones[i - 1].x), dy = Math.abs(stones[i].y - stones[i - 1].y);
-      if (dx + dy !== 1) adjacent = false; // v1.7.1: strictly orthogonal unit steps
+    let corners = true;
+    for (let i = 0; i < 7; i++) if (stones[i].x !== arcs[i].sx || stones[i].y !== arcs[i].sy) corners = false;
+    let continuous = true;
+    for (let i = 1; i < arcs.length; i++) {
+      if (Math.abs(arcs[i].sx - arcs[i - 1].ex) > 1e-9 || Math.abs(arcs[i].sy - arcs[i - 1].ey) > 1e-9) continuous = false;
     }
-    // v1.7.1: the walk's whole point — the outer stone TOUCHES the Stair
-    const last = stones[stones.length - 1];
+    const a6 = arcs[6];
+    let onArc = true;
+    for (let i = 7; i < 13; i++) if (Math.abs(Math.hypot(stones[i].fx - a6.cx, stones[i].fy - a6.cy) - a6.r) > 0.6) onArc = false;
     const tower = MM.maps.find(MM.maps.OVERWORLD, 'H')[0];
-    const atStair = tower && Math.abs(last.x - tower.x) + Math.abs(last.y - tower.y) === 1;
-    return { unique: posSet.size === 13, adjacent, atStair };
+    const atStair = tower && Math.hypot(nub.x1 - tower.x, nub.y1 - tower.y) <= 0.6;
+    return { unique: posSet.size === 13, corners, continuous, onArc, atStair, radii: arcs.map(a => a.r) };
   });
   check(geom.unique, 'spiral: all 13 stone positions are unique');
-  check(geom.adjacent, 'spiral: every consecutive pair of stones is one orthogonal step apart (a walk, not a scatter)');
-  check(geom.atStair, 'spiral: the outer stone sits touching the Spiral Stair\'s tile (the curl ends AT the tower)');
+  check(JSON.stringify(geom.radii) === JSON.stringify([1, 1, 2, 3, 5, 8, 13]), 'spiral: arc radii are the Fibonacci squares 1,1,2,3,5,8,13');
+  check(geom.corners, 'spiral: the seven numbered stones sit on their Fibonacci arc corners');
+  check(geom.continuous, 'spiral: the seven arcs chain continuously (each arc end is the next arc start)');
+  check(geom.onArc, 'spiral: the six curve stones ride the long 13-arc');
+  check(geom.atStair, 'spiral: the unnumbered nub curls up to the Spiral Stair\'s door (the curl ends AT the tower)');
 
   // ================= 2. The sequence walk =================
   await ev(() => { MM.engine.state.tasksDone = []; MM.engine.save(); });
@@ -121,14 +129,13 @@ function canonicalize(p) {
     const realTone = MM.sound.tone;
     MM.sound.tone = (...a) => tones.push(a[0]);
     const stones = MM.data.TURNING_STONES;
-    // start one tile west of the center stone, then walk the whole spiral
-    // via REAL tryMove steps (the production per-step wiring, not a direct
-    // function call) — every consecutive delta is a pure cardinal step.
-    s.px = stones[0].x - 1; s.py = stones[0].y;
-    MM.engine.tryMove(1, 0); // onto stone 0 (the center) — (re)starts the walk
-    for (let i = 1; i < stones.length; i++) {
-      const dx = stones[i].x - stones[i - 1].x, dy = stones[i].y - stones[i - 1].y;
-      MM.engine.tryMove(dx, dy);
+    // The stones are scattered along a map-wide golden spiral now, not a
+    // tight walk — so for each one, teleport to the tile just west of it and
+    // step ON via a REAL tryMove (the production per-step wiring, which is
+    // what fires spiralStoneStep). Walking them in index order is the walk.
+    for (let i = 0; i < stones.length; i++) {
+      s.px = stones[i].x - 1; s.py = stones[i].y;
+      MM.engine.tryMove(1, 0); // step east onto stone i
     }
     const afterFullWalk = { tones: tones.slice(), seen: s.seenSpiralWalk, next: s.spiralWalkNext };
     // out of order: teleport near an unrelated stone and step onto it fresh

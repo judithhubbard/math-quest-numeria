@@ -2444,35 +2444,59 @@ for (const skill of skills) {
   }
   if (labels.slice(7).some(l => l !== null)) fail('Turning Stones: curve stones carry no number');
   if (labels.includes('21')) fail('Turning Stones: 21 must never appear on a stone — it would spoil the ending exam\'s answer');
-  // 13 UNIQUE positions (a spiral revisits x and y individually, so only the
-  // (x,y) PAIR is guaranteed unique) ...
+  // 13 UNIQUE positions (a golden spiral revisits x and y individually, so
+  // only the (x,y) PAIR is guaranteed unique).
   const posKey = new Set(stones.map(s => `${s.x},${s.y}`));
   if (posKey.size !== 13) fail('Turning Stones: all 13 (x,y) positions must be unique');
-  // ...each CONSECUTIVE pair exactly one ORTHOGONAL step apart (v1.7.1:
-  // tightened from king-move adjacency — the curl is stroked straight
-  // through the stone centers now, so a diagonal step would draw a cut
-  // corner and break the sequence-walk's step-by-step chimes)...
-  for (let i = 1; i < stones.length; i++) {
-    const dx = Math.abs(stones[i].x - stones[i - 1].x), dy = Math.abs(stones[i].y - stones[i - 1].y);
-    if (dx + dy !== 1) {
-      fail(`Turning Stones: stone ${i - 1}->${i} are not one orthogonal step apart ((${stones[i - 1].x},${stones[i - 1].y}) -> (${stones[i].x},${stones[i].y}))`);
-    }
-  }
-  // ...every tile plain walkable grass on the raw overworld, NOT a new glyph
-  // (the overlay recipe's whole point) — this also proves no NPC/POI
+  // Every stone tile is plain walkable grass on the raw overworld, NOT a new
+  // glyph (the overlay recipe's whole point) — this also proves no NPC/POI
   // collision, since every POI in this game is a non-'.' glyph.
   stones.forEach(st => {
     const ch = ow[st.y][st.x];
     if (ch !== '.') fail(`Turning Stones: tile (${st.x},${st.y}) is '${ch}', not plain grass — the overlay recipe requires it stay ordinary walkable ground`);
   });
-  // v1.7.1 (playtest: "the spiral staircase is nowhere near the end of the
-  // spiral"): the 13th stone must TOUCH the Spiral Stair's tile — not point
-  // at it down a ray, not gesture at its column. Orthogonally adjacent.
-  const last = stones[stones.length - 1];
+  // The TRUE golden spiral: seven quarter-arcs of Fibonacci radii chained
+  // clockwise, then an unnumbered nub to the tower. The seven numbered
+  // stones sit EXACTLY on their arc-start corners (float pos == int tile).
+  const arcs = MM.data.SPIRAL_ARCS;
+  if (!Array.isArray(arcs) || arcs.length !== 7) fail(`Turning Stones: expected 7 chained arcs, got ${arcs && arcs.length}`);
+  const wantR = [1, 1, 2, 3, 5, 8, 13];
+  arcs.forEach((a, i) => {
+    if (a.r !== wantR[i]) fail(`spiral arc ${i}: radius ${a.r} !== Fibonacci ${wantR[i]}`);
+    const st = stones[i];
+    if (st.x !== a.sx || st.y !== a.sy || st.fx !== a.sx || st.fy !== a.sy) {
+      fail(`spiral: numbered stone ${i} (${st.x},${st.y}) is not on its arc-start corner (${a.sx},${a.sy})`);
+    }
+    // start and end points lie on the arc's own circle (radius r from center)
+    const dS = Math.hypot(a.sx - a.cx, a.sy - a.cy), dE = Math.hypot(a.ex - a.cx, a.ey - a.cy);
+    if (Math.abs(dS - a.r) > 1e-9 || Math.abs(dE - a.r) > 1e-9) fail(`spiral arc ${i}: endpoints not on its circle`);
+  });
+  // the chain is continuous — each arc's end is the next arc's start
+  for (let i = 1; i < arcs.length; i++) {
+    if (Math.abs(arcs[i].sx - arcs[i - 1].ex) > 1e-9 || Math.abs(arcs[i].sy - arcs[i - 1].ey) > 1e-9) {
+      fail(`spiral: arc ${i - 1} end (${arcs[i - 1].ex},${arcs[i - 1].ey}) != arc ${i} start (${arcs[i].sx},${arcs[i].sy})`);
+    }
+  }
+  // the six curve stones ride the 13-arc's circle (arc 6), within 0.6 tile
+  const a6 = arcs[6];
+  for (let i = 7; i < 13; i++) {
+    const st = stones[i];
+    const dist = Math.hypot(st.fx - a6.cx, st.fy - a6.cy);
+    if (Math.abs(dist - a6.r) > 0.6) fail(`spiral: curve stone ${i} is ${dist.toFixed(2)} from the 13-arc center, not ~${a6.r}`);
+    if (st.x !== Math.round(st.fx) || st.y !== Math.round(st.fy)) fail(`spiral: curve stone ${i} int tile is not the rounded float pos`);
+  }
+  // the unnumbered nub ends AT the Spiral Stair's door (within 0.6 tile)
+  const nub = MM.data.SPIRAL_NUB;
   const towers = MM.maps.find(ow, 'H');
   if (towers.length !== 1) fail(`Turning Stones: expected exactly one 'H' (Spiral Stair) tile on the mainland, found ${towers.length}`);
-  else if (Math.abs(last.x - towers[0].x) + Math.abs(last.y - towers[0].y) !== 1) {
-    fail(`Turning Stones: the outer stone (${last.x},${last.y}) must sit touching the Stair tile (${towers[0].x},${towers[0].y})`);
+  else if (Math.hypot(nub.x1 - towers[0].x, nub.y1 - towers[0].y) > 0.6) {
+    fail(`spiral: the nub endpoint (${nub.x1},${nub.y1}) must land on the Stair door (${towers[0].x},${towers[0].y})`);
+  }
+  // the nub begins at the 13-arc's tip (arc 6 end), so the curve is unbroken
+  if (Math.abs(nub.x0 - a6.ex) > 1e-9 || Math.abs(nub.y0 - a6.ey) > 1e-9) fail('spiral: the nub must start at the 13-arc tip');
+  // chain-params increase monotonically along the walk order
+  for (let i = 1; i < stones.length; i++) {
+    if (!(stones[i].t > stones[i - 1].t)) fail(`spiral: stone ${i} chain-param must exceed stone ${i - 1}'s (monotone walk)`);
   }
   // the center constant matches stone 0 (engine's glint-proximity check
   // and Sylvia's dialog both key off it)
