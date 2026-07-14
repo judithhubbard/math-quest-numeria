@@ -263,24 +263,59 @@ var MM = globalThis.MM = globalThis.MM || {};
       size: 9 + Math.random() * 4, glyph: Math.random() < 0.3 ? '🤍' : '✦', rise: true,
     });
   }
-  // ---------- the Turning Stones (v1.7.1 ground-up rework) ----------
-  // The courtyard curl is ONE continuous stroke through every ALIGNED
-  // stone's center — connection is guaranteed by construction (playtest
-  // 2026-07-13: thirteen per-tile arcs with per-number radii could never
-  // meet at tile edges, and didn't). Untended stones stay faint, skewed,
-  // DISCONNECTED fragments: tending the kingdom is literally what joins
-  // the curl up, one stone per task, until it runs out of the courtyard
-  // and dies at the Spiral Stair's door. Alignment reads s.tasksDone.length
-  // live, as before; the glint + all-thirteen shimmer recipes are unchanged.
+  // ---------- the Turning Stones (the TRUE golden spiral) ----------
+  // The whole curl is the classic Fibonacci-square golden spiral, sampled
+  // in data.js (spiralChain) and stroked HERE — but only where the raw tile
+  // underneath is plain grass, so the carving vanishes under the river, the
+  // mountains, the trees and the buildings that were built/grew/flow OVER
+  // it (the tile pass paints those first; this overlay must not paint on
+  // top). A FAINT full curve is always visible ("a picture, seen from high
+  // enough"); the tended prefix, up to the aligned frontier stone's
+  // chain-parameter, brightens; at 13/13 the whole curl brightens, a golden
+  // glow follows it, and the nub up to the tower brightens too. Alignment
+  // reads s.tasksDone.length live. Numbered discs sit ON the curve at their
+  // exact float positions; the glint + walk recipes are unchanged.
   function drawTurningStones(camX, camY, now) {
     const s = MM.engine.state;
     if (!s || s.mapId !== 'world') return;
+    // early-out when the whole curl's bounding box is off-screen
+    if (camX + VIEW_W < 18 || camX > 42 || camY + VIEW_H < 1 || camY > 19) return;
     const stones = MM.data.TURNING_STONES;
-    const k = Math.min(s.tasksDone.length, stones.length);
-    const px = st => (st.x - camX) * TILE + TILE / 2;
-    const py = st => (st.y - camY) * TILE + TILE / 2;
+    const n = Math.min(s.tasksDone.length, stones.length);
+    const gx = g => (g + 0.5 - camX) * TILE;   // geometry-float tile -> pixel
+    const gy = g => (g + 0.5 - camY) * TILE;
     const onScreen = st => st.x >= camX - 1 && st.y >= camY - 1 && st.x < camX + VIEW_W + 1 && st.y < camY + VIEW_H + 1;
-    if (!stones.some(onScreen)) return;
+    // how far along the curl is tended: the aligned frontier's chain-param.
+    // At 13/13 push it past the nub (8) so the tip-to-tower curve lights too.
+    let brightT = -1;
+    if (n >= 13) brightT = 8;
+    else if (n >= 1) brightT = stones[n - 1].t;
+
+    const chain = MM.data.spiralChain();
+    const ow = MM.maps.OVERWORLD;
+    // stroke the sampled chain between chain-params [fromT, toT], breaking
+    // the path wherever a sample's tile is not plain grass — the carving
+    // only ever shows on land.
+    function strokeChain(fromT, toT, style, width, alpha) {
+      if (toT < fromT) return;
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = style;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      let drawing = false;
+      for (const p of chain) {
+        if (p.t < fromT || p.t > toT) { if (drawing) ctx.stroke(); drawing = false; continue; }
+        const row = ow[Math.round(p.y)];
+        if (!row || row[Math.round(p.x)] !== '.') { if (drawing) ctx.stroke(); drawing = false; continue; }
+        const X = gx(p.x), Y = gy(p.y);
+        if (!drawing) { ctx.beginPath(); ctx.moveTo(X, Y); drawing = true; }
+        else ctx.lineTo(X, Y);
+      }
+      if (drawing) ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
     // the newest-turned stone's glint (tile wash, under the carving)
     for (const st of stones) {
       if (!onScreen(st)) continue;
@@ -291,75 +326,38 @@ var MM = globalThis.MM = globalThis.MM || {};
         ctx.globalAlpha = 1;
       }
     }
-    // all thirteen aligned: the golden shimmer follows the CURL, not the
-    // tiles (v1.7.1 screenshot audit: per-tile gold fills completed into a
-    // boxy highlighted rectangle with the castle — a wide soft under-stroke
-    // makes the finished curl itself glow). Static, Calm-Mode-safe.
-    if (s.tasksDone.length >= 13) {
-      ctx.globalAlpha = 0.22;
-      ctx.strokeStyle = '#ffd94a';
-      ctx.lineWidth = 11;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(px(stones[0]), py(stones[0]));
-      for (let i = 1; i < stones.length - 1; i++) ctx.arcTo(px(stones[i]), py(stones[i]), px(stones[i + 1]), py(stones[i + 1]), TILE * 0.42);
-      ctx.lineTo(px(stones[stones.length - 1]), py(stones[stones.length - 1]));
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
-    // the carved curl through the aligned prefix, corners gently rounded
-    if (k >= 2) {
-      ctx.strokeStyle = '#fff6d8';
-      ctx.lineWidth = 3.5;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(px(stones[0]), py(stones[0]));
-      for (let i = 1; i < k - 1; i++) ctx.arcTo(px(stones[i]), py(stones[i]), px(stones[i + 1]), py(stones[i + 1]), TILE * 0.42);
-      ctx.lineTo(px(stones[k - 1]), py(stones[k - 1]));
-      ctx.stroke();
-    }
+    // all thirteen aligned: a wide soft golden glow follows the whole curl
+    // (static, Calm-Mode-safe)
+    if (n >= 13) strokeChain(0, 8, '#ffd94a', 11, 0.20);
+    // the faint full curve, always present
+    strokeChain(0, 8, '#d8cca6', 2.5, 0.28);
+    // the bright, tended prefix
+    if (brightT >= 0) strokeChain(0, brightT, '#fff6d8', 3.5, 0.95);
+
+    // the stones themselves — round discs sitting ON the curve at their
+    // exact float positions. Radius grows with the carved number so the
+    // sequence reads as growth before a single numeral is read.
     for (const st of stones) {
       if (!onScreen(st)) continue;
-      const cx = px(st), cy = py(st);
+      const cx = gx(st.fx), cy = gy(st.fy);
       const aligned = s.tasksDone.length > st.i;
-      if (aligned) {
-        // a round stone sitting ON the curl; its radius grows with its
-        // carved number, so the sequence is readable as growth even before
-        // a kid reads a single numeral (v1.7.1 sizes bumped — playtest:
-        // "the numbers on the spiral are too small")
-        const r = 6 + st.size * 0.6;
-        ctx.fillStyle = '#fff6d8';
-        ctx.strokeStyle = '#8a7a58';
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-      } else {
-        // untended: the old faint skewed fragment (deterministic skew,
-        // never time-driven — nothing for Calm Mode to turn off)
-        const r = TILE * 0.2;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(MM.data.stoneSkew(st.i) * Math.PI / 180);
-        ctx.strokeStyle = '#8a8578';
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.arc(-r * 0.4, -r * 0.4, r, 0, Math.PI / 2);
-        ctx.stroke();
-        ctx.restore();
-      }
+      const r = 6 + st.size * 0.55;
+      ctx.fillStyle = aligned ? '#fff6d8' : '#b7b2a4';
+      ctx.strokeStyle = aligned ? '#8a7a58' : '#7d786c';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
       // the seven sequence stones carry their carved number — upright once
       // aligned ("upright once turned" is the ending exam's fair-play
-      // promise), crooked while untended, matching the fragment's skew
+      // promise), crooked while untended (deterministic skew, never
+      // time-driven — nothing for Calm Mode to turn off)
       if (st.label) {
         ctx.save();
         ctx.translate(cx, cy);
         if (!aligned) ctx.rotate(MM.data.stoneSkew(st.i) * Math.PI / 180);
-        ctx.font = '11px "Press Start 2P", monospace'; // v1.7.1: was 8px, unreadable at play size
+        ctx.font = '11px "Press Start 2P", monospace';
         ctx.textAlign = 'center';
         if (aligned) {
           ctx.fillStyle = '#3a3020'; // carved into the pale stone
@@ -367,7 +365,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         } else {
           ctx.fillStyle = '#141221';
           ctx.fillText(st.label, 1, 5);
-          ctx.fillStyle = '#a8a294';
+          ctx.fillStyle = '#4a4636';
           ctx.fillText(st.label, 0, 4);
         }
         ctx.restore();

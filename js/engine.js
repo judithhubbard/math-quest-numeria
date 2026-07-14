@@ -4075,8 +4075,11 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.checkSpiralGlint = function () {
     const s = E.state;
     if (!s || s.mapId !== 'world' || s.spiralGlintPending == null) return;
-    const c = MM.data.TURNING_STONES_CENTER;
-    if (Math.abs(s.px - c.x) > 3 || Math.abs(s.py - c.y) > 3) return;
+    // The true golden spiral sweeps clear across the overworld — there is no
+    // single "plaza" to stand in any more. The glint arms whenever the kid
+    // is within 3 tiles of ANY stone on the curl.
+    const near = MM.data.TURNING_STONES.some(st => Math.abs(s.px - st.x) <= 3 && Math.abs(s.py - st.y) <= 3);
+    if (!near) return;
     E.spiralGlintIndex = s.spiralGlintPending;
     E.spiralGlintUntil = performance.now() + 1800;
     s.spiralGlintPending = null;

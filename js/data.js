@@ -1363,7 +1363,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   // well underway). UNLOCK TIMING UNCHANGED — endingDone still opens it.
   MM.data.SPIRAL_SEALED = function (s) {
     const deep = !!(s && s.tasksDone && s.tasksDone.length >= 10);
-    return 'A door with no keyhole, at the base of a winding tower. Carved above it: the same curling line as the courtyard stones. It isn\'t ready. Or you aren\'t. Hard to say which.' +
+    return 'A door with no keyhole, at the base of a winding tower. Carved above it: the same curling line as the old stones out in the grass. It isn\'t ready. Or you aren\'t. Hard to say which.' +
       (deep ? ' <span class="dim">The carving seems deeper lately.</span>' : '');
   };
   MM.data.SPIRAL_INTRO = 'A staircase coiled tight as a shell, climbing further than the tower has any right to hold. <span class="dim">Numeria writes itself along the spiral — you\'ve known that since the credits. Now you get to climb it.</span>';
@@ -1412,65 +1412,127 @@ var MM = globalThis.MM = globalThis.MM || {};
     return rows[rows.length - 1].line;
   };
 
-  // ---------- Turning Stones (P1), v1.7.0 spiral-walk rework ----------
-  // Wave 10 shipped these as a horizontal ROW ("all in a horizontal row" —
-  // user report 2026-07-13, correctly: a row of arc-carved tiles does not
-  // read as a spiral, the spec was wrong). Now: 13 stones along a
-  // rectangular-spiral walk curling OUTWARD from a center stone, the exact
-  // R1,U1,L2,D2,R3,U3 offsets from the queue, verbatim. Still a pure canvas
-  // overlay on ordinary walkable grass ('.') — no new grid glyphs, same
-  // "read live state off fixed tiles" recipe as the dungeon-entrance number
-  // labels and the gear-gate pips. Never gates movement, never speaks.
+  // ---------- Turning Stones (P1) — the TRUE golden spiral ----------
+  // Wave 10 shipped a horizontal ROW; v1.7.0/v1.7.1 tried a compact
+  // rectangular-spiral plaza. Both failed the same playtest verdict: they
+  // did not READ as a golden spiral ("Consider what a golden spiral
+  // actually looks like… much larger, with a true spiral drawn across the
+  // map." — user, 2026-07-13). v1.7.3-next is the real thing: the classic
+  // Fibonacci-square golden spiral, quarter-circle arcs of radii
+  // 1,1,2,3,5,8,13 TILES chained clockwise, sweeping right across the
+  // overworld. Then an UNNUMBERED partial continuation (the 21-square,
+  // begun but never finished) curves the last tip up to the Spiral Stair's
+  // door — the sequence's own continuation physically leads to the tower,
+  // yet 21 never appears anywhere (that is the ending exam's discovery).
   //
-  // Sizes: the seven squares of the classic spiral diagram (1, 1, 2, 3, 5,
-  // 8, 13), carved CENTER-OUT so the sequence grows as the spiral grows —
-  // reading them in walk order IS the ending exam's question. ASCENT ONLY
-  // (design review 2026-07-13: a mirrored set would let a kid read
-  // "…13, 8" and answer the exam's "what comes next?" with 8 — the
-  // foreshadowing must never teach the wrong answer). Stones 8-13 are
-  // unnumbered curve segments continuing the sweep. 21 never appears
-  // anywhere; that is the exam's own discovery.
-  // v1.7.1 GROUND-UP REWORK (playtest 2026-07-13: "little curves on the
-  // squares, but they do not connect into a spiral… and the spiral
-  // staircase is nowhere near the end of the spiral"). Two root causes in
-  // the v1.7.0 version, both structural:
-  //   1. Each stone drew its OWN arc, with a radius that grew with its
-  //      carved number — thirteen different-sized arcs centered on their
-  //      own tiles can never meet at tile edges. Per-stone {shape, angle}
-  //      is gone entirely; ui.js now strokes ONE continuous path through
-  //      the aligned stones' centers, so connection is guaranteed by
-  //      construction (and the untended suffix stays visibly broken —
-  //      the curl literally joins up as the kingdom is tended).
-  //   2. The old anchor's "outer end POINTS AT the Stair" was a 6-tile ray
-  //      through the castle — invisible. The walk is now the one placement
-  //      on the entire overworld (exhaustive search over every anchor ×
-  //      all 8 orientations of the unit-step rect-spiral, against the raw
-  //      map) whose 13th stone lands at (19,2), TOUCHING the Spiral
-  //      Stair's tile (19,3) — the carved curl runs out of the courtyard
-  //      and dies at the tower door. Three decorative trees moved
-  //      (maps.js); no POI touched.
-  // Still: 13 stones, unit steps, center-out ascending 1,1,2,3,5,8,13 on
-  // the first seven (ASCENT ONLY — the ending exam's fair-play rule), six
-  // unnumbered curve stones, pure canvas overlay on walkable grass, never
-  // gates movement, never speaks. 21 appears nowhere; that is the exam's
-  // own discovery.
-  MM.data.TURNING_STONES = (() => {
-    const sizes = [1, 1, 2, 3, 5, 8, 13];
-    // N,E,S,S,W,W,N,N,N,E,E,E from the center stone — an outward
-    // rectangular spiral whose last arm runs east along row 2 into the
-    // tower: …(16,2)→(17,2)→(18,2)→(19,2), with the Stair at (19,3).
-    const OFFSETS = [
-      [0, 0], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0],
-      [-1, -1], [-1, -2], [0, -2], [1, -2], [2, -2],
-    ];
-    const CX = 17, CY = 4;
-    return OFFSETS.map(([dx, dy], i) => ({
-      x: CX + dx, y: CY + dy, i,
-      size: i < 7 ? sizes[i] : 6,
-      label: i < 7 ? String(sizes[i]) : null,
-    }));
+  // Still a pure canvas overlay on ordinary walkable grass ('.') — no new
+  // grid glyphs, same "read live state off fixed tiles" recipe as the
+  // dungeon-entrance labels. Never gates movement, never speaks.
+  //
+  // THE placement (exhaustive search — the overworld admits exactly one):
+  // chain anchor P0=(35,8), start heading H0=(1,0), clockwise rotation
+  // rot([x,y])=[-y,x]. Each quarter-arc i: L=rot(H) (start→center dir),
+  // center C=P+L·r, end E=C+H·r, next heading H'=L, next start=E. The seven
+  // numbered stones sit at the seven arc-start CORNERS; the seven radii are
+  // the Fibonacci squares 1,1,2,3,5,8,13. ASCENT ONLY (design review
+  // 2026-07-13: a mirrored set would let a kid read "…13, 8" and answer the
+  // exam with 8 — the foreshadowing must never teach the wrong answer).
+  // Six unnumbered curve stones ride the long 13-arc, marking the sweep
+  // between the 13-corner and the tip at (20,5). Stone "8" at (41,10) sits
+  // ACROSS the river — reachable only once the bridge rises (task 10),
+  // before the ending exam ever needs it (exam-safe by construction).
+  //
+  // Each stone carries an INTEGER tile (x,y) for the sequence-walk stepping
+  // AND a FLOAT arc position (fx,fy) so the drawn disc sits exactly ON the
+  // curve, plus a chain-parameter t (arc index + fraction) so the renderer
+  // knows how far along the curl each stone is (bright frontier).
+  const SPIRAL = (() => {
+    const rot = ([x, y]) => [-y, x];             // clockwise (screen y-down)
+    const radii = [1, 1, 2, 3, 5, 8, 13];
+    const arcs = [];
+    let P = [35, 8], H = [1, 0];
+    for (let i = 0; i < 7; i++) {
+      const r = radii[i];
+      const L = rot(H);
+      const C = [P[0] + L[0] * r, P[1] + L[1] * r];
+      const E = [C[0] + H[0] * r, C[1] + H[1] * r];
+      arcs.push({
+        i, r, cx: C[0], cy: C[1], sx: P[0], sy: P[1], ex: E[0], ey: E[1],
+        a0: Math.atan2(P[1] - C[1], P[0] - C[0]),
+        a1: Math.atan2(E[1] - C[1], E[0] - C[0]),
+      });
+      P = E; H = L;
+    }
+    return { arcs, tip: P.slice() };            // tip = (20,5), heading north
   })();
-  MM.data.TURNING_STONES_CENTER = { x: 17, y: 4 };
+  MM.data.SPIRAL_ARCS = SPIRAL.arcs;
+  // The tip-to-tower nub: a tangent-matched quadratic bezier from the
+  // 13-arc's end (20,5) up to the Spiral Stair door (19,3). NOT a trued
+  // 21-radius arc (that leaves a ~1.1-tile radial gap at the tip). Its
+  // chain-parameter runs 7..8, just past the last real arc.
+  MM.data.SPIRAL_NUB = { x0: 20, y0: 5, cx: 20, cy: 3.8, x1: 19, y1: 3 };
+  MM.data.TURNING_STONES = (() => {
+    const arcs = SPIRAL.arcs;
+    // curve-stone fractions along the 13-arc (arc 6); k=1 slid -0.015 so
+    // its rounded tile clears its neighbour (walkability).
+    const curveF = [1 / 7, 2 / 7 - 0.015, 3 / 7, 4 / 7, 5 / 7, 6 / 7];
+    const a6 = arcs[6];
+    let d6 = a6.a1 - a6.a0;
+    while (d6 > Math.PI) d6 -= 2 * Math.PI;
+    while (d6 < -Math.PI) d6 += 2 * Math.PI;
+    const stones = [];
+    // the seven numbered corner stones — float pos == integer tile
+    arcs.forEach((a, i) => {
+      stones.push({
+        i, x: a.sx, y: a.sy, fx: a.sx, fy: a.sy, t: i,
+        size: a.r, label: String(a.r),
+      });
+    });
+    // the six unnumbered curve stones, riding the 13-arc
+    curveF.forEach((f, k) => {
+      const ang = a6.a0 + d6 * f;
+      const fx = a6.cx + a6.r * Math.cos(ang), fy = a6.cy + a6.r * Math.sin(ang);
+      stones.push({
+        i: 7 + k, x: Math.round(fx), y: Math.round(fy),
+        fx, fy, t: 6 + f, size: 6, label: null,
+      });
+    });
+    return stones;
+  })();
+  // stone 0's tile — Sylvia's dialog and the unit test both key off it.
+  MM.data.TURNING_STONES_CENTER = { x: MM.data.TURNING_STONES[0].x, y: MM.data.TURNING_STONES[0].y };
+  // The whole curl, sampled ~0.15 tile along the seven arcs then the nub,
+  // each point tagged with its chain-parameter t (0..8). The renderer walks
+  // these, drawing ONLY where the underlying raw tile is plain grass, so the
+  // carving vanishes under the river, mountains, trees and buildings that
+  // were built/grew/flow OVER it. Cached — the geometry is fixed.
+  MM.data._spiralChain = null;
+  MM.data.spiralChain = function () {
+    if (MM.data._spiralChain) return MM.data._spiralChain;
+    const pts = [];
+    const STEP = 0.15;
+    for (const a of MM.data.SPIRAL_ARCS) {
+      let d = a.a1 - a.a0;
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      const n = Math.max(2, Math.ceil(Math.abs(d) * a.r / STEP));
+      for (let j = 0; j <= n; j++) {
+        const f = j / n, ang = a.a0 + d * f;
+        pts.push({ x: a.cx + a.r * Math.cos(ang), y: a.cy + a.r * Math.sin(ang), t: a.i + f });
+      }
+    }
+    const nb = MM.data.SPIRAL_NUB;
+    for (let j = 0; j <= 16; j++) {
+      const f = j / 16, mt = 1 - f;
+      pts.push({
+        x: mt * mt * nb.x0 + 2 * mt * f * nb.cx + f * f * nb.x1,
+        y: mt * mt * nb.y0 + 2 * mt * f * nb.cy + f * f * nb.y1,
+        t: 7 + f,
+      });
+    }
+    MM.data._spiralChain = pts;
+    return pts;
+  };
   // An UNALIGNED stone sits at a fixed skew instead of its true geometric
   // angle: a deterministic offset derived from its own index, never from
   // Date.now() or a frame counter, so it never moves on its own
@@ -1533,7 +1595,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         // some turning left to do (>=1 done, <13 — once they're complete the
         // ending's own reveal takes over the job of explaining them).
         if (s.tasksDone.length >= 1 && s.tasksDone.length < 13 && Math.random() < 0.2) {
-          return '"The courtyard stones. They turn, you know. One more every time you set something right." Sage Sylvia says it like a fact of nature, not a secret. "My grandmother said they were a picture, seen from high enough."';
+          return '"The old stones, out in the grass. They turn, you know. One more every time you set something right." Sage Sylvia says it like a fact of nature, not a secret. "My grandmother said they were a picture, seen from high enough."';
         }
         // v1.7.0: the tower's late-game evolution — no one explains it.
         if (s.tasksDone.length >= 10 && Math.random() < 0.15) {
