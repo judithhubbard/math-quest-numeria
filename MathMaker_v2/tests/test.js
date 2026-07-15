@@ -2380,6 +2380,40 @@ for (const skill of skills) {
   MM.engine.state = null;
 }
 
+// ---------- v1.7.5: the bridge is laid the INSTANT task 10 is turned in ----------
+// Regression: the bridge to Miscount's bank was only ever laid in enterWorld,
+// but turning in task 10 (E.castle, on the overworld) is followed by the ending
+// cutscene, which does NOT rebuild the world grid. A kid finished the ending,
+// was told "cross the eastern bridge," and found no bridge — it only appeared
+// after a reload or a dungeon round-trip re-ran enterWorld. (Live playtest,
+// 2026-07-15.) The turn-in now lays it directly.
+{
+  localStorage.setItem('mathmaker2_save_bridgeturnin', JSON.stringify({
+    version: 4, name: 'bridgeturnin', hp: 100, maxhp: 100, stamina: 100, maxStamina: 100,
+    gold: 500, level: 8, xp: 0, potions: 1, difficulty: 'hero',
+    parent: { pin: null, topics: {} }, taskIndex: 10, haveItem: true, tasksDone: [1,2,3,4,5,6,7,8,9],
+    mastery: {}, badges: {}, bestiary: { seen: {}, kills: {}, gauntlet: {} },
+    continent: 'west', isles: { lenses: {}, keys: {}, egg: null, pet: null },
+    charmsOn: [], opened: {}, bossesDefeated: {}, defeatedAt: {}, streak: 0,
+    totals: { answered: 0, correct: 0 }, worldPos: null, seenBattleHelp: true,
+    endingDone: false, gear: { weapon: ['stick'], body: ['clothes'], helmet: [], boots: [], ring: [], amulet: [] },
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null }, enchants: {},
+    items: { food: {}, treasures: [], charms: [], gems: [] },
+  }));
+  MM.engine.load('bridgeturnin');
+  MM.engine.enterWorld(); // grid built while task 10 is still in hand — no bridge yet
+  const bs = MM.engine.state;
+  const bridgeStr = () => MM.maps.BRIDGE.map(c => bs.grid[c.y][c.x]).join('');
+  if (bridgeStr() !== '~~~') fail(`bridge: should be unlaid river before task 10 is turned in (got '${bridgeStr()}')`);
+  const realVictory = MM.ui.victory;
+  MM.ui.victory = () => {}; // the turn-in ends in the ending; stub it out headlessly
+  MM.engine.castle();       // turn in task 10 via the real code path — NO manual enterWorld after
+  MM.ui.victory = realVictory;
+  if (!bs.tasksDone.includes(10)) fail('bridge: turning in task 10 must record it in tasksDone');
+  if (bridgeStr() !== '===') fail(`bridge: task 10 turn-in must lay all three planks immediately, without a world rebuild (got '${bridgeStr()}')`);
+  MM.engine.state = null;
+}
+
 // ---------- v1.7.0: boss wrong-math attacks — the pedagogy guard ----------
 {
   let heavy = 0;

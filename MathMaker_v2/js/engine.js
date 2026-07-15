@@ -4212,6 +4212,16 @@ var MM = globalThis.MM = globalThis.MM || {};
       s.haveItem = false;
       s.tasksDone.push(s.taskIndex);
       if (s.tasksDone.length <= MM.data.TURNING_STONES.length) s.spiralGlintPending = s.tasksDone.length - 1;
+      // Lay the bridge to Miscount's bank the instant task 10 is turned in.
+      // The player is standing on the overworld here (E.castle is a
+      // conversation, not the interior, until the ending), and the ending
+      // cutscene that follows does NOT rebuild the world grid — so without
+      // this the bridge would not appear until a reload or a dungeon
+      // round-trip next re-ran enterWorld, stranding a kid who's just been
+      // told to cross it. Same cells enterWorld lays on load; river-guarded.
+      if (s.mapId === 'world' && s.tasksDone.includes(10)) {
+        for (const b of MM.maps.BRIDGE) if (s.grid[b.y] && s.grid[b.y][b.x] === '~') s.grid[b.y][b.x] = '=';
+      }
       const gold = E.gainGold(reward.gold);
       E.gainXp(reward.xp);
       s.taskIndex++;
