@@ -384,6 +384,9 @@ body.big-text #modalBox h2 { font-size: 23px; }
 .shop-sec-isle  { background: rgba(82,168,224,0.08); border-left-color: #52a8e0; }
 .shop-sec-sell  { background: rgba(255,217,74,0.06); border-left-color: #c8a838; }
 /* v1.7.3: the ⚙️ Settings dialog reuses the tinted-room recipe */
+.shop-sec-credits { background: rgba(207,198,232,0.07); border-left-color: #cfc6e8; }
+.credits-list { margin: 4px 0 0; padding-left: 18px; }
+.credits-list li { font-size: 11.5px; color: #b4a9df; line-height: 1.5; margin: 1px 0; }
 .set-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .set-row button { flex: 1; min-width: 120px; }
 .set-choice .quip { display: block; font-size: 11px; font-weight: 400; opacity: 0.75; margin-top: 2px; }
