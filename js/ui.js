@@ -1849,6 +1849,13 @@ var MM = globalThis.MM = globalThis.MM || {};
           </div>
           <p class="dim">Music is the background tunes. Sound is everything — chimes included. Parents have the same switches.</p>
         </div>
+        <div class="shop-sec shop-sec-credits">
+          <h3>🎼 Music credits</h3>
+          <p class="dim">The music is real recordings of public-domain and Creative-Commons performances — thank you to the musicians who shared them.</p>
+          <ul class="credits-list">
+            ${(MM.music && MM.music.TRACKS || []).map(t => `<li>${t.title}</li>`).join('')}
+          </ul>
+        </div>
       </div>
       <div class="btnrow"><button id="setClose" class="secondary">Close</button></div>`);
     const rerender = () => { closeModal(); UI.difficultyDialog(); };

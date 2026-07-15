@@ -6,7 +6,7 @@ var MM = globalThis.MM = globalThis.MM || {};
 // The one version constant (2026-07-13, stale-client confusion: "is that
 // not updated yet?"): shown on the profile screen; a unit check asserts it
 // matches sw.js's VERSION so the display can never drift from the cache.
-MM.VERSION = 'v1.7.5';
+MM.VERSION = 'v1.7.6';
 (function () {
   'use strict';
 
