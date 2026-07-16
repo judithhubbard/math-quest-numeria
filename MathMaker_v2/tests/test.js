@@ -304,7 +304,7 @@ for (const ch of ['C', 'S', 'I', 'P', 'n', '1', '2', '3', '4', '5', '6', '7', '8
 // overworld: P must be able to reach C,S,I and all dungeon digits (walk on . and interactables)
 {
   const walkable = ch => ch === '.' || ch === 'P';
-  const interact = 'CSIn1234567890aeghjq';
+  const interact = 'CSIn1234567890aeghjqY'; // Y = the Practice Yard's Tutor
   const start = MM.maps.find(ow, 'P')[0];
   const seen = new Set([start.x + ',' + start.y]);
   const q = [start];
@@ -2295,7 +2295,8 @@ for (const skill of skills) {
   }
   const hatIds = new Set();
   for (const h of MM.data.PET_HATS) {
-    if (!h.id || !h.name || !h.emoji || !h.price) fail(`PET_HATS entry "${h.id}" is missing a required field`);
+    // earned hats (the Practice Yard set) carry no price — they're never sold
+    if (!h.id || !h.name || !h.emoji || (!h.price && !h.earned)) fail(`PET_HATS entry "${h.id}" is missing a required field`);
     hatIds.add(h.id);
   }
   if (hatIds.size !== MM.data.PET_HATS.length) fail('duplicate ids in MM.data.PET_HATS');
@@ -2310,7 +2311,7 @@ for (const skill of skills) {
   MM.engine.state = {
     gold: 500, petHats: [], isles: { pet: { name: 'Fido', hat: null } }, castleFurnish: { statues: [] },
   };
-  const cheap = MM.data.PET_HATS.slice().sort((a, b) => a.price - b.price)[0];
+  const cheap = MM.data.PET_HATS.filter(h => h.price).slice().sort((a, b) => a.price - b.price)[0];
   const r1 = MM.engine.petHatAction(cheap.id);
   if (!r1.ok) fail('petHatAction: buying an affordable hat should succeed');
   if (MM.engine.state.isles.pet.hat !== cheap.id) fail('petHatAction: buying a hat should wear it immediately');
@@ -2323,7 +2324,7 @@ for (const skill of skills) {
   if (MM.engine.state.gold !== goldBefore) fail('petHatAction: re-wearing an OWNED hat must be free');
 
   MM.engine.state.gold = 0;
-  const pricey = MM.data.PET_HATS.slice().sort((a, b) => b.price - a.price)[0];
+  const pricey = MM.data.PET_HATS.filter(h => h.price).slice().sort((a, b) => b.price - a.price)[0];
   const r2 = MM.engine.petHatAction(pricey.id);
   if (r2.ok || !r2.msg) fail('petHatAction: buying with insufficient gold should fail with a message, not silently succeed');
 
@@ -2411,6 +2412,63 @@ for (const skill of skills) {
   MM.ui.victory = realVictory;
   if (!bs.tasksDone.includes(10)) fail('bridge: turning in task 10 must record it in tasksDone');
   if (bridgeStr() !== '===') fail(`bridge: task 10 turn-in must lay all three planks immediately, without a world rebuild (got '${bridgeStr()}')`);
+  MM.engine.state = null;
+}
+
+// ---------- the Practice Yard (the Tutor): drills, stars, milestones ----------
+{
+  // every card's drill generates a well-formed problem with a real answer
+  for (const c of MM.data.YARD_CARDS) {
+    for (let k = 0; k < 40; k++) {
+      const p = MM.problems.yardDrill(c.id);
+      if (!p || !p.text || !p.answer || p.kind !== 'number') fail(`yardDrill(${c.id}) produced a malformed problem`);
+    }
+  }
+  // card registry: 14 unique cards, prereqs point at real cards, each has a tip
+  if (MM.data.YARD_CARDS.length !== 14) fail(`YARD_CARDS: expected 14, got ${MM.data.YARD_CARDS.length}`);
+  const ids = new Set(MM.data.YARD_CARDS.map(c => c.id));
+  if (ids.size !== 14) fail('YARD_CARDS: duplicate ids');
+  for (const c of MM.data.YARD_CARDS) {
+    for (const p of c.prereq) if (!ids.has(p)) fail(`YARD_CARDS: ${c.id} prereq "${p}" is not a card`);
+    if (!c.tip || !c.label || !c.track) fail(`YARD_CARDS: ${c.id} missing a field`);
+  }
+  for (const ms of MM.data.YARD_MILESTONES) {
+    for (const cid of ms.cards) if (!ids.has(cid)) fail(`milestone ${ms.id} references unknown card "${cid}"`);
+    if (!ms.reward || !ms.line || !ms.need) fail(`milestone ${ms.id} missing a field`);
+  }
+  // hat/charm ids the milestones grant must exist
+  for (const ms of MM.data.YARD_MILESTONES) {
+    if (ms.reward.hat && !MM.data.petHatById(ms.reward.hat)) fail(`milestone ${ms.id} grants unknown hat "${ms.reward.hat}"`);
+    if (ms.reward.charm && !MM.data.charmById(ms.reward.charm)) fail(`milestone ${ms.id} grants unknown charm "${ms.reward.charm}"`);
+  }
+
+  // star progression + milestone firing, through the real engine
+  MM.engine.state = {
+    yard: { stars: {}, milestones: {}, challenge: null, seen: false },
+    potions: 0, gold: 0, xp: 0, level: 1, titles: [],
+    items: { food: {}, charms: [] }, petHats: [], isles: { pet: null },
+  };
+  const S = MM.engine.state;
+  const realGainXp = MM.engine.gainXp; MM.engine.gainXp = () => {}; // skip level-up machinery
+  let r = MM.engine.yardComplete('doubles', 6, 8);
+  if (r.star !== 1) fail(`yard: 6/8 should give bronze (got ${r.star})`);
+  r = MM.engine.yardComplete('doubles', 8, 8);
+  if (r.star !== 2) fail(`yard: a clean run should reach silver (got ${r.star})`);
+  r = MM.engine.yardComplete('doubles', 8, 8);
+  if (r.star !== 3) fail(`yard: a second clean run should reach gold (got ${r.star})`);
+  r = MM.engine.yardComplete('make10', 8, 8);
+  if (r.star !== 2) fail(`yard: a fresh clean run should jump to silver (got ${r.star})`);
+  if (MM.engine.yardStar('x6') !== 0 || MM.engine.yardUnlocked('x6')) fail('yard: x6 must be locked before x3');
+  MM.engine.yardComplete('neardoubles', 8, 8); // the third Number Sense card -> milestone
+  if (!S.yard.milestones.sense) fail('yard: Number Sense milestone should fire once all three cards are silver');
+  if (!S.items.charms.includes('reckoner')) fail('yard: Number Sense should grant the Ready Reckoner charm');
+  if (!S.petHats.includes('numberling')) fail('yard: Number Sense should grant the Numberling Cap');
+  MM.engine.yardComplete('x2', 6, 8);
+  if (!MM.engine.yardUnlocked('x3')) fail('yard: x3 should unlock after x2 bronze');
+  // the daily challenge picks a real, unlocked, non-gold card
+  const chal = MM.engine.yardChallenge();
+  if (!chal || !ids.has(chal.card) || !MM.engine.yardUnlocked(chal.card)) fail('yard: challenge must pick an unlocked card');
+  MM.engine.gainXp = realGainXp;
   MM.engine.state = null;
 }
 

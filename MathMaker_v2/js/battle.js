@@ -430,8 +430,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     // ineligible one (deep/choice kinds) still uses the original latch —
     // frozen at pick time, exactly as before.
     const braveForDamage = bt.problem._dualEligible ? bt.activeIsExtended : bt.braveAtPick;
-    const { dmg, crit, brave } = bt.ctx.hooks.playerStrike(braveForDamage);
+    const strike = bt.ctx.hooks.playerStrike(braveForDamage);
+    let dmg = strike.dmg; const { crit, brave } = strike;
     const soothe = soothing();
+    // Ready Reckoner charm (Practice Yard): the FIRST damaging strike of the
+    // battle deals +2. Once per battle, never on a soothe (calm isn't damage).
+    if (!soothe && !bt.reckonerUsed && MM.engine.hasCharm('reckoner')) {
+      bt.reckonerUsed = true;
+      dmg += 2;
+    }
     // lunge toward the monster and back — soothing, you don't lunge, you REACH:
     // a smaller, slower movement toward it rather than a strike through it.
     tween(v => { bt.heroOx = (soothe ? 46 : 90) * Math.sin(v * Math.PI); }, soothe ? 520 : 360);

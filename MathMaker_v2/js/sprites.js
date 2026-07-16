@@ -1560,6 +1560,27 @@ var MM = globalThis.MM = globalThis.MM || {};
         '...kkkk..kkkk...',
       ],
     },
+    tutor: { // the Practice Yard's Tutor — mortarboard, chalk-dusted teal robe
+      colors: { k: '#1a1626', H: '#2a2438', F: '#f2c9a0', R: '#3a8a7a', c: '#e8e4d8', L: '#6b584c', t: '#e0c24a' },
+      map: [
+        '...kkkkkkkk.....',
+        '..kHHHHHHHHk....',
+        '...kkkkkkkk.tt..',
+        '....kFFFFk..t...',
+        '....kFkFFkFk....',
+        '....kFFFFFFk....',
+        '.....kFFFFk.....',
+        '....kRRRRRRk....',
+        '...kRRRRRRRRk...',
+        '...kRcRRRRcRk...',
+        '...kRRRRRRRRk...',
+        '...kRcRRRRRRk...',
+        '...kRRRRRRRRk...',
+        '....kRRRRRRk....',
+        '....kLLkkLLk....',
+        '...kkkk..kkkk...',
+      ],
+    },
     sage: {
       colors: { k: '#1a1626', G: '#8d88b8', F: '#e8c9a0', W: '#e8e4d8', R: '#6b5490', r: '#523c74', S: '#c49658' },
       map: [

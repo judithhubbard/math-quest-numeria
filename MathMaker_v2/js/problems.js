@@ -1686,5 +1686,37 @@ var MM = globalThis.MM = globalThis.MM || {};
     return q; // choice (staff, decimal compares): unchanged — keeps the latch
   }
 
-  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError, braveStep, tailStep };
+  // ---------- Practice Yard drills (the Tutor) ----------
+  // Narrow, single-fact-family generators, kept apart from the topic
+  // generators above: each targets ONE times table or one number-sense bond,
+  // for the Tutor's fluency drills. They never feed combat, gates or the
+  // adaptive tiers — the Yard runs them itself as a separate fluency track.
+  function yardDrill(cardId) {
+    if (cardId === 'doubles') {
+      const n = R.int(2, 12);
+      return num(`${n} + ${n} = ?`, 2 * n, `Double ${n} is ${2 * n}.`, 'A double is a number added to itself.');
+    }
+    if (cardId === 'neardoubles') {
+      const n = R.int(2, 11); // n + (n+1): a near-double
+      return num(`${n} + ${n + 1} = ?`, 2 * n + 1, `${n} + ${n} = ${2 * n}, and one more makes ${2 * n + 1}.`, 'Double the smaller number, then add one.');
+    }
+    if (cardId === 'make10') {
+      const a = R.int(1, 9), r = R.int(0, 2);
+      if (r === 0) return num(`${a} + ▢ = 10\nWhat makes ten?`, 10 - a, `${a} + ${10 - a} = 10.`, 'What do you add to reach ten?');
+      if (r === 1) return num(`${a} + ${10 - a} = ?`, 10, `${a} and ${10 - a} are a ten-pair.`, 'These two make ten.');
+      return num(`10 − ${a} = ?`, 10 - a, `10 − ${a} = ${10 - a}.`, 'Count back from ten.');
+    }
+    const m = /^x(\d+)$/.exec(cardId);
+    if (m) {
+      const a = +m[1], b = R.int(1, 12);
+      // sometimes the card's number leads, sometimes it trails — the kid sees
+      // both 7×3 and 3×7, so commutativity comes for free.
+      return R.chance(0.5)
+        ? num(`${a} × ${b} = ?`, a * b, `${a} × ${b} = ${a * b}.`)
+        : num(`${b} × ${a} = ?`, a * b, `${b} × ${a} = ${a * b}.`);
+    }
+    return num('2 + 2 = ?', 4, '2 + 2 = 4.'); // unknown card: a safe fallback
+  }
+
+  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError, braveStep, tailStep, yardDrill };
 })();

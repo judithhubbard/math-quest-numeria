@@ -792,6 +792,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     // rebuilding every repair site in town, never sold. Effect hook lives
     // in E.totalDef, same one-line pattern as Ring of Guard.
     { id: 'mason', name: "Mason's Charm", emoji: '🧱', desc: '+1 block' },
+    // Earned in the Practice Yard (the Number Sense milestone), never sold —
+    // effect hook lives in battle.js's damage calc, gated on a per-battle flag.
+    { id: 'reckoner', name: 'Ready Reckoner', emoji: '🧮', desc: 'Your first correct answer each battle deals +2 damage' },
   ];
   MM.data.charmById = id => MM.data.CHARMS.find(c => c.id === id);
 
@@ -1391,12 +1394,79 @@ var MM = globalThis.MM = globalThis.MM || {};
   MM.data.STATUE_EMPTY = 'An empty plinth, waiting for someone worth remembering.';
   MM.data.STATUE_LINE = name => `A small stone likeness of ${name} — carved with more fondness than accuracy, honestly.`;
   MM.data.PET_HATS = [
-    { id: 'bow', name: 'Bow', emoji: '🎀', price: 60 },
-    { id: 'party', name: 'Party Hat', emoji: '🎉', price: 80 },
-    { id: 'flower', name: 'Flower Crown', emoji: '🌸', price: 100 },
-    { id: 'crown', name: 'Tiny Crown', emoji: '👑', price: 160 },
+    { id: 'bow', name: 'Bow', emoji: '🎀', price: 60, react: 'Your pet preens, thoroughly pleased with itself.' },
+    { id: 'party', name: 'Party Hat', emoji: '🎉', price: 80, react: 'Your pet does one excited little spin.' },
+    { id: 'flower', name: 'Flower Crown', emoji: '🌸', price: 100, react: 'Your pet sniffs the petals and sneezes, charmingly.' },
+    { id: 'crown', name: 'Tiny Crown', emoji: '👑', price: 160, react: 'Your pet sits very regally. It knows.' },
+    // Earned in the Practice Yard, never sold — a set of four to collect, one
+    // per fluency milestone. `earned` marks them un-buyable in the wardrobe.
+    { id: 'numberling', name: 'Numberling Cap', emoji: '🧢', earned: true, react: 'Your pet tips the cap back at a studious angle.' },
+    { id: 'anchor', name: 'Anchor Topper', emoji: '🎩', earned: true, react: 'Your pet stands very tall — quite the distinguished scholar.' },
+    { id: 'climber', name: "Climber's Hat", emoji: '🤠', earned: true, react: 'Your pet swaggers a little. Yeehaw, apparently.' },
+    { id: 'graduate', name: 'Graduate Cap', emoji: '🎓', earned: true, react: 'Your pet sits up perfectly straight — as if it, too, has mastered its tables.' },
   ];
   MM.data.petHatById = id => MM.data.PET_HATS.find(h => h.id === id);
+
+  // ---------- the Practice Yard (the Tutor) ----------
+  // A stand-alone fluency track, separate from the ten story topics: a wall of
+  // single-fact-family cards, drilled with the Tutor near the castle from
+  // early game. Two little tracks — number-sense strategies (doubles →
+  // near-doubles → make ten) and the times tables — each card carrying a
+  // one-line strategy the Tutor teaches BEFORE testing. `prereq` soft-locks
+  // the harder cards (never a dead end — a locked card is greyed with its
+  // reason, and everything unlocked is always drillable); `order` drives the
+  // Tutor's "recommended next". Stars: 0 none, 1 bronze (a clear, >=6/8),
+  // 2 silver (a clean 8/8), 3 gold (a second clean run). Drills come from
+  // MM.problems.yardDrill(id). This is a SEPARATE track — it never touches the
+  // topic mastery/adaptive tiers.
+  MM.data.YARD_CARDS = [
+    { id: 'doubles',     label: 'Doubles',      emoji: '➕', track: 'sense',  order: 1,  prereq: [],          tip: 'A double is a number plus itself: 6 + 6. Learn these and near-doubles come almost free.' },
+    { id: 'neardoubles', label: 'Near-doubles', emoji: '➕', track: 'sense',  order: 2,  prereq: ['doubles'], tip: '6 + 7 is just 6 + 6, then one more. Double the smaller number, then add one.' },
+    { id: 'make10',      label: 'Make 10',      emoji: '🔟', track: 'sense',  order: 3,  prereq: ['doubles'], tip: 'The pairs that make ten: 3 + 7, 4 + 6, 8 + 2. Ten is the number everything else leans on.' },
+    { id: 'x2',  label: '×2',  emoji: '✖️', track: 'tables', order: 4,  prereq: [],      tip: 'Times two is just doubling — you already know these.' },
+    { id: 'x5',  label: '×5',  emoji: '✖️', track: 'tables', order: 5,  prereq: [],      tip: 'The fives always land on 5 or 0. Count them like nickels.' },
+    { id: 'x10', label: '×10', emoji: '✖️', track: 'tables', order: 6,  prereq: [],      tip: 'Times ten just adds a zero: 7 becomes 70.' },
+    { id: 'x3',  label: '×3',  emoji: '✖️', track: 'tables', order: 7,  prereq: ['x2'],  tip: 'Times three: double it, then add one more group.' },
+    { id: 'x4',  label: '×4',  emoji: '✖️', track: 'tables', order: 8,  prereq: ['x2'],  tip: 'Times four is double, then double again.' },
+    { id: 'x6',  label: '×6',  emoji: '✖️', track: 'tables', order: 9,  prereq: ['x3'],  tip: 'Times six is your threes, doubled.' },
+    { id: 'x7',  label: '×7',  emoji: '✖️', track: 'tables', order: 10, prereq: ['x6'],  tip: 'The sevens are the trickiest — go slow. 7 × 8 = 56 is the famous one.' },
+    { id: 'x8',  label: '×8',  emoji: '✖️', track: 'tables', order: 11, prereq: ['x4'],  tip: 'Times eight: double your fours.' },
+    { id: 'x9',  label: '×9',  emoji: '✖️', track: 'tables', order: 12, prereq: ['x8'],  tip: 'Times nine is the tens minus one group: 9 × 6 = 60 − 6 = 54. And the digits always add to nine.' },
+    { id: 'x11', label: '×11', emoji: '✖️', track: 'tables', order: 13, prereq: ['x10'], tip: 'Times eleven, up to nine, just repeats the digit: 11 × 4 = 44.' },
+    { id: 'x12', label: '×12', emoji: '✖️', track: 'tables', order: 14, prereq: ['x11'], tip: 'Times twelve is your tens plus your twos: 12 × 7 = 70 + 14 = 84.' },
+  ];
+  MM.data.yardCardById = id => MM.data.YARD_CARDS.find(c => c.id === id);
+
+  // Milestones: a cluster of cards to a star threshold (`need`: 2 silver,
+  // 3 gold) grants `reward` (any of charm/hat/title/potions/food/gold) and
+  // the Tutor speaks `line`. The capstone needs every card at gold.
+  MM.data.YARD_MILESTONES = [
+    { id: 'sense', name: 'Number Sense', cards: ['doubles', 'neardoubles', 'make10'], need: 2,
+      reward: { charm: 'reckoner', hat: 'numberling', potions: 2, food: 2 },
+      line: '"THIS is the ground everything else stands on," the Tutor says, eyes shining. "Doubles, near-doubles, tens — quick mathematicians all have these cold. You just joined them."' },
+    { id: 'anchors', name: 'The Anchor Tables', cards: ['x2', 'x5', 'x10'], need: 2,
+      reward: { hat: 'anchor', potions: 3, food: 3, gold: 40 },
+      line: '"Twos, fives, tens — the tables you lean all the others against. Well anchored."' },
+    { id: 'climb', name: 'The Climb', cards: ['x3', 'x4', 'x6', 'x7', 'x8', 'x9'], need: 2,
+      reward: { hat: 'climber', potions: 4, food: 4, gold: 80 },
+      line: '"The steep middle — threes through nines. This is where most give up. You did not."' },
+    { id: 'master', name: 'Master of Tables', cards: ['doubles', 'neardoubles', 'make10', 'x2', 'x5', 'x10', 'x3', 'x4', 'x6', 'x7', 'x8', 'x9', 'x11', 'x12'], need: 3,
+      reward: { hat: 'graduate', title: 'Master of Tables', potions: 5, food: 5, gold: 120 },
+      line: '"Every card, gold. Every fact, instant." The Tutor has to sit down for a moment. "I have never seen it done so completely. You are a <b>Master of Tables</b>."' },
+  ];
+
+  MM.data.TUTOR = {
+    intro: '"Welcome to the Practice Yard!" A wiry figure with chalk-dusted sleeves beams at you. "The MathMaker sends the sharp ones to me. Fluency is not magic — it is a muscle, built one small set at a time. Pick a card and we will drill it until it is easy. Start with your <b>doubles</b>."',
+    return: '"Back for more? Good. A little every day is how it sticks."',
+    // hat grant messaging — the pet is a mid-game companion, so a hat earned
+    // early goes into the pack with a word about the friend still to come.
+    hatNoPet: 'The Tutor tucks it into your pack. "For a companion — you will meet one out on your travels. This will be waiting when you do."',
+    hatPet: 'The Tutor grins. "Your companion will look splendid in this."',
+    // the daily directed challenge — the Tutor chooses the card, so the reward
+    // can never be farmed on the easiest drill.
+    challengeIntro: 'The Tutor claps. "Today\'s challenge, my choosing:',
+    challengeDone: '"Done, and done well. Take these — you have earned them."',
+  };
 
   // 5b growth visuals: Miscount's Academy visibly grows with attendance
   // (s.academyTotal — a lifetime "slates checked" counter, never resets).

@@ -2278,6 +2278,115 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   // ---------- the problem modal (doors, chests, inn, shop) ----------
   // opts: {header, problem, leaveLabel, onAnswer(correct)->{msg, end?}, onNext(), onEnd(kind)}
+  // ---------- the Practice Yard (the Tutor) ----------
+  function listParts(parts) {
+    if (!parts || !parts.length) return 'nothing';
+    if (parts.length === 1) return parts[0];
+    return parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
+  }
+  function yardResultMsg(card, correct, N, res) {
+    const starWord = ['no star yet', 'a <b>Bronze ★</b>', 'a <b>Silver ★★</b>', 'a <b>Gold ★★★</b>'][res.star];
+    const stars = '★'.repeat(res.star) + '☆'.repeat(3 - res.star);
+    let msg = `<b>${correct}/${N} correct.</b> `;
+    msg += res.up ? `You earned ${starWord} on ${card.label}!` : `${card.label}: ${stars}.`;
+    if (res.challengeDone && res.challengeParts) {
+      msg += `<br><br>🎯 <b>Challenge complete!</b> ${MM.data.TUTOR.challengeDone} You get ${listParts(res.challengeParts)}.`;
+    }
+    for (const m of (res.milestones || [])) {
+      msg += `<br><br>🏆 <b>${m.milestone.name}!</b> ${m.milestone.line}<br>You receive ${listParts(m.parts)}.`;
+      if (m.gotHat) msg += ` <i>${MM.engine.hasPet() ? MM.data.TUTOR.hatPet : MM.data.TUTOR.hatNoPet}</i>`;
+    }
+    return msg;
+  }
+  function runYardDrill(cardId) {
+    const card = MM.data.yardCardById(cardId);
+    const N = 8;
+    let i = 0, correct = 0;
+    const step = () => {
+      const prob = MM.problems.yardDrill(cardId);
+      UI.showProblem({
+        header: `🎓 <b>${card.emoji} ${card.label}</b> — question ${i + 1} of ${N}`,
+        problem: prob,
+        leaveLabel: 'Stop for now',
+        onAnswer(ok) {
+          if (ok) correct++;
+          i++;
+          if (i >= N) {
+            const res = MM.engine.yardComplete(cardId, correct, N);
+            return { msg: yardResultMsg(card, correct, N, res), end: 'done' };
+          }
+          return { msg: ok ? '✓ Nice.' : "That's okay — next one." };
+        },
+        onNext: step,
+        onEnd() { UI.practiceYard(); },
+      });
+    };
+    step();
+  }
+  UI.yardCardIntro = function (cardId, isChallenge) {
+    const c = MM.data.yardCardById(cardId);
+    const stars = MM.engine.yardStar(cardId);
+    UI.dialogChoices(`${c.emoji} ${c.label}`,
+      `<b>The Tutor:</b> "${c.tip}"<br><br>` +
+      (isChallenge ? "<i>This is today's challenge — clear it for a reward.</i><br><br>" : '') +
+      `Your stars: <b>${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</b> &nbsp; <span class="dim">(8 quick questions)</span>`,
+      [
+        { label: '✏️ Start the drill', primary: true, onClick: () => runYardDrill(cardId) },
+        { label: 'Back to the wall', onClick: () => UI.practiceYard() },
+      ]);
+  };
+  UI.practiceYard = function () {
+    const s = MM.engine.state;
+    if (!s || UI.modalOpen() || MM.battle.active()) return;
+    const D = MM.data;
+    const firstVisit = !s.yard.seen;
+    if (firstVisit) { s.yard.seen = true; MM.engine.save(); }
+    const rec = MM.engine.yardRecommended();
+    const ch = MM.engine.yardChallenge();
+    const chCard = D.yardCardById(ch.card);
+    const cardBtn = c => {
+      const unlocked = MM.engine.yardUnlocked(c.id);
+      const n = MM.engine.yardStar(c.id);
+      const stars = '★'.repeat(n) + '☆'.repeat(3 - n);
+      if (!unlocked) {
+        const need = c.prereq.map(p => D.yardCardById(p).label).join(' & ');
+        return `<button class="yard-card locked" disabled>${c.emoji} ${c.label}<span class="yard-lock">🔒 after ${need}</span></button>`;
+      }
+      const isRec = c.id === rec;
+      return `<button class="yard-card${isRec ? ' rec' : ''}" data-card="${c.id}">${c.emoji} ${c.label}<span class="yard-stars">${stars}</span>${isRec ? '<span class="yard-rec">next ◀</span>' : ''}</button>`;
+    };
+    const sense = D.YARD_CARDS.filter(c => c.track === 'sense').map(cardBtn).join('');
+    const tables = D.YARD_CARDS.filter(c => c.track === 'tables').map(cardBtn).join('');
+    const challengeLine = ch.done
+      ? `<p class="dim">✓ Today's challenge is done — come back tomorrow for a fresh one.</p>`
+      : `<p>${D.TUTOR.challengeIntro} <b>${chCard.emoji} ${chCard.label}</b>." <button id="yardChallenge" class="primary">Take it on</button></p>`;
+    openModal(`
+      <h2>🎓 The Practice Yard</h2>
+      <div class="dialog-body">
+        <p>${firstVisit ? D.TUTOR.intro : D.TUTOR.return}</p>
+        <div class="shop-sec shop-sec-bold">
+          <h3>🎯 The Tutor's daily challenge</h3>
+          ${challengeLine}
+        </div>
+        <div class="shop-sec shop-sec-gentle">
+          <h3>➕ Number sense <span class="dim">— the foundations</span></h3>
+          <div class="yard-wall">${sense}</div>
+        </div>
+        <div class="shop-sec shop-sec-ring">
+          <h3>✖️ Times tables</h3>
+          <div class="yard-wall">${tables}</div>
+        </div>
+        <p class="dim">The Tutor points you at your <b>next</b> card, but drill any unlocked one you like. ★ Bronze = a clear · ★★ Silver = a clean run · ★★★ Gold = mastered.</p>
+      </div>
+      <div class="btnrow"><button id="yardClose" class="secondary">Close</button></div>`);
+    document.querySelectorAll('.yard-card[data-card]').forEach(b => {
+      b.onclick = () => { const id = b.dataset.card; closeModal(); UI.yardCardIntro(id, id === ch.card && !ch.done); };
+    });
+    const chBtn = document.getElementById('yardChallenge');
+    if (chBtn) chBtn.onclick = () => { closeModal(); UI.yardCardIntro(ch.card, true); };
+    document.getElementById('yardClose').onclick = () => { closeModal(); UI.refresh(); };
+  };
+
   UI.showProblem = function (opts) {
     MM.track('problem ' + (opts.problem && opts.problem.skill) + '/' + (opts.problem && opts.problem.kind));
     const p = opts.problem;
@@ -2812,9 +2921,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     const rows = MM.data.PET_HATS.map(h => {
       const owned = s.petHats.includes(h.id);
       const worn = pet.hat === h.id;
+      // earned hats (the Practice Yard set) are never bought — an unearned one
+      // shows greyed so the collection is visible ("collect them all").
+      if (h.earned && !owned) {
+        return `<div class="shop-row"><span class="shop-item" style="opacity:.5">${h.emoji} ${h.name}</span><span class="shop-price dim">not yet earned</span><button class="shop-buy" disabled>—</button></div>`;
+      }
+      const price = owned ? (worn ? '✓ worn' : 'owned') : (h.earned ? 'earned' : h.price + ' g');
       return `<div class="shop-row${worn ? ' owned' : ''}">
         <span class="shop-item">${h.emoji} ${h.name}</span>
-        <span class="shop-price">${owned ? (worn ? '✓ worn' : 'owned') : h.price + ' g'}</span>
+        <span class="shop-price">${price}</span>
         <button class="shop-buy" data-hat="${h.id}">${owned ? (worn ? 'Take off' : 'Wear') : 'Buy'}</button>
       </div>`;
     }).join('');
@@ -2828,8 +2943,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     document.getElementById('wardrobeClose').onclick = () => { closeModal(); UI.refresh(); };
     document.querySelectorAll('[data-hat]').forEach(b => {
       b.onclick = () => {
-        const r = MM.engine.petHatAction(b.dataset.hat);
+        const id = b.dataset.hat;
+        const r = MM.engine.petHatAction(id);
         if (!r.ok && r.msg) { closeModal(); return UI.dialog('🎩 Not quite', r.msg, () => UI.petWardrobe()); }
+        // the pet reacts to the hat it's now wearing (cuteness, zero weight)
+        const petNow = MM.engine.state.isles.pet, hat = MM.data.petHatById(id);
+        if (petNow && petNow.hat === id && hat && hat.react) UI.log(`🐾 ${hat.react}`);
         UI.petWardrobe();
       };
     });
