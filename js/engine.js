@@ -89,6 +89,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       academyTotal: 0,      // lifetime Academy slates checked (attendance; never resets)
       castleFurnish: { rug: false, garden: false, library: false, statues: [] },
       petHats: [],          // owned pet-hat ids; s.isles.pet.hat is which one is WORN
+      // Practice Yard (the Tutor): a separate fluency track. stars keyed by
+      // card id (0-3), milestones = claimed reward ids, challenge = the daily
+      // Tutor-directed card {date, card, done}.
+      yard: { stars: {}, milestones: {}, challenge: null, seen: false },
       // ---------- Wave 10: "The World Notices" ----------
       // The Turning Stones (P1) read s.tasksDone.length live — zero new
       // state. The fence (P3) reads s.tasksDone.includes(6) live too — the
@@ -221,6 +225,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!s.castleFurnish) s.castleFurnish = { rug: false, garden: false, library: false, statues: [] };
     if (!s.castleFurnish.statues) s.castleFurnish.statues = [];
     if (!s.petHats) s.petHats = [];
+    // Practice Yard (the Tutor): missing means "never visited yet."
+    if (!s.yard) s.yard = { stars: {}, milestones: {}, challenge: null, seen: false };
+    if (!s.yard.stars) s.yard.stars = {};
+    if (!s.yard.milestones) s.yard.milestones = {};
     // Wave 10: "The World Notices" — missing means "never happened yet."
     if (s.seenFenceThanks == null) s.seenFenceThanks = false;
     if (s.seenGoldenBird == null) s.seenGoldenBird = false;
@@ -862,6 +870,116 @@ var MM = globalThis.MM = globalThis.MM || {};
     return { ok: true };
   };
 
+  // ---------- the Practice Yard (the Tutor) ----------
+  // A separate fluency track (see MM.data.YARD_CARDS). Everything reads/writes
+  // s.yard.stars (card id -> 0..3). Nothing here touches topic mastery.
+  E.yardStar = id => (E.state.yard.stars[id] || 0);
+  E.yardUnlocked = function (id) {
+    const c = MM.data.yardCardById(id);
+    if (!c) return false;
+    return c.prereq.every(p => E.yardStar(p) >= 1); // a prereq at bronze+ opens it
+  };
+  // the Tutor's "work on this next": the lowest-order UNLOCKED card that
+  // isn't gold yet (falls back to the first card once everything is gold).
+  E.yardRecommended = function () {
+    const open = MM.data.YARD_CARDS.filter(c => E.yardUnlocked(c.id) && E.yardStar(c.id) < 3);
+    if (!open.length) return MM.data.YARD_CARDS[0].id;
+    return open.sort((a, b) => a.order - b.order)[0].id;
+  };
+  E.hasPet = () => !!(E.state.isles && E.state.isles.pet);
+
+  // Grant a reward bundle (any of gold/potions/food/charm/hat/title). Hats go
+  // into the collection whether or not a pet exists yet — the caller narrates
+  // the "for a companion you'll meet" line. Returns display parts + whether a
+  // hat was newly earned (so the caller can add the pet note).
+  E.yardGrantReward = function (reward) {
+    const s = E.state; const parts = []; let gotHat = false;
+    if (reward.gold) { const g = E.gainGold(reward.gold); parts.push(`<b>${g} gold</b>`); }
+    if (reward.potions) { s.potions += reward.potions; parts.push(`<b>${reward.potions}</b> 🧪 potion${reward.potions > 1 ? 's' : ''}`); }
+    if (reward.food) {
+      for (let i = 0; i < reward.food; i++) { const f = MM.data.FOODS[Math.floor(Math.random() * MM.data.FOODS.length)]; s.items.food[f.id] = (s.items.food[f.id] || 0) + 1; }
+      parts.push(`<b>${reward.food}</b> 🍗 food`);
+    }
+    if (reward.charm && !s.items.charms.includes(reward.charm)) {
+      s.items.charms.push(reward.charm); const c = MM.data.charmById(reward.charm);
+      parts.push(`the ${c.emoji} <b>${c.name}</b> charm`);
+    }
+    if (reward.hat && !s.petHats.includes(reward.hat)) {
+      s.petHats.push(reward.hat); gotHat = true; const h = MM.data.petHatById(reward.hat);
+      parts.push(`the ${h.emoji} <b>${h.name}</b>`);
+    }
+    if (reward.title) { s.titles = s.titles || []; if (!s.titles.includes(reward.title)) { s.titles.push(reward.title); parts.push(`the title <b>“${reward.title}”</b>`); } }
+    return { parts, gotHat };
+  };
+
+  // After a card's star changes, award any newly-completed milestones. Returns
+  // an array of {milestone, parts, gotHat} for the UI to announce in order.
+  E.yardCheckMilestones = function () {
+    const s = E.state; const earned = [];
+    for (const ms of MM.data.YARD_MILESTONES) {
+      if (s.yard.milestones[ms.id]) continue;
+      if (ms.cards.every(cid => E.yardStar(cid) >= ms.need)) {
+        s.yard.milestones[ms.id] = true;
+        const g = E.yardGrantReward(ms.reward);
+        earned.push({ milestone: ms, parts: g.parts, gotHat: g.gotHat });
+        MM.sound.fanfare();
+      }
+    }
+    if (earned.length) E.save();
+    return earned;
+  };
+
+  // Record a finished drill of `total` questions with `correct` right. Bumps
+  // the card's star (bronze >=6/8, silver a clean run, gold a second clean
+  // run), gives a little XP for a NEW star, marks the daily challenge done if
+  // this was its card, and returns {star, up, challengeDone, milestones}.
+  E.yardComplete = function (cardId, correct, total) {
+    const s = E.state; const before = E.yardStar(cardId); let star = before;
+    const clean = correct >= total;
+    if (clean) star = before < 2 ? 2 : 3;
+    else if (correct >= Math.ceil(total * 0.75) && before < 1) star = 1;
+    star = Math.min(3, star);
+    s.yard.stars[cardId] = star;
+    const up = star > before;
+    if (up) E.gainXp(5 * (star - before)); // free-practice reward: a little XP
+    // the daily Tutor-directed challenge pays its consumable bundle on a solid
+    // clear (>=75%) of ITS card — the Tutor chose it, so no easy-drill farm.
+    let challengeDone = false, challengeParts = null;
+    const ch = s.yard.challenge;
+    if (ch && ch.card === cardId && !ch.done && correct >= Math.ceil(total * 0.75)) {
+      ch.done = true; challengeDone = true;
+      challengeParts = E.yardGrantReward(E.YARD_CHALLENGE_REWARD).parts;
+    }
+    E.save();
+    const milestones = E.yardCheckMilestones();
+    return { star, before, up, clean, challengeDone, challengeParts, milestones };
+  };
+
+  // The daily Tutor-directed challenge. The Tutor CHOOSES the card (weighted
+  // to number-sense, unmastered, and low-order cards) so the consumable
+  // reward can never be farmed on the easiest drill. Date-keyed like bounties.
+  E.yardChallenge = function () {
+    const s = E.state; const today = E.todayStr();
+    if (s.yard.challenge && s.yard.challenge.date === today) return s.yard.challenge;
+    const unlocked = MM.data.YARD_CARDS.filter(c => E.yardUnlocked(c.id));
+    const pool = unlocked.filter(c => E.yardStar(c.id) < 3);
+    const src = pool.length ? pool : unlocked;
+    const bag = [];
+    for (const c of src) {
+      let w = 1;
+      if (c.track === 'sense') w += 2;          // foundational: encouraged
+      if (E.yardStar(c.id) === 0) w += 1;        // never-touched: nudge it
+      for (let i = 0; i < w; i++) bag.push(c.id);
+    }
+    const card = bag[Math.floor(Math.random() * bag.length)];
+    s.yard.challenge = { date: today, card, done: false };
+    E.save();
+    return s.yard.challenge;
+  };
+  E.YARD_CHALLENGE_REWARD = { potions: 2, food: 2, gold: 15 };
+
+  E.tutor = function () { return MM.ui.practiceYard(); };
+
   // Three independent plinths (not a dependency chain, unlike the Gallery —
   // these are trophies, not a story). Picks from E.gauntletBosses(), which
   // already dedupes multi-floor mapIds down to one entry per boss.
@@ -1455,6 +1573,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (tangleHere) return E.startTangleBattle(tangleHere);
         if (ch === 'C') return E.castle();
         if (ch === 'H') return E.spiralMenu();
+        if (ch === 'Y') return E.tutor();
         if (ch === 'n') return MM.ui.noticeBoard();
         if (ch === 'W') return E.pier();
         if (ch === 'F') return E.fencePost(); // Wave 10 (P3): the mended fence east of the farm

@@ -38,7 +38,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     '~~..T..........TT..C.n......T.....5...',
     // Wave 7.1: (34,5) was a day-one trap pocket under dungeon 5's door
     '~~.....T..............T..........eMM..',
-    '~~...........j.S.......I...q...M.MM...',
+    '~~...........j.S.Y.....I...q...M.MM...',
     '~~W.T.....T..........................T',
     '~~...........TT....P..h..T...2........',
     '~~..T...1..............T..............',
@@ -1489,6 +1489,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       case 'S': return 'shop';
       case 'I': return 'inn';
       case 'n': return 'board';
+      case 'Y': return 'tutor'; // the Practice Yard's Tutor (overworld NPC)
       case 'W': return 'pier';
       // Wave 11 (P2): mainland wall tiers escalate by dungeonIndex — see
       // wallTierSprite. Overworld/castle '#' never reaches this switch (the
