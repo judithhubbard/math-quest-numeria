@@ -1258,6 +1258,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     choices.push({ label: '⛵ Sail home to Numeria', onClick: () => E.sail('west') });
     // Wave 6.5: no inn on this island — the bunk serves instead
     choices.push({ label: '🛏 Rest in your bunk (3 warm-ups)', onClick: () => E.inn(true) });
+    choices.push({ label: "🎓 Practice with the Tutor's cards", onClick: () => MM.ui.practiceYard() });
     choices.push({ label: 'Stay a while', onClick: () => {} });
     // Wave 10 (P2, reactive cast): once Gullwrack's own dungeon is beaten,
     // this stop has heard about it too — checked above spireDone so it
@@ -1289,6 +1290,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         { label: '⛵ Sail home to Numeria', onClick: () => E.sail('west') },
         // Wave 6.5: no inn on this island — the bunk serves instead
         { label: '🛏 Rest in your bunk (3 warm-ups)', onClick: () => E.inn(true) },
+        { label: "🎓 Practice with the Tutor's cards", onClick: () => MM.ui.practiceYard() },
         { label: 'Stay a while', onClick: () => {} },
       ]);
   };
@@ -1309,6 +1311,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         { label: '⛵ Sail to Chime Isle', onClick: () => E.sail('chime') },
         { label: '⛵ Sail to the Isles', onClick: () => E.sail('isles') },
         { label: '⛵ Sail home to Numeria', onClick: () => E.sail('west') },
+        { label: "🎓 Practice with the Tutor's cards", onClick: () => MM.ui.practiceYard() },
         { label: 'Stay a while', onClick: () => {} },
       ]);
   };
@@ -1544,6 +1547,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (ch === '3') return E.tryEnterDungeon(16);
         if (ch === '4') return E.tryEnterDungeon(18);
         if (ch === 'n') return MM.ui.noticeBoard();
+        if (ch === 'Y') return E.tutor(); // the Tutor's dockside Practice Yard
         if (ch === '%') { // the Vault's secret wall: a nudge (or a pet's nose) finds it
           s.grid[ny][nx] = '4';
           s.opened[`isles:${nx},${ny}`] = true;
