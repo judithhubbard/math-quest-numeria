@@ -328,6 +328,15 @@ for (const ch of ['C', 'S', 'I', 'P', 'n', '1', '2', '3', '4', '5', '6', '7', '8
   }
 }
 
+// 'Y' is shared: the Practice Yard's Tutor on an overworld, the Cavern of
+// Echoes' echo door in a dungeon. A switch-order regression (the Tutor case
+// shadowing the echo-door case) would render echo doors as the Tutor.
+{
+  if (MM.maps.tileSprite('Y', 0, 0, 'world', false) !== 'tutor') fail("'Y' on an overworld must render as the Tutor");
+  if (MM.maps.tileSprite('Y', 0, 0, 'isles', false) !== 'tutor') fail("'Y' on the isles must render as the Tutor");
+  if (MM.maps.tileSprite('Y', 0, 0, 'cavern', false) !== 'echoDoor') fail("'Y' in a dungeon must render as an echo door, not the Tutor");
+}
+
 MM.maps.DUNGEONS.forEach((raw, di) => {
   raw.forEach((r, i) => { if (r.length !== 26) fail(`dungeon ${di + 1} row ${i} length ${r.length}`); });
   if (raw.length !== 16) fail(`dungeon ${di + 1} has ${raw.length} rows`);

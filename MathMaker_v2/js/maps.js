@@ -1489,7 +1489,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       case 'S': return 'shop';
       case 'I': return 'inn';
       case 'n': return 'board';
-      case 'Y': return 'tutor'; // the Practice Yard's Tutor (overworld NPC)
+      // 'Y' is the Practice Yard's Tutor on an overworld, but the Cavern of
+      // Echoes reuses 'Y' for its echo doors — disambiguate by context (this
+      // case sits above the dungeon-only 'echoDoor' entry below and would
+      // otherwise shadow it).
+      case 'Y': return inDungeon ? 'echoDoor' : 'tutor';
       case 'W': return 'pier';
       // Wave 11 (P2): mainland wall tiers escalate by dungeonIndex — see
       // wallTierSprite. Overworld/castle '#' never reaches this switch (the
@@ -1515,7 +1519,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       // Waves 3/4/6 tiles that shipped handler-only and rendered as bare
       // ground (Wave 6.5 renderability pass)
       case 'Z': return 'clockDoor';
-      case 'Y': return 'echoDoor';
+      // (echo doors: handled by the context-aware 'Y' case above)
       case 'R': return 'gearPlate';
       case 's': return 'singStone';
       case 'U': return 'slab';
