@@ -76,9 +76,10 @@ const SHOTS = path.join(__dirname, 'shots-yard');
   }
   await page.screenshot({ path: SHOTS + '/2-drill-result.png' });
   const afterDrill = await ev(id => ({ star: MM.engine.yardStar(id), unlockedNear: MM.engine.yardUnlocked('neardoubles') }), recId);
-  // recommended-next is 'doubles' at a fresh start; a clean 8/8 = silver (2)
-  check(afterDrill.star === 2, `a clean 8/8 earns Silver (2 stars) on ${recId} (got ${afterDrill.star})`);
-  check(afterDrill.unlockedNear, "clearing Doubles unlocks its dependents (Near-doubles no longer locked)");
+  // recommended-next is 'doubles' at a fresh start; each star is a clean run,
+  // so a first clean 8/8 = bronze (1)
+  check(afterDrill.star === 1, `a clean 8/8 earns Bronze (1 star) on ${recId} (got ${afterDrill.star})`);
+  check(afterDrill.unlockedNear, "earning a star on Doubles unlocks its dependents (Near-doubles no longer locked)");
 
   // ---- a milestone: drive the three Number Sense cards to silver ----
   const ms = await ev(() => {

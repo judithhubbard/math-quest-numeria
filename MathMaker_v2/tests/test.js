@@ -2450,21 +2450,29 @@ for (const skill of skills) {
   };
   const S = MM.engine.state;
   const realGainXp = MM.engine.gainXp; MM.engine.gainXp = () => {}; // skip level-up machinery
+  // each star is a CLEAN RUN — a miss earns nothing, no star without 8/8
   let r = MM.engine.yardComplete('doubles', 6, 8);
-  if (r.star !== 1) fail(`yard: 6/8 should give bronze (got ${r.star})`);
+  if (r.star !== 0) fail(`yard: a miss (6/8) must earn no star (got ${r.star})`);
   r = MM.engine.yardComplete('doubles', 8, 8);
-  if (r.star !== 2) fail(`yard: a clean run should reach silver (got ${r.star})`);
+  if (r.star !== 1) fail(`yard: the first clean run is bronze (got ${r.star})`);
   r = MM.engine.yardComplete('doubles', 8, 8);
-  if (r.star !== 3) fail(`yard: a second clean run should reach gold (got ${r.star})`);
-  r = MM.engine.yardComplete('make10', 8, 8);
-  if (r.star !== 2) fail(`yard: a fresh clean run should jump to silver (got ${r.star})`);
+  if (r.star !== 2) fail(`yard: a second clean run is silver (got ${r.star})`);
+  r = MM.engine.yardComplete('doubles', 8, 8);
+  if (r.star !== 3) fail(`yard: a third clean run is gold (got ${r.star})`);
+  r = MM.engine.yardComplete('doubles', 8, 8);
+  if (r.star !== 3) fail(`yard: gold is the cap (got ${r.star})`);
   if (MM.engine.yardStar('x6') !== 0 || MM.engine.yardUnlocked('x6')) fail('yard: x6 must be locked before x3');
-  MM.engine.yardComplete('neardoubles', 8, 8); // the third Number Sense card -> milestone
+  // Number Sense needs all three cards at silver = two clean runs each
+  MM.engine.yardComplete('neardoubles', 8, 8); MM.engine.yardComplete('neardoubles', 8, 8);
+  MM.engine.yardComplete('make10', 8, 8);
+  if (S.yard.milestones.sense) fail('yard: the milestone must NOT fire before all three cards are silver');
+  MM.engine.yardComplete('make10', 8, 8); // make10 -> silver, completing the cluster
   if (!S.yard.milestones.sense) fail('yard: Number Sense milestone should fire once all three cards are silver');
   if (!S.items.charms.includes('reckoner')) fail('yard: Number Sense should grant the Ready Reckoner charm');
   if (!S.petHats.includes('numberling')) fail('yard: Number Sense should grant the Numberling Cap');
-  MM.engine.yardComplete('x2', 6, 8);
-  if (!MM.engine.yardUnlocked('x3')) fail('yard: x3 should unlock after x2 bronze');
+  if (MM.engine.yardUnlocked('x3')) fail('yard: x3 must be locked before x2 earns a star');
+  MM.engine.yardComplete('x2', 8, 8); // one clean run = bronze -> unlocks x3
+  if (!MM.engine.yardUnlocked('x3')) fail('yard: x3 should unlock after x2 earns a star');
   // the daily challenge picks a real, unlocked, non-gold card
   const chal = MM.engine.yardChallenge();
   if (!chal || !ids.has(chal.card) || !MM.engine.yardUnlocked(chal.card)) fail('yard: challenge must pick an unlocked card');
