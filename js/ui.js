@@ -2287,8 +2287,19 @@ var MM = globalThis.MM = globalThis.MM || {};
   function yardResultMsg(card, correct, N, res) {
     const starWord = ['no star yet', 'a <b>Bronze ★</b>', 'a <b>Silver ★★</b>', 'a <b>Gold ★★★</b>'][res.star];
     const stars = '★'.repeat(res.star) + '☆'.repeat(3 - res.star);
-    let msg = `<b>${correct}/${N} correct.</b> `;
-    msg += res.up ? `You earned ${starWord} on ${card.label}!` : `${card.label}: ${stars}.`;
+    // a celebratory banner when something is actually earned
+    let banner = '';
+    if (res.milestones && res.milestones.length) {
+      banner = `<div class="yard-cheer big">🎉 ${res.milestones.map(m => m.milestone.name).join(' + ')}! 🎉</div>`;
+    } else if (res.star === 3 && res.up) {
+      banner = `<div class="yard-cheer">🌟 GOLD! ${card.label} mastered! 🌟</div>`;
+    } else if (res.up) {
+      banner = `<div class="yard-cheer">⭐ New star! ⭐</div>`;
+    }
+    let msg = banner + `<b>${correct}/${N} correct.</b> `;
+    if (res.up) msg += `You earned ${starWord} on ${card.label}! <i>${MM.data.pick(MM.data.TUTOR.starCheers)}</i>`;
+    else if (res.clean) msg += `${card.label} is already <b>gold ★★★</b> — mastered.`;
+    else msg += `${card.label}: ${stars}. <span class="dim">A clean run — all ${N} right — earns the next ★.</span>`;
     if (res.challengeDone && res.challengeParts) {
       msg += `<br><br>🎯 <b>Challenge complete!</b> ${MM.data.TUTOR.challengeDone} You get ${listParts(res.challengeParts)}.`;
     }
@@ -2313,6 +2324,8 @@ var MM = globalThis.MM = globalThis.MM || {};
           i++;
           if (i >= N) {
             const res = MM.engine.yardComplete(cardId, correct, N);
+            // a bright jingle for a new star; milestones already fanfare (engine)
+            if (!(res.milestones && res.milestones.length) && res.up) MM.sound.levelup();
             return { msg: yardResultMsg(card, correct, N, res), end: 'done' };
           }
           return { msg: ok ? '✓ Nice.' : "That's okay — next one." };
@@ -2357,9 +2370,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     };
     const sense = D.YARD_CARDS.filter(c => c.track === 'sense').map(cardBtn).join('');
     const tables = D.YARD_CARDS.filter(c => c.track === 'tables').map(cardBtn).join('');
+    const cr = MM.engine.YARD_CHALLENGE_REWARD;
+    const rewardStr = `🧪 ${cr.potions} potion${cr.potions > 1 ? 's' : ''}, 🍗 ${cr.food} food and 💰 ${cr.gold} gold`;
     const challengeLine = ch.done
       ? `<p class="dim">✓ Today's challenge is done — come back tomorrow for a fresh one.</p>`
-      : `<p>${D.TUTOR.challengeIntro} <b>${chCard.emoji} ${chCard.label}</b>." <button id="yardChallenge" class="primary">Take it on</button></p>`;
+      : `<p>${D.TUTOR.challengeIntro} <b>${chCard.emoji} ${chCard.label}</b>." <button id="yardChallenge" class="primary">Take it on</button></p>
+         <p class="dim">Clear it and the Tutor pays you <b>${rewardStr}</b>.</p>`;
     openModal(`
       <h2>🎓 The Practice Yard</h2>
       <div class="dialog-body">
@@ -2376,7 +2392,7 @@ var MM = globalThis.MM = globalThis.MM || {};
           <h3>✖️ Times tables</h3>
           <div class="yard-wall">${tables}</div>
         </div>
-        <p class="dim">The Tutor points you at your <b>next</b> card, but drill any unlocked one you like. ★ Bronze = a clear · ★★ Silver = a clean run · ★★★ Gold = mastered.</p>
+        <p class="dim">The Tutor points you at your <b>next</b> card, but drill any unlocked one you like. Every ★ is a <b>clean run</b> — all 8 right. Three clean runs (★★★) masters a card.</p>
       </div>
       <div class="btnrow"><button id="yardClose" class="secondary">Close</button></div>`);
     document.querySelectorAll('.yard-card[data-card]').forEach(b => {

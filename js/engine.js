@@ -929,16 +929,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     return earned;
   };
 
-  // Record a finished drill of `total` questions with `correct` right. Bumps
-  // the card's star (bronze >=6/8, silver a clean run, gold a second clean
-  // run), gives a little XP for a NEW star, marks the daily challenge done if
-  // this was its card, and returns {star, up, challengeDone, milestones}.
+  // Record a finished drill of `total` questions with `correct` right. Each
+  // star is a CLEAN RUN — all correct (user, 2026-07-16: "fluency means all 8;
+  // the first star shouldn't be reachable without 8/8"). So a clean run bumps
+  // the star by one (bronze → silver → gold, three clean runs to master) and a
+  // miss earns nothing. Gives a little XP for a NEW star, marks the daily
+  // challenge done if this was its card, returns {star, up, challengeDone, …}.
   E.yardComplete = function (cardId, correct, total) {
     const s = E.state; const before = E.yardStar(cardId); let star = before;
     const clean = correct >= total;
-    if (clean) star = before < 2 ? 2 : 3;
-    else if (correct >= Math.ceil(total * 0.75) && before < 1) star = 1;
-    star = Math.min(3, star);
+    if (clean && before < 3) star = before + 1;
     s.yard.stars[cardId] = star;
     const up = star > before;
     if (up) E.gainXp(5 * (star - before)); // free-practice reward: a little XP
@@ -976,7 +976,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.save();
     return s.yard.challenge;
   };
-  E.YARD_CHALLENGE_REWARD = { potions: 2, food: 2, gold: 15 };
+  E.YARD_CHALLENGE_REWARD = { potions: 3, food: 3, gold: 20 };
 
   E.tutor = function () { return MM.ui.practiceYard(); };
 

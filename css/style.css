@@ -395,6 +395,9 @@ body.big-text #modalBox h2 { font-size: 23px; }
 .yard-stars { margin-left: auto; color: #ffd94a; letter-spacing: 1px; font-size: 12px; }
 .yard-lock { margin-left: auto; font-size: 10px; color: #9d92c9; font-weight: 400; }
 .yard-rec { font-size: 10px; color: #ffd94a; font-weight: 700; }
+.yard-cheer { text-align: center; font-weight: 700; color: #ffd94a; font-size: 18px; margin: 2px 0 8px; animation: cheerPop 0.5s ease-out; }
+.yard-cheer.big { font-size: 22px; color: #7ee0e8; }
+@keyframes cheerPop { 0% { transform: scale(0.4); opacity: 0; } 55% { transform: scale(1.18); } 100% { transform: scale(1); opacity: 1; } }
 .set-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .set-row button { flex: 1; min-width: 120px; }
 .set-choice .quip { display: block; font-size: 11px; font-weight: 400; opacity: 0.75; margin-top: 2px; }

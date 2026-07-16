@@ -1466,6 +1466,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     // can never be farmed on the easiest drill.
     challengeIntro: 'The Tutor claps. "Today\'s challenge, my choosing:',
     challengeDone: '"Done, and done well. Take these — you have earned them."',
+    // a cheer on every clean run that lights a new star
+    starCheers: [
+      'Clean as a whistle!',
+      'Not one wrong — listen to you!',
+      'THAT is what fluency sounds like.',
+      'You did not even pause. Lovely.',
+      'The chalk is impressed. I am impressed.',
+      'Eight for eight — the Tutor does a small, dignified dance.',
+      'Snap, snap, snap. Straight through.',
+    ],
   };
 
   // 5b growth visuals: Miscount's Academy visibly grows with attendance
