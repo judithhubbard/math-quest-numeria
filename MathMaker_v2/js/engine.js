@@ -93,6 +93,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       // card id (0-3), milestones = claimed reward ids, challenge = the daily
       // Tutor-directed card {date, card, done}.
       yard: { stars: {}, milestones: {}, challenge: null, seen: false },
+      ngPlus: 0,             // Golden Numeria (NG+) runs completed
+      goldenSnapshot: null,  // the finished kingdom, saved so NG+ is reversible
       // ---------- Wave 10: "The World Notices" ----------
       // The Turning Stones (P1) read s.tasksDone.length live — zero new
       // state. The fence (P3) reads s.tasksDone.includes(6) live too — the
@@ -229,6 +231,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!s.yard) s.yard = { stars: {}, milestones: {}, challenge: null, seen: false };
     if (!s.yard.stars) s.yard.stars = {};
     if (!s.yard.milestones) s.yard.milestones = {};
+    if (s.ngPlus == null) s.ngPlus = 0;
+    if (s.goldenSnapshot === undefined) s.goldenSnapshot = null;
+    // Golden Numeria (NG+) is reversible as of this version. A save that
+    // started an NG+ run BEFORE the snapshot existed has no finished kingdom
+    // to return to — reconstruct one (they finished once; endingDone proves
+    // it) so the "Return to your finished kingdom" option can un-strand them.
+    if (s.ngPlus > 0 && !s.goldenSnapshot && s.endingDone) {
+      s.goldenSnapshot = E.reconstructFinishedSnapshot(s);
+    }
     // Wave 10: "The World Notices" — missing means "never happened yet."
     if (s.seenFenceThanks == null) s.seenFenceThanks = false;
     if (s.seenGoldenBird == null) s.seenGoldenBird = false;
@@ -1146,25 +1157,105 @@ var MM = globalThis.MM = globalThis.MM || {};
   };
 
   // ---------- Golden Numeria (NG+) ----------
+  // NG+ is REVERSIBLE (2026-07-16, after a kid started it without meaning to
+  // and lost his finished kingdom): startGolden snapshots the finished kingdom
+  // first, and E.returnToFinishedKingdom puts it back. The throne room where
+  // NG+ launches is UNREACHABLE mid-run (castleOpen needs the kingdom
+  // finished), so the way back lives in 👪 Parent Settings — the right home
+  // for an "undo the whole run" anyway.
   E.goldenPrompt = function () {
-    const s = E.state;
-    MM.ui.dialogChoices('✨ Golden Numeria',
-      `"The kingdom will tangle again someday. Kingdoms do." The MathMaker does not sound sad about it. ` +
-      `"That is not a <b>failure</b>. That is just what a kingdom is: a thing that needs tending, over and over, ` +
-      `by somebody who knows how."<br><br>` +
-      `<i>Walk it once more, in gold?</i><br><br>` +
-      `<span class="dim">Every dungeon re-seals and every boss returns, <b>tougher</b>. You keep everything you are: ` +
-      `your level, your gear, your gems and charms, your badges, your Monster Book, your pet — and your crown. ` +
-      `Only the kingdom starts again.</span>`,
+    MM.ui.dialogChoices('✨ Golden Numeria — start the WHOLE adventure over?',
+      `<b>This restarts the entire kingdom.</b> Every dungeon locks again and every task goes back to the ` +
+      `beginning — you would play the whole story over, with the bosses back and <b>tougher</b>.<br><br>` +
+      `You keep <b>everything you earned</b>: your level, gear, gems, charms, badges, Monster Book, pet, and ` +
+      `crown. But your <b>finished kingdom</b> — every dungeon cleared, the peace you won — gets packed away.<br><br>` +
+      `<span class="dim">It is not lost: a grown-up can bring your finished kingdom back any time from ` +
+      `👪 Parent Settings. Still — best to <b>ask a grown-up</b> before starting the whole adventure over.</span>`,
       [
-        { label: '✨ Begin Golden Numeria', primary: true, onClick: () => E.startGolden() },
-        { label: 'Not yet', onClick: () => E.throneRoom() },
+        { label: '↩ Keep my finished kingdom', primary: true, onClick: () => E.throneRoom() },
+        { label: '✨ Start over in Golden Numeria', onClick: () => E.startGolden() },
       ]);
+  };
+
+  const GOLDEN_ISLE_FLAGS = ['lampLit', 'spireDone', 'hallsDone', 'breakwaterDone', 'gullwrackRebuilt'];
+  function snapshotFinishedKingdom(s) {
+    const clone = v => (v == null ? null : JSON.parse(JSON.stringify(v)));
+    const snap = {
+      prevNgPlus: s.ngPlus || 0,
+      taskIndex: s.taskIndex, tasksDone: clone(s.tasksDone) || [], haveItem: !!s.haveItem,
+      opened: clone(s.opened) || {}, bossesDefeated: clone(s.bossesDefeated) || {},
+      defeatedAt: clone(s.defeatedAt) || {}, unsealed: clone(s.unsealed) || {},
+      gearState: clone(s.gearState) || {}, repairSites: clone(s.repairSites) || {},
+      enrollSeen: !!s.enrollSeen, continent: s.continent || 'west', worldPos: clone(s.worldPos),
+      isles: { keys: clone(s.isles.keys) || {}, lenses: clone(s.isles.lenses) || {} },
+    };
+    for (const f of GOLDEN_ISLE_FLAGS) snap.isles[f] = !!s.isles[f];
+    return snap;
+  }
+
+  // A finished-kingdom snapshot rebuilt from scratch — for a pre-reversible NG+
+  // save with no snapshot of its own (see the migration in E.load). Marks
+  // every task done and every dungeon boss defeated (every floor's mapId, so
+  // the real boss floor is always covered — extra keys are harmless).
+  E.reconstructFinishedSnapshot = function (s) {
+    const snap = {
+      prevNgPlus: Math.max(0, (s.ngPlus || 1) - 1),
+      taskIndex: 14, tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], haveItem: false,
+      opened: {}, bossesDefeated: {}, defeatedAt: {}, unsealed: {}, gearState: {}, repairSites: {},
+      enrollSeen: true, continent: 'west', worldPos: null,
+      isles: { keys: {}, lenses: { tidepool: true, frostbite: true, cinderforge: true } },
+    };
+    for (const f of GOLDEN_ISLE_FLAGS) snap.isles[f] = true;
+    for (let idx = 1; idx <= 21; idx++) {
+      let floors = null;
+      try { floors = MM.maps.dungeonFloors(idx); } catch (e) { floors = null; }
+      if (floors && floors.length > 1) { for (let f = 0; f < floors.length; f++) snap.bossesDefeated[`d${idx}f${f}`] = true; }
+      else snap.bossesDefeated['d' + idx] = true;
+    }
+    return snap;
+  };
+
+  // Put the finished kingdom back and end the current Golden Numeria run. The
+  // hero keeps everything (as always); only the kingdom returns to done.
+  E.canReturnToKingdom = () => !!(E.state && E.state.ngPlus > 0 && E.state.goldenSnapshot);
+  E.returnToFinishedKingdom = function () {
+    const s = E.state;
+    const snap = s.goldenSnapshot;
+    if (!snap) return false;
+    MM.track('returnToFinishedKingdom');
+    s.taskIndex = snap.taskIndex;
+    s.tasksDone = (snap.tasksDone || []).slice();
+    s.haveItem = !!snap.haveItem;
+    s.opened = snap.opened || {};
+    s.bossesDefeated = snap.bossesDefeated || {};
+    s.defeatedAt = snap.defeatedAt || {};
+    s.unsealed = snap.unsealed || {};
+    s.gearState = snap.gearState || {};
+    s.repairSites = snap.repairSites || {};
+    s.enrollSeen = !!snap.enrollSeen;
+    s.continent = snap.continent || 'west';
+    s.worldPos = snap.worldPos || null;
+    s.isles.keys = (snap.isles && snap.isles.keys) || {};
+    s.isles.lenses = (snap.isles && snap.isles.lenses) || {};
+    for (const f of GOLDEN_ISLE_FLAGS) s.isles[f] = !!(snap.isles && snap.isles[f]);
+    s.ngPlus = snap.prevNgPlus || 0;
+    s.goldenSnapshot = null;
+    s.hp = s.maxhp;
+    s.stamina = s.maxStamina;
+    E.enterWorld();
+    E.save();
+    MM.sound.fanfare();
+    MM.ui.dialog('👑 Your finished kingdom, restored',
+      `<i>The dungeons fall quiet again, cleared as you left them. The kingdom is whole.</i><br><br>` +
+      `Every task done, every boss at rest — and everything you collected is exactly where you left it.<br><br>` +
+      `<span class="dim">Golden Numeria is there whenever you truly want it. No rush.</span>`);
+    return true;
   };
 
   E.startGolden = function () {
     const s = E.state;
     MM.track('startGolden');
+    s.goldenSnapshot = snapshotFinishedKingdom(s); // the way back — captured FIRST
     s.ngPlus = (s.ngPlus || 0) + 1;
     // the KINGDOM resets — the hero does not.
     s.taskIndex = 1;
@@ -1200,7 +1291,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       `and <b>stronger</b> for the rest.</i><br><br>` +
       `You still have your level, your gear, your charms, your badges, your book, your pet, and your crown. ` +
       `You have everything you learned. That, it turns out, is the only thing that was ever really yours.<br><br>` +
-      `<span class="dim">Golden Numeria — run ${s.ngPlus}. One careful step at a time.</span>`);
+      `<span class="dim">Miss the peace you won? A grown-up can bring your finished kingdom back any time from ` +
+      `👪 Parent Settings.<br>Golden Numeria — run ${s.ngPlus}. One careful step at a time.</span>`);
   };
 
   // Sailing between continents (the Compass Rose) — with the voyage scene.

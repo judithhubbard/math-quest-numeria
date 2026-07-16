@@ -2050,6 +2050,13 @@ var MM = globalThis.MM = globalThis.MM || {};
         <p style="font-size:14px">📗 On task <b>${Math.min(s.taskIndex, 13)}</b> ·
           answered <b>${s.totals.correct}/${s.totals.answered}</b> correctly overall.
           Press <b>R</b> in-game for the full per-topic report card.</p>
+        ${MM.engine.canReturnToKingdom() ? `
+        <h3>✨ Golden Numeria</h3>
+        <p style="font-size:13px">Your child is on a <b>Golden Numeria</b> run (New Game+, run ${s.ngPlus}) — the whole
+          kingdom restarted, tougher. Everything they collected is safe. If they'd rather have their
+          <b>finished kingdom</b> back — every dungeon cleared, the story complete — you can restore it here.
+          <span class="dim">(Their level, gear, badges, Monster Book, and pet all stay either way.)</span></p>
+        <div style="margin:6px 0 2px"><button id="goldenReturn" class="secondary">↩ Return to the finished kingdom</button></div>` : ''}
         <h3>🛂 Adventurer's Passport</h3>
         <p style="font-size:13px" class="dim">Saves live in this browser. The passport is how they travel —
         download a file to back this adventurer up, move them to another computer, or send them to a cousin.
@@ -2113,6 +2120,18 @@ var MM = globalThis.MM = globalThis.MM || {};
             `Switch adventurers from the title screen (👥 Switch) to play as them.`);
         };
         r.readAsText(f);
+      };
+    }
+    if (MM.engine.canReturnToKingdom()) {
+      document.getElementById('goldenReturn').onclick = () => {
+        closeModal();
+        UI.dialogChoices('👑 Return to the finished kingdom?',
+          `This ends the current Golden Numeria run and puts the finished kingdom back — every dungeon cleared, ` +
+          `the story complete. <b>Everything ${s.name} collected stays.</b> You can start Golden Numeria again any time.`,
+          [
+            { label: '👑 Yes, restore the finished kingdom', primary: true, onClick: () => MM.engine.returnToFinishedKingdom() },
+            { label: 'Not now', onClick: () => {} },
+          ]);
       };
     }
     if (bugs.length) {

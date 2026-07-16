@@ -2489,6 +2489,66 @@ for (const skill of skills) {
   MM.engine.state = null;
 }
 
+// ---------- Golden Numeria (NG+) is reversible ----------
+// A kid started NG+ without meaning to and lost his finished kingdom. NG+ now
+// snapshots the finished kingdom and can be undone from Parent Settings.
+{
+  const realEW = MM.engine.enterWorld; MM.engine.enterWorld = () => {}; // skip the world rebuild
+  const finished = () => ({
+    name: 'ngtest', ngPlus: 0, goldenSnapshot: null, endingDone: true,
+    taskIndex: 14, tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], haveItem: false,
+    opened: { 'world:1,1': true }, bossesDefeated: { d1: true, d2: true }, defeatedAt: {}, unsealed: { d2: true },
+    gearState: {}, repairSites: {}, enrollSeen: true, continent: 'west', worldPos: { x: 5, y: 5 },
+    isles: { keys: {}, lenses: { tidepool: true, frostbite: true, cinderforge: true }, lampLit: true, spireDone: true, hallsDone: true, breakwaterDone: true, gullwrackRebuilt: true, egg: null, pet: null },
+    level: 18, xp: 0, maxhp: 100, hp: 100, maxStamina: 100, stamina: 100,
+    badges: { addsub_facts: 3 }, petHats: ['bow'], tangles: null, monsters: [],
+  });
+  MM.engine.state = finished();
+  const s = MM.engine.state;
+  MM.engine.startGolden();
+  if (s.taskIndex !== 1 || s.tasksDone.length !== 0) fail('golden: startGolden must reset the kingdom');
+  if (s.isles.lampLit || s.isles.spireDone) fail('golden: startGolden must re-seal the isles');
+  if (s.ngPlus !== 1) fail('golden: startGolden increments ngPlus');
+  if (s.level !== 18 || s.badges.addsub_facts !== 3 || !s.petHats.includes('bow')) fail('golden: the hero keeps level/badges/hats through NG+');
+  if (!s.goldenSnapshot) fail('golden: startGolden must snapshot the finished kingdom');
+  if (!MM.engine.canReturnToKingdom()) fail('golden: a return must be available once NG+ has started');
+  // undo it
+  MM.engine.returnToFinishedKingdom();
+  if (s.taskIndex !== 14 || JSON.stringify(s.tasksDone) !== JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])) fail('golden: return restores the finished tasks');
+  if (!s.isles.lampLit || !s.isles.spireDone || !s.isles.breakwaterDone) fail('golden: return restores the isles flags');
+  if (s.ngPlus !== 0) fail('golden: return ends the run (ngPlus back to 0)');
+  if (s.goldenSnapshot) fail('golden: return clears the snapshot');
+  if (s.level !== 18 || !s.petHats.includes('bow')) fail('golden: the hero still has everything after returning');
+  if (MM.engine.canReturnToKingdom()) fail('golden: no return offered once back in the finished kingdom');
+
+  // reconstruction (for a pre-reversibility NG+ save with no snapshot)
+  const snap = MM.engine.reconstructFinishedSnapshot({ ngPlus: 1 });
+  if (snap.taskIndex !== 14 || snap.tasksDone.length !== 13) fail('golden: reconstruction marks every task done');
+  if (!snap.isles.lampLit || !snap.isles.spireDone) fail('golden: reconstruction restores the isles');
+  if (Object.keys(snap.bossesDefeated).length < 13) fail('golden: reconstruction marks the dungeon bosses defeated');
+  if (snap.prevNgPlus !== 0) fail('golden: reconstruction returns you to ngPlus 0');
+
+  // migration: a pre-reversibility NG+ save gains a finished snapshot on load
+  localStorage.setItem('mathmaker2_save_ngmigrant', JSON.stringify({
+    version: 4, name: 'ngmigrant', hp: 100, maxhp: 100, stamina: 100, maxStamina: 100,
+    gold: 100, level: 18, xp: 0, difficulty: 'hero', parent: { pin: null, topics: {} },
+    taskIndex: 1, haveItem: false, tasksDone: [], ngPlus: 1, endingDone: true,
+    mastery: {}, badges: {}, bestiary: { seen: {}, kills: {}, gauntlet: {} },
+    continent: 'west', isles: { lenses: {}, keys: {}, egg: null, pet: null },
+    charmsOn: [], opened: {}, bossesDefeated: {}, defeatedAt: {}, streak: 0,
+    totals: { answered: 0, correct: 0 }, worldPos: null, seenBattleHelp: true,
+    gear: { weapon: ['stick'], body: ['clothes'], helmet: [], boots: [], ring: [], amulet: [] },
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null }, enchants: {},
+    items: { food: {}, treasures: [], charms: [], gems: [] },
+  }));
+  MM.engine.load('ngmigrant');
+  if (!MM.engine.state.goldenSnapshot) fail('golden migration: a pre-reversibility NG+ save must gain a finished-kingdom snapshot on load');
+  if (!MM.engine.canReturnToKingdom()) fail('golden migration: the return option must become available for a migrated NG+ save');
+
+  MM.engine.enterWorld = realEW;
+  MM.engine.state = null;
+}
+
 // ---------- v1.7.0: boss wrong-math attacks — the pedagogy guard ----------
 {
   let heavy = 0;
