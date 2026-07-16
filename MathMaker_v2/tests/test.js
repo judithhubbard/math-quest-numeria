@@ -697,7 +697,7 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   }
   // BFS from P, fog impassable; POIs are stop-tiles like on the west overworld
   const reach = (grid) => {
-    const interact = 'WcpSInf123H';
+    const interact = 'WcpSInf123HY'; // Y = the Tutor's dockside Practice Yard
     const start = MM.maps.find(grid, 'P')[0];
     const seen = new Set([start.x + ',' + start.y]);
     const q = [start];
@@ -719,7 +719,7 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
     return got;
   };
   const foggy = reach(raw);
-  for (const ch of ['W', 'c', 'p', 'S', 'I', 'n', 'f', '1']) {
+  for (const ch of ['W', 'c', 'p', 'S', 'I', 'n', 'f', '1', 'Y']) {
     if (!foggy.has(ch)) fail(`isles: '${ch}' should be reachable before any lens`);
   }
   for (const ch of ['2', '3', 'H']) {

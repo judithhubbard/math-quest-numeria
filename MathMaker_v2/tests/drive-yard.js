@@ -125,6 +125,34 @@ const SHOTS = path.join(__dirname, 'shots-yard');
   });
   check(reck.has, 'the Ready Reckoner charm can be worn (its +2 first-strike hook lives in battle.js)');
 
+  // clear any open modal (the drill reopened the Yard on finish)
+  await ev(() => { for (let i = 0; i < 6 && MM.ui.modalOpen(); i++) { const b = document.querySelector('#modalBox .btnrow button:last-child'); if (b) b.click(); else break; } });
+
+  // ---- off the mainland: a Tutor stands in Port Brightwater (isles) ----
+  const isles = await ev(() => {
+    const s = MM.engine.state;
+    s.continent = 'isles';
+    MM.engine.enterIsles();
+    const tut = MM.maps.find(MM.maps.ISLES, 'Y');
+    let open = false;
+    if (tut.length) { s.px = tut[0].x - 1; s.py = tut[0].y; MM.engine.tryMove(1, 0); open = MM.ui.modalOpen(); }
+    return { count: tut.length, open, sprite: MM.maps.tileSprite('Y', tut[0].x, tut[0].y, 'isles', false) };
+  });
+  check(isles.count === 1, `a Tutor ('Y') stands in Port Brightwater (got ${isles.count})`);
+  check(isles.sprite === 'tutor', "the isles 'Y' renders as the Tutor, not an echo door");
+  check(isles.open, 'bumping the isles Tutor opens the Practice Yard');
+  await page.screenshot({ path: SHOTS + '/3-isles-tutor.png' });
+  await ev(() => { for (let i = 0; i < 6 && MM.ui.modalOpen(); i++) { const b = document.querySelector('#modalBox .btnrow button:last-child'); if (b) b.click(); else break; } });
+
+  // ---- at sea: a ship dock offers "Practice with the Tutor's cards" ----
+  await ev(() => { MM.engine.state.continent = 'horologe'; MM.engine.horologeDock(); });
+  const hasDockOption = await ev(() => [...document.querySelectorAll('#modalBox .btnrow button')].some(b => /Practice with the Tutor/.test(b.textContent)));
+  check(hasDockOption, 'a ship dock (Horologe) offers "Practice with the Tutor\'s cards" — at-sea access');
+  await page.click('text=Practice with the Tutor');
+  await page.waitForTimeout(150);
+  const dockYard = await ev(() => MM.ui.modalOpen() && /Practice Yard/.test((document.querySelector('#modalBox h2') || {}).textContent || ''));
+  check(dockYard, 'choosing it at the dock opens the Practice Yard');
+
   console.log('\n=== CHECKS ===');
   checks.forEach(c => console.log(c));
   console.log('\n=== JS ERRORS ===');
