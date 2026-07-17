@@ -2549,6 +2549,21 @@ for (const skill of skills) {
   MM.engine.state = null;
 }
 
+// ---------- the top of the Spiral Stair: a once-ever summit moment ----------
+{
+  MM.engine.state = { spiral: { highest: 59, landing: 55, toppedOut: false }, gold: 0, px: 1, py: 1, titles: [], charmsOn: [], equipped: { ring: null, amulet: null } };
+  const s = MM.engine.state;
+  if (MM.engine.titlesFor(s).includes('Top of the Spiral')) fail('spiral summit: the title must not appear before the top is reached');
+  MM.engine.spiralSummit();
+  if (!s.spiral.toppedOut) fail('spiral summit: reaching the top sets toppedOut');
+  if (s.gold <= 0) fail('spiral summit: reaching the top pays a reward');
+  if (!MM.engine.titlesFor(s).includes('Top of the Spiral')) fail('spiral summit: the "Top of the Spiral" title appears once topped out');
+  const goldAfter = s.gold;
+  MM.engine.spiralSummit(); // once ever
+  if (s.gold !== goldAfter || MM.engine.titlesFor(s).filter(t => t === 'Top of the Spiral').length !== 1) fail('spiral summit: the moment is once-ever, not repeatable');
+  MM.engine.state = null;
+}
+
 // ---------- v1.7.0: boss wrong-math attacks — the pedagogy guard ----------
 {
   let heavy = 0;
