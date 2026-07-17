@@ -3109,3 +3109,129 @@ Design session solved it; IMPLEMENT NEXT SESSION. Everything needed:
   still 13, out-of-order still silent-resets. Full sweep + marathon +
   SCREENSHOT AUDIT (the whole point is how it LOOKS — check the eye, the
   river gap, the mountain gaps, the tower approach) before deploy.
+
+## Wave 12 order — "The Proving Rooms" (user directive 2026-07-17, design session)
+
+Context, from three audits (2026-07-17, in the session log): (1) the isles
+introduce nine special-tile grammars and then strand them — the gear plate
+exists ONCE in the whole game, clock/echo doors twice each, and the Spiral
+Stair (the only repeatable content) contains NONE of them; (2) no puzzle
+anywhere combines two special tiles; (3) the castle has no repeatable
+activity and no puzzle content. Wave 12 fixes all three with one structure
+and seeds the comedy register the user asked for. USER-APPROVED direction;
+kids' playtest findings drove the comedy rules below.
+
+### STANDING RULES (new, permanent — violating any is a review-blocker)
+- **A joke is an observation, never an obstacle.** No gag may ever block,
+  slow, or invalidate a mathematically correct action. (Design history:
+  the 9-refuses-to-sit-by-7 constraint was CUT for this; it survives only
+  as a cosmetic lean + occasional 💧 glyph. Never "fix" it into a rule.)
+- **Comedy channels: field / glyph / sound / modal. NEVER the log.** The
+  kids do not read the log. Ambient jokes = motion, over-sprite glyphs
+  (the becalmed-💗 idiom), sound. Spoken jokes = blocking modals only, and
+  only kid-initiated (bump) or at big beats. Log lines may echo for
+  parents but must never carry a gag alone.
+- **Glyph collisions:** every new tile char MUST be checked against every
+  map alphabet it can appear in; tileSprite disambiguates by context
+  (mapId / inDungeon) — the v1.7.9 'Y' echo-door/Tutor collision is the
+  cautionary tale. Add a unit guard per new char (context → sprite).
+- **Procedural content never gates its exit on a special tile.** In the
+  Spiral pool, slides/pads/plates/gates decorate OPTIONAL routes; a
+  plain-floor walk to '>' must always exist so the existing chunk
+  reachability validator keeps passing unchanged in spirit.
+
+### P1 — Seed the Spiral Stair with the stranded grammar
+New chunks in SPIRAL_REGULAR + SPIRAL_LANDING (hand-authored, validated
+like all chunks): at least 2 slick-rock (_) chunks (slides are shortcuts,
+never the only path), 1 teleport-pair (o) chunk, 1 lever/gate (L/G) chunk
+(gate guards a chest, not the stairs), 1 tide-pool flavor chunk, and ONE
+gear-plate landing (R + A/B/C — the game's single best one-shot, finally
+recurring) in the landing pool. VERIFY state scoping: spiral floors
+rebuild per visit — lever/gear state must be per-floor (a lever on floor
+12 must not leak to floor 13); s.opened keys must include the floor.
+Tests: extend the spiral-chunk unit block to the new chunks (plain-floor
+reachability to '>' with special tiles treated as walls); drive-tending
+gains a forced-chunk leg (pin the chunk roll, ride a slide, take a pad,
+cycle the gear landing).
+
+### P2 — Pressure plates (one new universal tile)
+A plate opens its floor's plate-gates WHILE occupied — by the player, the
+pet, or a pushed slab (U). Semantics mirror the lever (floor-wide, OR
+across plates) but live: step off, gates close. Pick TWO free dungeon
+chars (plate + plate-gate) per the glyph-collision rule; sprite the gate
+visibly distinct from G. Plate-gates guard treasure/shortcuts in existing
+content; only hand-authored Wing rooms may make them required (those
+rooms get drive coverage). Slab-on-plate is the canonical solution;
+pet-on-plate counting is a delight, not a puzzle assumption. This tile is
+Wave 13's Understudy switch — build it plain now.
+Tests: unit (open-while-occupied, close-on-leave, slab holds, OR across
+plates); drive checks in drive-wing.
+
+### P3 — The Workshop Wing (the castle's new structure)
+A door in the castle (castle-alphabet char, by the Study) gated on
+s.endingDone; pre-ending bump = modal: a brass plate with the kid's own
+name, "not yet." Inside: a combat-free hall (s.monsters = [] — castle
+rule extends to the Wing) of PROVING ROOMS, each signed by a past
+MathMaker, each combining known grammar with one new piece. Rooms:
+1. **Grumbold the Third** — cracked floors (new tile: crosses once, then
+   crumbles to a drop chute; fall lands in a cellar with a ladder back —
+   never a punishment, always a place) + chutes. His portrait is proud of
+   this. Cracked floor is a real new universal tile; scope its handler
+   for reuse anywhere.
+2. **MathMaker Wren — the Numberlings.** Pushable numbered slabs (extend
+   the U-slab machinery with a num property + numeral sprite) into
+   equation sockets carved in the floor; the room plaque states the
+   equation shape (e.g. _ × _ = 24) and ANY true filling completes —
+   accepting every correct answer is load-bearing (multiple-solutions
+   delight; never punish correct math). Comedy per the channel rules:
+   pushed slab occasionally pops 💢; slab in a false socket slumps 1px +
+   desaturates one notch (themePalette); true equation = hop + sparkle
+   worldBurst; ONE Numberling asleep (💤, 1px slump, bump wakes it); the
+   9 leans 1px away from any adjacent 7 with an occasional 💧 — cosmetic
+   ONLY, see standing rule 1.
+3. **The Armory.** Decorative armor stands holding polished shields =
+   rotatable mirrors (reuse the gear-plate rotation grammar) routing a
+   lamp beam (render: tile-to-tile line segments, recomputed per
+   rotation) to a dark crystal → gate opens. Zero math. The Nth rotation
+   of any one stand plays a two-note descending sigh.
+4. **MathMaker Petronella** — rotate cat statues (same rotation grammar,
+   sprite flip shows facing) until all face the fish fountain → chime.
+5. **The Pantry** — a room that is 90% pantry, one slab+plate puzzle
+   threaded between the shelves, one chest that is always cheese.
+6. **The Plate Room** — teaches P2: plates, slabs, and one slick-rock
+   strip. STRETCH (cut freely if hairy): a slab pushed onto ice slides to
+   the far wall.
+Plus, in the hall itself: **the wardrobe** — an obvious mimic with a
+terrible tell (INVERTED v1.7.13 rule: big 5px bob only when the player is
+FAR, dead still when adjacent; two-note chirp when walked past). Three
+bumps → confession modal (it has been pretending to be furniture for
+forty years; it is exhausted; it is so relieved) → it relocates to the
+Study next to the enrolled slime, wearing a tiny hat. **Portraits**:
+bump-to-hear, ONE modal line each in their signer's voice; exactly one
+portrait is gently wrong about math history and an adjacent portrait's
+line shushes it. Rewards: per-room a furnishing piece or gold; full wing
+= title "Keeper of the Proving Rooms" + the empty doorway at the hall's
+end bearing the kid's name plate (the Wave 13 Your-Room hook — carve the
+teaser now, build nothing behind it).
+
+### P4 — One leak-back to prove the pattern
+Skip-count stepping stones: a short stone path across a pond near Old
+Fisher Finn (mainland — kids still mid-game see new content appear).
+Stones carry numerals; walk them in ×2 order to reach a chest islet;
+wrong stone = splash sound + step back onto the bank (no HP, no cost, no
+text needed). Reuses the Turning-Stones sequence-walk logic. Grid edit to
+the WEST overworld — re-run the overworld BFS unit and the full sweep
+(any drive that walks that shore).
+
+### Prose stop + evidence (unchanged discipline)
+NO COMMIT — stop for design review. Paste ALL new prose verbatim in the
+report: portrait lines, wardrobe confession, room plaques, pre-ending
+door line, Grumbold/Petronella flavor. Evidence: unit + full drive sweep
+(31 + new drive-wing.js, ~25 checks: endingDone gate, every room
+completable, Numberling multi-solution acceptance, 9/7-never-blocks
+regression, plate open/close/slab-hold, wardrobe reveal→confession→Study,
+cracked-floor fall+ladder-return, forced spiral chunks) + MARATHON
+(content wave: detached `nohup … & disown`, logs in tests/logs/, paste
+final lines — killed runs don't count). SCREENSHOT AUDIT every room —
+open and LOOK: beam segments render, Numberling numerals legible at
+scale, wardrobe bob visible in a far frame and absent in a near frame.
