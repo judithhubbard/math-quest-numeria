@@ -111,6 +111,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       seenStairGlimmer: false, // once-EVER: first in-order walk completed post-ending
       spiralGlintPending: null, // index of the newest-turned stone, until next plaza crossing
       lastCatMoment: null,    // avoids repeating the same inn-cat moment twice in a row
+      // ---------- Wave 12: "The Proving Rooms" ----------
+      wing: null,             // the Workshop Wing: lazily built by E.ensureWing
+      freeSlabs: {},          // Wave 12 (P2): free-standing slab positions per mapId
     };
     E.enterWorld();
     E.save();
@@ -252,6 +255,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.seenStairGlimmer == null) s.seenStairGlimmer = false;
     if (s.spiralGlintPending === undefined) s.spiralGlintPending = null;
     if (s.lastCatMoment === undefined) s.lastCatMoment = null;
+    // Wave 12: the Workshop Wing + free slabs — missing means "never visited."
+    if (s.wing === undefined) s.wing = null;
+    if (!s.freeSlabs) s.freeSlabs = {};
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     // Session-shape pass (2026-07-13): resuming has ALWAYS pulled you to the
@@ -619,9 +625,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (isles.lampLit) out.push('Keeper of the Light');
     if (isles.gullwrackRebuilt) out.push('Guildmember of Gullwrack');
     if (st.spiral && st.spiral.toppedOut) out.push('Top of the Spiral');
+    // Wave 12: derived from the room flags (not just the stored title), so
+    // a save that finished the Wing always shows the honour.
+    if (st.wing && st.wing.rooms && E.WING_ROOMS.every(r => st.wing.rooms[r])) out.push('Keeper of the Proving Rooms');
     if (st.endingDone) out.push('The New MathMaker');
     return out;
   };
+  E.WING_ROOMS = ['grumbold', 'wren', 'armory', 'petronella', 'pantry', 'plate'];
 
   E.deleteProfile = function (name) {
     localStorage.removeItem(SAVE_PREFIX + name);
@@ -669,6 +679,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     // the bridge to Miscount's bank rises once all ten tasks are done
     if (s.tasksDone && s.tasksDone.includes(10)) {
       for (const b of MM.maps.BRIDGE) s.grid[b.y][b.x] = '=';
+    }
+    // Wave 12 (P4): an opened overworld chest (the stepping-stone islet)
+    // stays open — same persistence scheme as dungeon chests.
+    for (const key of Object.keys(s.opened || {})) {
+      const [mid, xy] = key.split(':');
+      if (mid !== 'world') continue;
+      const [x, y] = xy.split(',').map(Number);
+      if (s.grid[y] && s.grid[y][x] === '*') s.grid[y][x] = '.';
     }
     const start = safeStart(s);
     s.px = start.x; s.py = start.y;
@@ -1188,6 +1206,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       opened: clone(s.opened) || {}, bossesDefeated: clone(s.bossesDefeated) || {},
       defeatedAt: clone(s.defeatedAt) || {}, unsealed: clone(s.unsealed) || {},
       gearState: clone(s.gearState) || {}, repairSites: clone(s.repairSites) || {},
+      freeSlabs: clone(s.freeSlabs) || {},
       enrollSeen: !!s.enrollSeen, continent: s.continent || 'west', worldPos: clone(s.worldPos),
       isles: { keys: clone(s.isles.keys) || {}, lenses: clone(s.isles.lenses) || {} },
     };
@@ -1204,6 +1223,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       prevNgPlus: Math.max(0, (s.ngPlus || 1) - 1),
       taskIndex: 14, tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], haveItem: false,
       opened: {}, bossesDefeated: {}, defeatedAt: {}, unsealed: {}, gearState: {}, repairSites: {},
+      freeSlabs: {},
       enrollSeen: true, continent: 'west', worldPos: null,
       isles: { keys: {}, lenses: { tidepool: true, frostbite: true, cinderforge: true } },
     };
@@ -1234,6 +1254,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     s.unsealed = snap.unsealed || {};
     s.gearState = snap.gearState || {};
     s.repairSites = snap.repairSites || {};
+    s.freeSlabs = snap.freeSlabs || {};   // Wave 12: the Vault slab goes home too
     s.enrollSeen = !!snap.enrollSeen;
     s.continent = snap.continent || 'west';
     s.worldPos = snap.worldPos || null;
@@ -1269,6 +1290,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     s.unsealed = {};
     s.gearState = {};
     s.repairSites = {};
+    s.freeSlabs = {};   // Wave 12: pushed free slabs reset with the kingdom
     s.isles.keys = {};
     s.isles.lenses = {};
     s.isles.lampLit = false;
@@ -1444,6 +1466,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Sunken Breakwater's shortcut repair site (Wave 6): re-apply persisted
     // slab/broken-tile state now that the floor's fresh grid is parsed.
     E.applySiteState(s.mapId);
+    // Wave 12 (P2): free-standing slabs (the Vault's plate puzzle) — same
+    // re-apply-on-entry contract.
+    E.applyFreeSlabs(s.mapId);
     // gear plates (Clockwork Spire): cache this floor's A/B/C gate positions
     // (in memory only — they're static per floor template, re-scanned every
     // visit) and open whichever one matches the saved rotation state.
@@ -1621,8 +1646,14 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (ch === 'n') return MM.ui.statuePlinth(0);
         if (ch === 'w') return MM.ui.statuePlinth(1);
         if (ch === 'r') return MM.ui.statuePlinth(2);
+        // Wave 12 (P3): the Workshop Wing's door by the Study, and the spot
+        // the confessed wardrobe eventually calls home (floor until then).
+        if (ch === 'H') return E.wingDoor();
+        if (ch === 'o' && s.wing && s.wing.wardrobeMoved) {
+          return MM.ui.dialog('🚪 The wardrobe, at home', MM.data.WING_WARDROBE_HOME);
+        }
         if (MM.data.NPCS[ch]) return E.talkNpc(ch);
-        if (ch === '.' || ch === 'P') {
+        if (ch === '.' || ch === 'P' || ch === 'o') {
           // no stamina cost indoors — there's nothing to fight and nothing to
           // flee, and a kid should never be able to strand themselves at home
           E.petPos = { x: s.px, y: s.py };
@@ -1630,6 +1661,9 @@ var MM = globalThis.MM = globalThis.MM || {};
         }
         return;
       }
+      // Wave 12 (P3): the Workshop Wing — combat-free, castle rules
+      // (no monsters, no stamina), its own alphabet.
+      if (s.mapId === 'wing') return E.wingMove(dx, dy, nx, ny, ch);
       if (s.mapId === 'gullwrack') {
         if (ch === '7') return E.tryEnterDungeon(21);
         if (ch === 'W') return E.gullwrackDock();
@@ -1677,6 +1711,9 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (ch === 'n') return MM.ui.noticeBoard();
         if (ch === 'W') return E.pier();
         if (ch === 'F') return E.fencePost(); // Wave 10 (P3): the mended fence east of the farm
+        // Wave 12 (P4): the skip-count stepping stones + their islet chest
+        if (ch === 'd') return E.skipStoneStep(dx, dy, nx, ny);
+        if (ch === '*') return E.worldChest(nx, ny);
         if ('1234567890'.includes(ch)) return E.tryEnterDungeon(ch === '0' ? 10 : +ch);
         const exp = { A: 11, B: 12, K: 13 }[ch];
         if (exp) return E.tryEnterDungeon(exp);
@@ -1799,15 +1836,32 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (ch === E.SITE_GLYPHS.plaque || ch === E.SITE_GLYPHS.lever || ch === E.SITE_GLYPHS.slab) {
       if (E.trySiteBump(s.mapId, dx, dy, nx, ny)) return;
     }
+    // Wave 12 (P2): a slab or 'l' lever that no repair site claimed is a
+    // FREE slab / free-slab reset (the Vault's plate puzzle).
+    if (ch === E.SITE_GLYPHS.slab) return E.tryFreeSlabBump(dx, dy, nx, ny);
+    if (ch === E.SITE_GLYPHS.lever) return E.freeSlabReset(s.mapId);
     // Wave 6.5: broken floor blocks in dungeons too (see the town branch) —
     // the Breakwater's mendable wall gap is a shortcut, not an open door
     if (ch === E.SITE_GLYPHS.broken) {
       return MM.ui.log('🕳 The floor here is shattered — a stone slab could mend it.');
     }
+    // Wave 12 (P2): a plate-gate opens only WHILE a pressure plate on this
+    // floor is held down (player, pet, or slab). Open, it's ordinary floor.
+    if (ch === '&' && !E.platePowered(s.mapId)) {
+      MM.sound.thud();
+      return MM.ui.log('🧱 The counterweight gate is shut — it only lifts while something rests on a pressure plate.');
+    }
     if (ch === '#' || ch === 'G') return;
+    // Wave 12 (P3): cracked floor holds a crossing exactly once — remember
+    // what we're stepping OFF of, and crumble it behind us.
+    const fromX = s.px, fromY = s.py;
+    const fromCh = s.grid[fromY] && s.grid[fromY][fromX];
     E.petPos = { x: s.px, y: s.py };
     s.px = nx; s.py = ny;
     E.walkStamina();
+    if (fromCh === '!') E.crumbleBehind(fromX, fromY);
+    if (ch === '!') E.crackCreak();
+    if (ch === '+') E.platePressFeedback();
     if (ch === 'X') return E.exitDungeon();
     if (ch === '>') return E.changeFloor(1);
     if (ch === '<') return E.changeFloor(-1);
@@ -2027,6 +2081,578 @@ var MM = globalThis.MM = globalThis.MM || {};
       }
     }
     E.save();
+  };
+
+  // ========== Wave 12: pressure plates, cracked floor, free slabs ==========
+  // STANDING RULES (permanent, review-blocking): a joke is an observation,
+  // never an obstacle; comedy channels are field/glyph/sound/modal, never
+  // the log alone; no gag may ever block, slow, or invalidate a
+  // mathematically correct action.
+
+  // A plate-gate ('&') is open only WHILE some pressure plate ('+') on the
+  // live floor is held down — by the player, the pet, or a pushed slab.
+  // OR across plates: any one held plate opens every gate on the floor.
+  E.platePowered = function (mapId) {
+    const s = E.state;
+    if (!s || !s.grid) return false;
+    mapId = mapId || s.mapId;
+    if (mapId !== s.mapId) return false;   // only the live floor has occupancy
+    const at = (x, y) => s.grid[y] && s.grid[y][x];
+    if (at(s.px, s.py) === '+') return true;
+    const pp = E.petPos;
+    if (s.isles && s.isles.pet && pp && !(pp.x === s.px && pp.y === s.py) && at(pp.x, pp.y) === '+') return true;
+    if (s.wing && s.wing.slabs && mapId === 'wing' && s.wing.slabs.some(sl => sl.under === '+')) return true;
+    const free = s.freeSlabs && s.freeSlabs[mapId];
+    if (free && free.some(sl => sl.under === '+')) return true;
+    return false;
+  };
+  // Is THIS plate tile occupied right now (pressed sprite)? Slabs draw 'U'
+  // over the plate cell anyway, so only player/pet need checking.
+  E.plateOccupied = function (x, y) {
+    const s = E.state;
+    if (!s || !s.grid) return false;
+    if (s.px === x && s.py === y) return true;
+    const pp = E.petPos;
+    return !!(s.isles && s.isles.pet && pp && pp.x === x && pp.y === y);
+  };
+  E.platePressFeedback = function () {
+    E.gateGlintUntil = performance.now() + 1600;   // the opened gates glint
+    MM.sound.tone(4);
+    if (!E._plateNoted) {
+      E._plateNoted = true;
+      MM.ui.log('⚙️ The plate sinks underfoot — somewhere, a counterweight gate lifts.');
+    }
+  };
+
+  // Cracked floor ('!'): holds a crossing exactly once, then crumbles into
+  // an ordinary drop chute ('v') behind you. In a dungeon the chute is the
+  // existing one-way drop; in the Wing it drops to Grumbold's cellar —
+  // never a punishment, always a place. Crumbles are per-visit (floors
+  // rebuild on entry), so nothing is ever permanently lost.
+  let crackNoted = false;
+  E.crackCreak = function () {
+    MM.sound.creak();
+    if (!crackNoted) {
+      crackNoted = true;
+      MM.ui.log('⚠️ The floor creaks underfoot... it won\'t hold a second crossing.');
+    }
+  };
+  E.crumbleBehind = function (x, y) {
+    const s = E.state;
+    if (!s.grid[y] || s.grid[y][x] !== '!') return;
+    s.grid[y][x] = 'v';
+    MM.sound.creak();
+  };
+
+  // Free-standing slabs (P2): pushable 'U' slabs OUTSIDE repair sites and
+  // the Wing (MM.maps.FREE_SLABS). Position persists per mapId; a non-site
+  // 'l' lever on the floor shuffles them home (gentle failure).
+  E.applyFreeSlabs = function (mapId) {
+    const s = E.state;
+    const tmpl = MM.maps.FREE_SLABS && MM.maps.FREE_SLABS[mapId];
+    if (!tmpl || !s.grid) return;
+    s.freeSlabs = s.freeSlabs || {};
+    if (!s.freeSlabs[mapId]) s.freeSlabs[mapId] = tmpl.map(t => ({ x: t.x, y: t.y, under: '.' }));
+    for (const t of tmpl) if (s.grid[t.y][t.x] === 'U') s.grid[t.y][t.x] = '.';
+    for (const sl of s.freeSlabs[mapId]) s.grid[sl.y][sl.x] = 'U';
+  };
+  E.tryFreeSlabBump = function (dx, dy, nx, ny) {
+    const s = E.state;
+    const list = s.freeSlabs && s.freeSlabs[s.mapId];
+    const slab = list && list.find(sl => sl.x === nx && sl.y === ny);
+    if (!slab) return;
+    const bx = nx + dx, by = ny + dy;
+    const destCh = s.grid[by] && s.grid[by][bx];
+    const blocked = !(destCh === '.' || destCh === '+' || destCh === '_')
+      || list.some(o => o !== slab && o.x === bx && o.y === by)
+      || s.monsters.some(m => m.hp > 0 && m.x === bx && m.y === by);
+    if (blocked) { MM.sound.thud(); return; }
+    s.grid[ny][nx] = slab.under || '.';
+    slab.x = bx; slab.y = by; slab.under = destCh;
+    s.grid[by][bx] = 'U';
+    MM.sound.thud();
+    if (destCh === '+') E.platePressFeedback();
+    E.save();
+    MM.ui.refresh();
+  };
+  E.freeSlabReset = function (mapId) {
+    const s = E.state;
+    const tmpl = MM.maps.FREE_SLABS && MM.maps.FREE_SLABS[mapId];
+    if (!tmpl) return;
+    const list = (s.freeSlabs && s.freeSlabs[mapId]) || [];
+    list.forEach((sl, i) => {
+      if (s.grid[sl.y] && s.grid[sl.y][sl.x] === 'U') s.grid[sl.y][sl.x] = sl.under || '.';
+      list[i] = { x: tmpl[i].x, y: tmpl[i].y, under: '.' };
+      s.grid[tmpl[i].y][tmpl[i].x] = 'U';
+    });
+    MM.sound.fanfare();
+    MM.ui.log('⚙️ You pull the lever — the loose slab shudders back to its starting spot.');
+    E.save();
+    MM.ui.refresh();
+  };
+
+  // ========== Wave 12 (P4): the skip-count stepping stones ==========
+  // Walk the pond stones in ×2 order (2, 4, 6, 8) to reach the chest islet.
+  // A wrong stone is a splash and a scramble back to the bank — no HP, no
+  // cost, no text (the Turning-Stones discipline: discovery, never a scold).
+  E._skipNext = 0;
+  E.skipStoneStep = function (dx, dy, nx, ny) {
+    const s = E.state;
+    const stone = MM.maps.SKIP_STONES.find(st => st.x === nx && st.y === ny);
+    if (!stone) return;
+    if (stone.seq === 0 || stone.seq === E._skipNext) {
+      E.petPos = { x: s.px, y: s.py };
+      s.px = nx; s.py = ny;
+      E._skipNext = stone.seq + 1;
+      MM.sound.tone(stone.seq % 5);
+      E.walkStamina();
+      E.updatePetAlert();
+      return;
+    }
+    E._skipNext = 0;
+    MM.sound.splash();
+    if (MM.ui.worldBurst && !s.calmMode) MM.ui.worldBurst(nx, ny, '#5d97e0', 10);
+    const bank = MM.maps.SKIP_STONES_BANK;
+    s.px = bank.x; s.py = bank.y;
+    E.petPos = { x: bank.x, y: bank.y };
+    MM.ui.refresh();
+  };
+  E.worldChest = function (x, y) {
+    const s = E.state;
+    const key = `world:${x},${y}`;
+    if (s.opened[key]) return;
+    s.opened[key] = true;
+    s.grid[y][x] = '.';
+    const g = E.gainGold(48);
+    MM.sound.fanfare();
+    E.save();
+    MM.ui.dialog('🎁 The pond chest',
+      `Inside: <b>${g} gold</b>.<br><br><i>Counting by twos, all the way across. Whoever carved those stones would be pleased.</i>`);
+  };
+
+  // ========== Wave 12 (P3): the Workshop Wing ==========
+  // Combat-free proving rooms behind the castle's Study door, gated on
+  // s.endingDone. Everything persists in s.wing; the grid rebuilds per
+  // visit and E.applyWingState re-derives it (the repair-site recipe).
+  E.WING_ROOM_GOLD = 80;
+  E.ensureWing = function () {
+    const s = E.state;
+    if (!s.wing) {
+      s.wing = {
+        rooms: {}, slabs: null, mirrors: null, mirrorTurns: {}, cats: null,
+        wardrobeBumps: 0, wardrobeMoved: false, titleGiven: false,
+      };
+    }
+    const w = s.wing;
+    if (!w.rooms) w.rooms = {};
+    if (!w.slabs) w.slabs = MM.maps.WING_SLABS.map(t => ({ id: t.id, num: t.num, x: t.x, y: t.y, under: '.', asleep: !!t.asleep, locked: false }));
+    if (!w.mirrors) w.mirrors = MM.maps.WING_ARMORY.initial.slice();
+    if (!w.mirrorTurns) w.mirrorTurns = {};
+    if (!w.cats) w.cats = MM.maps.WING_CATS.statues.map(c => c.initial);
+    return w;
+  };
+  E.wingOpen = () => !!(E.state && E.state.endingDone);
+
+  // The castle door: a brass plate with the kid's own name — and "not yet."
+  E.wingDoor = function () {
+    const s = E.state;
+    if (!E.wingOpen()) {
+      return MM.ui.dialog('🚪 A door by the Study', MM.data.WING_DOOR_LOCKED(s.name));
+    }
+    E.enterWing();
+  };
+
+  E.enterWing = function () {
+    const s = E.state;
+    MM.track('enterWing');
+    E.ensureWing();
+    s.mapId = 'wing';
+    s.grid = MM.maps.parse(MM.maps.WING, '#');
+    s.monsters = [];   // the castle rule extends to the Wing: no combat, ever
+    E.applyWingState();
+    const start = MM.maps.find(s.grid, 'P')[0];
+    s.px = start.x; s.py = start.y;
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.log(MM.data.WING_ENTER_LINE);
+    E.save();
+    MM.ui.refresh();
+  };
+  E.exitWing = function () {
+    E.enterCastle();
+    // land beside the Study door rather than the castle's front hall
+    const s = E.state;
+    s.px = 8; s.py = 9;
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.refresh();
+  };
+
+  // Re-derive the Wing's grid from persisted state (call on entry and after
+  // any change): opened chests, slab positions, the wardrobe's departure.
+  E.applyWingState = function () {
+    const s = E.state;
+    if (!s.grid || s.mapId !== 'wing') return;
+    const w = E.ensureWing();
+    for (const key of Object.keys(s.opened)) {
+      const [mid, xy] = key.split(':');
+      if (mid !== 'wing') continue;
+      const [x, y] = xy.split(',').map(Number);
+      if (s.grid[y]) s.grid[y][x] = '.';
+    }
+    if (w.wardrobeMoved) {
+      const wd = MM.maps.WING_WARDROBE;
+      s.grid[wd.y][wd.x] = '.';
+    }
+    for (const t of MM.maps.WING_SLABS) if (s.grid[t.y][t.x] === 'U') s.grid[t.y][t.x] = '.';
+    for (const sl of w.slabs) s.grid[sl.y][sl.x] = 'U';
+  };
+
+  // ---------- the Wing's movement branch ----------
+  E.wingMove = function (dx, dy, nx, ny, ch) {
+    const s = E.state;
+    const w = E.ensureWing();
+    if (ch === 'X') return E.exitWing();
+    if (ch === 'H') return E.wingDoorway();
+    if (ch === 'T') return E.wingPortrait(nx, ny);
+    if (ch === 'i') return E.wingPlaque(nx, ny);
+    if (ch === 'w') return E.wingWardrobeBump();
+    if (ch === 'M') return E.wingMirror(nx, ny);
+    if (ch === 'S') return E.wingCat(nx, ny);
+    if (ch === 'U') return E.wingSlabBump(dx, dy, nx, ny);
+    if (ch === 'l') return E.wingReset(nx, ny);
+    if (ch === '*') return E.wingChest(nx, ny);
+    if (ch === 'O') return MM.ui.dialog('⛲ The fish fountain',
+      'Stone fish circle the basin, mid-leap, over water that is entirely real. The sculptor clearly liked fish. The cats clearly agree.');
+    if (ch === '@') return MM.ui.log('🔦 The lamp is warm, steady, and entirely certain about which way it\'s pointing.');
+    if (ch === '$') return MM.ui.log(E.wingBeamLit()
+      ? '🔮 The crystal hums, full of drunk light. Deeply pleased with itself.'
+      : '🔮 A dark crystal on a pedestal. It feels like an unlit room waiting for a lamp.');
+    if (ch === 'k') return MM.ui.log(MM.data.pick(MM.data.WING_SHELF_LINES));
+    if (ch === 'G' && !(w.rooms && w.rooms.armory)) {
+      MM.sound.thud();
+      return MM.ui.log('⚙️ The beam-gate is shut tight. The dark crystal, presumably, is the key.');
+    }
+    if (ch === '&' && !E.platePowered('wing')) {
+      MM.sound.thud();
+      return MM.ui.log('🧱 The counterweight gate is shut — it only lifts while something rests on a pressure plate.');
+    }
+    if (ch === '#') return;
+    // walk (no stamina — the castle rule), with cracked-floor bookkeeping
+    const fromX = s.px, fromY = s.py;
+    const fromCh = s.grid[fromY] && s.grid[fromY][fromX];
+    E.petPos = { x: s.px, y: s.py };
+    s.px = nx; s.py = ny;
+    if (fromCh === '!') E.crumbleBehind(fromX, fromY);
+    if (ch === '!') E.crackCreak();
+    if (ch === '+') E.platePressFeedback();
+    if (ch === 'v') return E.wingFall();
+    if (ch === '<') return E.wingLadder();
+    if (ch === '_') return E.tileEffects('_', dx, dy);
+    // the wardrobe chirps when walked PAST — a two-note tell, throttled
+    if (!w.wardrobeMoved) {
+      const wd = MM.maps.WING_WARDROBE;
+      const near = Math.abs(s.px - wd.x) + Math.abs(s.py - wd.y) === 1;
+      if (near && Date.now() - (E._wardrobeChirpAt || 0) > 5000) {
+        E._wardrobeChirpAt = Date.now();
+        MM.sound.chirp();
+      }
+    }
+  };
+
+  E.wingFall = function () {
+    const s = E.state;
+    const c = MM.maps.WING_CELLAR.landing;
+    s.px = c.x; s.py = c.y;
+    E.petPos = { x: c.x, y: c.y };
+    MM.sound.thud();
+    MM.ui.log('🕳 The floor drops you into <b>Grumbold\'s cellar</b>. There\'s a ladder in the corner — and it smells faintly of biscuits.');
+    MM.ui.refresh();
+  };
+  E.wingLadder = function () {
+    const s = E.state;
+    const r = MM.maps.WING_CELLAR.ladderReturn;
+    s.px = r.x; s.py = r.y;
+    E.petPos = { x: r.x, y: r.y };
+    MM.ui.log('🪜 Up the ladder, back to the hall.');
+    MM.ui.refresh();
+  };
+
+  // ---------- portraits, plaques, the doorway ----------
+  E._wingPortraits = null;
+  E.wingPortraitIndex = function (x, y) {
+    if (!E._wingPortraits) {
+      const grid = MM.maps.parse(MM.maps.WING, '#');
+      E._wingPortraits = MM.maps.find(grid, 'T').sort((a, b) => (a.y - b.y) || (a.x - b.x));
+    }
+    return E._wingPortraits.findIndex(p => p.x === x && p.y === y);
+  };
+  E.wingPortrait = function (x, y) {
+    const i = E.wingPortraitIndex(x, y);
+    const p = MM.data.WING_PORTRAITS[i];
+    if (!p) return;
+    MM.ui.dialog(p.name, p.line);
+  };
+  E.wingPlaque = function (x, y) {
+    const p = MM.data.WING_PLAQUES[`${x},${y}`];
+    if (!p) return;
+    MM.ui.dialog(p.title, p.body);
+  };
+  E.wingDoorway = function () {
+    const s = E.state;
+    const all = E.WING_ROOMS.every(r => s.wing && s.wing.rooms && s.wing.rooms[r]);
+    MM.ui.dialog(all ? '🚪 The doorway bears a name' : '🚪 An empty doorway',
+      all ? MM.data.WING_DOORWAY_NAMED(s.name) : MM.data.WING_DOORWAY_BLANK);
+  };
+
+  // ---------- the wardrobe (an obvious mimic with a terrible tell) ----------
+  E.wingWardrobeBump = function () {
+    const s = E.state;
+    const w = E.ensureWing();
+    if (w.wardrobeMoved) return;
+    w.wardrobeBumps = (w.wardrobeBumps || 0) + 1;
+    if (w.wardrobeBumps <= 2) {
+      const b = MM.data.WING_WARDROBE_BUMPS[w.wardrobeBumps - 1];
+      if (w.wardrobeBumps === 2) E._wardrobeSweatUntil = Date.now() + 2600; // 💧, in the field
+      E.save();
+      return MM.ui.dialog(b.title, b.body);
+    }
+    w.wardrobeMoved = true;
+    E.applyWingState();
+    E.save();
+    MM.sound.fanfare();
+    MM.ui.dialog(MM.data.WING_WARDROBE_CONFESSION.title, MM.data.WING_WARDROBE_CONFESSION.body,
+      () => MM.ui.log('🚪 The wardrobe has moved to the Study. It seems immensely relieved.'));
+  };
+
+  // ---------- Wren's Numberlings ----------
+  E.wingSlabAt = function (x, y) {
+    const s = E.state;
+    const w = s && s.wing;
+    return (w && w.slabs && w.slabs.find(sl => sl.x === x && sl.y === y)) || null;
+  };
+  // Pure check, unit-tested directly: is (a, b) a TRUE filling? EVERY true
+  // filling is accepted — multiple-solutions delight is load-bearing.
+  E.wingEquationOk = (a, b) => a != null && b != null && a * b === MM.maps.WING_WREN.target;
+  E.wingSlabBump = function (dx, dy, nx, ny) {
+    const s = E.state;
+    const w = E.ensureWing();
+    const slab = w.slabs.find(sl => sl.x === nx && sl.y === ny);
+    if (!slab) return;
+    if (slab.locked) return MM.ui.log('🪨 The Numberling is set in its socket — proud, and immovable.');
+    const bx = nx + dx, by = ny + dy;
+    const destCh = s.grid[by] && s.grid[by][bx];
+    const blocked = !(destCh === '.' || destCh === '+' || destCh === '0' || destCh === '_')
+      || w.slabs.some(o => o !== slab && o.x === bx && o.y === by);
+    if (blocked) { MM.sound.thud(); return; }
+    s.grid[ny][nx] = slab.under || '.';
+    slab.x = bx; slab.y = by; slab.under = destCh;
+    s.grid[by][bx] = 'U';
+    MM.sound.thud();
+    if (slab.asleep) {
+      // the 💤 gag never blocks the push — the bump both wakes AND moves it
+      slab.asleep = false;
+      MM.sound.tone(1);
+      MM.ui.log(`💤 The ${slab.num} wakes with a start and pretends it was counting the whole time.`);
+    } else if (slab.num != null && Math.random() < 0.25) {
+      E._slabPop = { x: bx, y: by, until: Date.now() + 900 };   // 💢, in the field
+    }
+    if (destCh === '+') E.platePressFeedback();
+    E.wingCheckSockets();
+    E.save();
+    MM.ui.refresh();
+  };
+  E.wingCheckSockets = function () {
+    const s = E.state;
+    const w = E.ensureWing();
+    if (w.rooms.wren) return;
+    const [sa, sb] = MM.maps.WING_WREN.sockets;
+    const a = E.wingSlabAt(sa.x, sa.y), b = E.wingSlabAt(sb.x, sb.y);
+    if (!a || !b) return;
+    if (!E.wingEquationOk(a.num, b.num)) return;   // false filling: the slump says it all
+    a.locked = true; b.locked = true;
+    w.rooms.wren = true;
+    const g = E.gainGold(E.WING_ROOM_GOLD);
+    MM.sound.fanfare();
+    if (MM.ui.worldBurst && !s.calmMode) {
+      MM.ui.worldBurst(sa.x, sa.y, '#ffd94a', 14);
+      MM.ui.worldBurst(sb.x, sb.y, '#ffd94a', 14);
+    }
+    E.save();
+    MM.ui.dialog('✨ The Numberlings approve',
+      `<b>${a.num} × ${b.num} = ${MM.maps.WING_WREN.target}.</b> The two Numberlings hop in place, delighted with themselves, and settle into their sockets for good.<br><br>` +
+      `+${g} gold — MathMaker Wren's standing reward for <i>any</i> true answer.`,
+      () => E.wingMaybeTitle());
+  };
+
+  // ---------- the Armory beam ----------
+  E.wingMirrorIndexAt = function (x, y) {
+    return MM.maps.WING_ARMORY.mirrors.findIndex(m => m.x === x && m.y === y);
+  };
+  // Read-only (tileSprite calls this): current state or the authored initial.
+  E.wingMirrorStateAt = function (x, y) {
+    const i = E.wingMirrorIndexAt(x, y);
+    if (i < 0) return 0;
+    const w = E.state && E.state.wing;
+    const arr = (w && w.mirrors) || MM.maps.WING_ARMORY.initial;
+    return arr[i] || 0;
+  };
+  E.wingBeam = function () {
+    const s = E.state;
+    if (!s || s.mapId !== 'wing' || !s.grid) return { points: [], lit: false };
+    const A = MM.maps.WING_ARMORY;
+    let x = A.lamp.x, y = A.lamp.y, dx = A.dir[0], dy = A.dir[1];
+    const points = [{ x, y }];
+    let lit = false, guard = 0;
+    while (guard++ < 80) {
+      x += dx; y += dy;
+      const ch = s.grid[y] && s.grid[y][x];
+      if (ch === 'M') {
+        points.push({ x, y });
+        if (E.wingMirrorStateAt(x, y) === 0) { const t = dx; dx = -dy; dy = -t; }   // '/'
+        else { const t = dx; dx = dy; dy = t; }                                     // '\'
+        continue;
+      }
+      if (ch === '$') { points.push({ x, y }); lit = true; break; }
+      if (ch === '.' || ch === '+' || ch === '0' || ch === '!' || ch === '_') continue;
+      points.push({ x: x - dx, y: y - dy });
+      break;
+    }
+    return { points, lit };
+  };
+  E.wingBeamLit = () => E.wingBeam().lit;
+  E.wingMirror = function (x, y) {
+    const s = E.state;
+    const w = E.ensureWing();
+    const i = E.wingMirrorIndexAt(x, y);
+    if (i < 0) return;
+    w.mirrors[i] = (w.mirrors[i] + 1) % 2;
+    w.mirrorTurns[i] = (w.mirrorTurns[i] || 0) + 1;
+    // the Nth rotation of any one stand plays a two-note descending sigh —
+    // sound-channel comedy, and never an obstacle
+    if (w.mirrorTurns[i] % 7 === 0) MM.sound.sigh(); else MM.sound.tone(3);
+    if (!w.rooms.armory && E.wingBeamLit()) {
+      w.rooms.armory = true;
+      E.gateGlintUntil = performance.now() + 1600;
+      MM.sound.fanfare();
+      E.save();
+      MM.ui.refresh();
+      return MM.ui.dialog('💡 The crystal drinks the light',
+        'The beam threads the shields, corner by corner, and sinks into the dark crystal — which <b>glows</b>.<br><br><i>Across the room, the beam-gate swings open.</i>',
+        () => E.wingMaybeTitle());
+    }
+    E.save();
+    MM.ui.refresh();
+  };
+
+  // ---------- Petronella's cats ----------
+  E.wingCatIndexAt = function (x, y) {
+    return MM.maps.WING_CATS.statues.findIndex(c => c.x === x && c.y === y);
+  };
+  E.wingCatFacing = function (i) {
+    const w = E.state && E.state.wing;
+    const arr = (w && w.cats) || MM.maps.WING_CATS.statues.map(c => c.initial);
+    return arr[i] || 0;
+  };
+  E.wingCatNeeded = function (i) {
+    const c = MM.maps.WING_CATS.statues[i];
+    const f = MM.maps.WING_CATS.fountain;
+    const dx = f.x - c.x, dy = f.y - c.y;
+    if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 1 : 3;   // E : W
+    return dy > 0 ? 2 : 0;                                     // S : N
+  };
+  E.wingCat = function (x, y) {
+    const s = E.state;
+    const w = E.ensureWing();
+    const i = E.wingCatIndexAt(x, y);
+    if (i < 0) return;
+    w.cats[i] = (w.cats[i] + 1) % 4;
+    MM.sound.tone(2);
+    const allFacing = MM.maps.WING_CATS.statues.every((c, ci) => w.cats[ci] === E.wingCatNeeded(ci));
+    if (allFacing && !w.rooms.petronella) {
+      w.rooms.petronella = true;
+      const g = E.gainGold(E.WING_ROOM_GOLD);
+      MM.sound.tone(0); MM.sound.tone(2, 0.18); MM.sound.tone(4, 0.36);
+      E.save();
+      MM.ui.refresh();
+      return MM.ui.dialog('🐈 The cats agree',
+        `The last cat clicks into place — and for one long moment, all three stone cats watch the fountain together. A chime rings out from nowhere in particular, deeply satisfied.<br><br>` +
+        `+${g} gold, from a hidden drawer in the fountain's base.`,
+        () => E.wingMaybeTitle());
+    }
+    E.save();
+    MM.ui.refresh();
+  };
+
+  // ---------- chests, reset levers, the title ----------
+  E.wingChest = function (x, y) {
+    const s = E.state;
+    const w = E.ensureWing();
+    const key = `wing:${x},${y}`;
+    if (s.opened[key]) return;
+    const room = MM.maps.WING_ROOM_CHESTS[`${x},${y}`];
+    const cellar = MM.maps.WING_CELLAR_CHEST.x === x && MM.maps.WING_CELLAR_CHEST.y === y;
+    s.opened[key] = true;
+    s.grid[y][x] = '.';
+    MM.sound.coin();
+    let title = '🎁 A chest', body;
+    if (cellar) {
+      const g = E.gainGold(30);
+      body = `Inside: <b>${g} gold</b> and a very old biscuit tin (empty). Grumbold's cellar snacks — long since enjoyed by Grumbold.`;
+    } else if (room === 'grumbold') {
+      const g = E.gainGold(E.WING_ROOM_GOLD);
+      w.rooms.grumbold = true;
+      body = `Inside: <b>${g} gold</b> — and a note in a spidery hand:<br><br><i>"You crossed. Or you fell and climbed back, which is the same thing with extra steps. Either way: proven. — G. III"</i>`;
+    } else if (room === 'armory') {
+      const g = E.gainGold(E.WING_ROOM_GOLD);
+      body = `Inside: <b>${g} gold</b> — kept exactly where Brightwell said the light would end up.`;
+    } else if (room === 'pantry') {
+      const g = E.gainGold(40);
+      s.items.food.cheese = (s.items.food.cheese || 0) + 3;
+      w.rooms.pantry = true;
+      title = '🧀 The pantry chest';
+      body = `Cheese. Of course it's cheese. It has always been cheese.<br><br><b>3 Cheese Wheels</b> go in your 🎒 bag — and <b>${g} gold</b> was under the cheese. Bartleby understood heroes.`;
+    } else if (room === 'plate') {
+      const g = E.gainGold(E.WING_ROOM_GOLD);
+      w.rooms.plate = true;
+      body = `Inside: <b>${g} gold</b>, and Milla's last word on the subject, carved inside the lid: <i>"Weight is honest."</i>`;
+    } else {
+      const g = E.gainGold(20);
+      body = `Inside: <b>${g} gold</b>.`;
+    }
+    E.save();
+    MM.ui.dialog(title, body, () => E.wingMaybeTitle());
+  };
+  E.wingReset = function (x, y) {
+    const s = E.state;
+    const w = E.ensureWing();
+    const which = MM.maps.WING_RESET_LEVERS[`${x},${y}`];
+    if (!which) return;
+    const ids = which === 'wren'
+      ? MM.maps.WING_SLABS.filter(t => t.num != null).map(t => t.id)
+      : ['pantry', 'plate'];
+    for (const id of ids) {
+      const slab = w.slabs.find(sl => sl.id === id);
+      const tmpl = MM.maps.WING_SLABS.find(t => t.id === id);
+      if (!slab || slab.locked) continue;
+      if (s.grid[slab.y] && s.grid[slab.y][slab.x] === 'U') s.grid[slab.y][slab.x] = slab.under || '.';
+      slab.x = tmpl.x; slab.y = tmpl.y; slab.under = '.';
+      s.grid[tmpl.y][tmpl.x] = 'U';
+    }
+    MM.sound.fanfare();
+    MM.ui.log('⚙️ You pull the lever — the loose slabs shuffle back to their starting spots.');
+    E.save();
+    MM.ui.refresh();
+  };
+  E.wingMaybeTitle = function () {
+    const s = E.state;
+    const w = E.ensureWing();
+    if (w.titleGiven || !E.WING_ROOMS.every(r => w.rooms[r])) return;
+    w.titleGiven = true;
+    s.titles = s.titles || [];
+    if (!s.titles.includes('Keeper of the Proving Rooms')) s.titles.push('Keeper of the Proving Rooms');
+    MM.sound.fanfare();
+    if (MM.ui.worldBurst && !s.calmMode) MM.ui.worldBurst(s.px, s.py, '#ffd94a', 22);
+    E.save();
+    MM.ui.dialog('🏅 Keeper of the Proving Rooms', MM.data.WING_TITLE_LINE);
   };
 
   // One-way drop chute: the floor gives way and you land at the SAME spot one

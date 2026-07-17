@@ -1390,6 +1390,72 @@ var MM = globalThis.MM = globalThis.MM || {};
       empty: 'An empty wall niche. It looks like it\'s waiting for something.',
       bought: 'Shelves, floor to ceiling, with every book you\'d expect a MathMaker to keep — and a few you wouldn\'t.' },
   };
+  // ---------- Wave 12 (P3): the Workshop Wing ----------
+  // STANDING RULES (permanent): a joke is an observation, never an obstacle;
+  // comedy channels are field/glyph/sound/modal, never the log alone;
+  // worked math stays plain; the kid is never the punchline.
+  // Portraits hang in the hall, keyed by sorted (y,x) position — bump one to
+  // hear its MathMaker. Exactly ONE (Ondine) is gently wrong about math
+  // history, and the portrait hung beside her shushes her.
+  MM.data.WING_PORTRAITS = [
+    { name: '🖼 Grumbold the Third, MathMaker',
+      line: '"The cracked floors were MY idea. A floor that holds you exactly once teaches you to plan your route — and the cellar is lovely this time of year. I kept snacks down there."' },
+    { name: '🖼 Ondine the Radiant, MathMaker',
+      line: '"I invented zero, you know. Right here in this hall, on a Tuesday. Before me, people simply left a gap and felt uneasy about it."' },
+    { name: '🖼 Hesper the Thorough, MathMaker',
+      line: '"Pay no mind to Ondine, dear — <b>zero is centuries older than any of us</b>, and she knows it perfectly well. She DID invent the soup spoon with the ruler on the handle, which I grant is nearly as useful."' },
+    { name: '🖼 MathMaker Wren',
+      line: '"Be kind to my Numberlings. I carved the sockets to accept <b>every true filling</b> — there is never only one right way to make a number, and I will not have my own floor pretending otherwise."' },
+    { name: '🖼 Brightwell the Unblinking, MathMaker',
+      line: '"No arithmetic in my armory. Just one lamp, some very polished shields, and the fact — the FACT — that light always knows where it is going. Help it around the corners."' },
+    { name: '🖼 MathMaker Petronella',
+      line: '"The statues are of my own cats, none of whom would sit still for the sculptor. He worked from memory and fear. Turn them toward the fountain — they always did love watching the fish."' },
+    { name: '🖼 Bartleby the Ample, MathMaker',
+      line: '"A proving room can also be a pantry. Nobody proves anything on an empty stomach. The cheese is for whoever works the shelves — it has always been cheese, and it always will be."' },
+    { name: '🖼 MathMaker Milla',
+      line: '"Weight is honest. A plate does not care how clever you are — it cares whether something is standing on it. Remember that. It comes up more often than you would think."' },
+  ];
+  // Room plaques, keyed 'x,y' of their 'i' tile on the WING map.
+  MM.data.WING_PLAQUES = {
+    '5,9': { title: '📜 The Proving Room of Grumbold the Third',
+      body: '"The floor ahead holds a hero exactly <b>once</b>. Cross wisely — and if you fall, enjoy the cellar. The ladder brings you home."' },
+    '18,9': { title: "📜 MathMaker Wren's Numberlings",
+      body: 'Carved deep beneath the signature: <b>▢ × ▢ = 24</b>.<br><br>"Push any two Numberlings into the sockets to make it TRUE. Every true answer opens the floor — there is never only one."' },
+    '31,9': { title: '📜 The Armory of Brightwell the Unblinking',
+      body: '"No sums here. Turn the shield-stands until the lamp\'s beam finds the dark crystal. Light knows the way; help it around the corners."' },
+    '5,13': { title: "📜 MathMaker Petronella's Garden of Cats",
+      body: '"Turn my cats to face the fish fountain — <b>all</b> of them. They will pretend not to care. They care enormously."' },
+    '18,13': { title: "📜 Bartleby's Pantry",
+      body: '"Mostly a pantry, I admit. But mind the counterweight gate: it opens only while something <b>heavy</b> rests on the pressure plate. The slab will do nicely. The cheese is real."' },
+    '31,13': { title: "📜 MathMaker Milla's Plate Room",
+      body: '"A pressure plate holds this floor\'s gates open only <b>while</b> it is held down — step off, and they fall shut. A pushed slab holds a plate as long as you leave it there. Any plate will do; they share the load."' },
+  };
+  // The wardrobe: an obvious mimic with a terrible tell (bobs when you are
+  // FAR, dead still when adjacent). Three bumps and it comes clean.
+  MM.data.WING_WARDROBE_BUMPS = [
+    { title: '🚪 A wardrobe', body: 'It is a perfectly ordinary wardrobe. It is standing very, very still — <i>almost aggressively still</i>.<br><br>When you are close, it does not move at all. Not even a little. That, somehow, is the strange part.' },
+    { title: '🚪 The same wardrobe', body: 'The wardrobe is sweating.<br><br><i>Wardrobes do not sweat.</i>' },
+  ];
+  MM.data.WING_WARDROBE_CONFESSION = {
+    title: '🚪 The wardrobe gives up',
+    body: '"<b>ALL RIGHT,</b>" says the wardrobe, in a voice like a hinge that has spent years practicing not to creak. "I am not a wardrobe. I have never been a wardrobe. I have been pretending to be furniture for <b>forty years</b>, and I would like to say: it is <i>exhausting</i>. The standing still. The dust. A moth lived in me for a while. I let it. That is how committed I was."<br><br><i>It sighs, hugely, from somewhere behind its own doors.</i><br><br>"You knocked three times. Politely. Nobody has ever knocked. So — I resign. From furniture." A pause. "May I live in the Study? It looks warm, and the slime seems like good company."<br><br><i>It relocates before you can answer, at a pace no wardrobe should be capable of. It has, from somewhere, produced a tiny hat.</i>',
+  };
+  MM.data.WING_WARDROBE_HOME = 'The wardrobe stands in the Study\'s corner, wearing its tiny hat at what can only be called a jaunty angle. It is not pretending to be anything anymore.<br><br>Now and then its doors open a crack to watch the slates being marked. <i>The enrolled slime waves at it. It waves a door back.</i>';
+  // The castle door ('H' by the Study) and the hall's-end teaser doorway.
+  MM.data.WING_DOOR_LOCKED = name =>
+    `A sturdy door with a brass plate, polished bright and freshly engraved. The plate reads: <b>${name}</b>.<br><br>Under it, in smaller letters: <i>Not yet.</i>`;
+  MM.data.WING_ENTER_LINE = '🛠 <b>The Workshop Wing.</b> Six proving rooms, each signed by a MathMaker before you. Someone has dusted, recently.';
+  MM.data.WING_DOORWAY_BLANK = 'At the very end of the hall: a doorway with nothing behind it yet — just clean stone, and a blank brass plate waiting for a name.<br><br><i>Whoever finishes the proving rooms, presumably.</i>';
+  MM.data.WING_DOORWAY_NAMED = name =>
+    `The blank plate isn\'t blank anymore. It reads: <b>${name}</b>.<br><br>There is still nothing behind the doorway — but somehow it reads less like an ending and more like a promise: <i>your room, when you\'re ready to build it.</i>`;
+  MM.data.WING_TITLE_LINE = 'Six rooms, six signatures, six proofs — every one of them answered.<br><br>From this day you are <b>Keeper of the Proving Rooms</b>. The empty doorway at the hall\'s end has been listening. Go and see.';
+  // Pantry shelf flavor (bump pool — a modal would be friction; these are
+  // log echoes of a purely visual room, mechanics-free).
+  MM.data.WING_SHELF_LINES = [
+    '🧺 Jars. So many jars. One is labeled "DO NOT PROVE."',
+    '🥫 Pickled things, alphabetized. Bartleby\'s system endures.',
+    '🧂 A salt cellar the size of a helmet. It has seen use.',
+  ];
   MM.data.STATUE_PRICE = 220;
   MM.data.STATUE_EMPTY = 'An empty plinth, waiting for someone worth remembering.';
   MM.data.STATUE_LINE = name => `A small stone likeness of ${name} — carved with more fondness than accuracy, honestly.`;
