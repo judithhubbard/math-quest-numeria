@@ -483,3 +483,4 @@ indexing a big file operation (e.g. right after refreshing the play
 copy) — the I/O contention can starve headless Chrome past even 90s
 timeouts. Every "mystery" drive failure to date has occurred under
 sync load and passed under quiet conditions.
+- drive-report.js — report-card completeness (2026-07-17): the three sea-taught topics (clocks/geometry/music) appear on the card and badge shelf once attempted, labeled by where they're taught; Practice Yard clean-run stars get their own section, capped at ★★★.

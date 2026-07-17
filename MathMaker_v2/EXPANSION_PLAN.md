@@ -3110,7 +3110,7 @@ Design session solved it; IMPLEMENT NEXT SESSION. Everything needed:
   SCREENSHOT AUDIT (the whole point is how it LOOKS — check the eye, the
   river gap, the mountain gaps, the tower approach) before deploy.
 
-## Wave 12 order — "The Proving Rooms" (user directive 2026-07-17, design session) — ✅ IMPLEMENTED 2026-07-17, awaiting design review
+## Wave 12 order — "The Proving Rooms" (user directive 2026-07-17, design session) — ✅ SHIPPED v1.8.0 2026-07-17 (design-reviewed, prose approved)
 
 **Implementation status (implementer session, 2026-07-17):** all four
 P-items shipped; unit suite green (incl. every new Wave 12 block), full

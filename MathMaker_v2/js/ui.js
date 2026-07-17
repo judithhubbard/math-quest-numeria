@@ -1925,11 +1925,19 @@ var MM = globalThis.MM = globalThis.MM || {};
           <button class="shop-buy" id="feedPet" ${s.items.treats > 0 ? '' : 'disabled'}>Feed</button>
         </div>`;
     }
-    const badgeRows = MM.data.TASKS.filter(t => !t.exp).map(t => {
-      const tier = (s.badges || {})[t.skill] || 0;
+    // 2026-07-17 audit fix: the shelf shows the three sea-taught topics too
+    // (clocks/geometry/music) once the kid has attempted them — same rule as
+    // the report card, and for the same reason (recorded but never displayed).
+    const shelfSkills = MM.data.TASKS.filter(t => !t.exp).map(t => t.skill)
+      .concat(['time_reading', 'geometry', 'music_reading'].filter(k => {
+        const m = (s.mastery || {})[k];
+        return (m && m.attempts) || (s.badges || {})[k];
+      }));
+    const badgeRows = shelfSkills.map(skill => {
+      const tier = (s.badges || {})[skill] || 0;
       const icons = [1, 2, 3].map(k =>
         `<span class="${k <= tier ? 'badge-on' : 'badge-dim'}">${MM.data.BADGES[k].emoji}</span>`).join(' ');
-      return `<div class="charm-row">${icons} ${MM.data.SKILL_NAMES[t.skill]}</div>`;
+      return `<div class="charm-row">${icons} ${MM.data.SKILL_NAMES[skill]}</div>`;
     }).join('');
     const r = MM.engine.strikeRange();
     openModal(`
@@ -3014,6 +3022,50 @@ var MM = globalThis.MM = globalThis.MM || {};
         ${growthLine}
       </div>`;
     }).join('');
+    // 2026-07-17 audit fix: the isles TEACH three topics (Spire → clocks,
+    // Breakwater → geometry, Halls → music) that were always recorded into
+    // s.mastery but never displayed — the card iterated only the 10 mainland
+    // task topics. Shown once attempted (no attempts = the kid hasn't met the
+    // topic, or its parent switch is off — either way, no empty row).
+    const SEA_TOPICS = [
+      ['time_reading', 'the Clockwork Spire'],
+      ['geometry', 'the Sunken Breakwater'],
+      ['music_reading', 'the Resonant Halls'],
+    ];
+    const seaRows = SEA_TOPICS.map(([skill, place]) => {
+      const m = (s.mastery || {})[skill];
+      if (!m || !m.attempts) return '';
+      const acc = Math.round(m.correct / m.attempts * 100);
+      const tier = (s.badges || {})[skill] || 0;
+      const recent = m.recent || [];
+      const growthLine = recent.length >= 3
+        ? `<span class="report-growth">${recent.reduce((a, b) => a + b, 0)} of your last ${recent.length} ✨</span>`
+        : '';
+      return `<div class="report-row">
+        <span class="report-skill">⛵ ${MM.data.SKILL_NAMES[skill]}${tier ? ' ' + MM.data.BADGES[tier].emoji : ''}
+          <span class="dim">· ${place}</span></span>
+        <span class="report-acc">${m.correct}/${m.attempts} (${acc}%)</span>
+        <span class="report-bar"><span style="width:${acc}%" class="${acc >= 85 ? 'great' : acc >= 60 ? 'ok' : 'work'}"></span></span>
+        ${growthLine}
+      </div>`;
+    }).join('');
+    const seaBlock = seaRows ? `<div class="report-total">⛵ Learned at sea</div>${seaRows}` : '';
+    // Practice Yard (v1.7.7): its drills deliberately never touch mastery, so
+    // the card reads s.yard directly — stars, not accuracy, because a ★ IS the
+    // record (a clean 8-of-8 run).
+    const yard = s.yard || { stars: {} };
+    const starCards = (MM.data.YARD_CARDS || []).filter(c => (yard.stars || {})[c.id] > 0);
+    const yardRows = starCards.map(c => {
+      const n = Math.min(3, yard.stars[c.id]);
+      return `<div class="report-row">
+        <span class="report-skill">${c.emoji} ${c.label}</span>
+        <span class="report-acc">${'★'.repeat(n)}${'☆'.repeat(3 - n)}</span>
+      </div>`;
+    }).join('');
+    const yardBlock = starCards.length
+      ? `<div class="report-total">🎓 Practice Yard — clean-run stars
+           <span class="dim">(every ★ is a whole drill, all 8 right)</span></div>${yardRows}`
+      : '';
     const total = s.totals || { answered: 0, correct: 0 };
     // Wave 8b: pride that outlives the fight. Shown only once it exists — a kid
     // who has never taken a brave problem is not told she has zero of them.
@@ -3024,7 +3076,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       ? `<div class="report-total">🕊 Kinds befriended: <b>${MM.engine.befriendedCount(s)}</b></div>` : '';
     UI.dialog('📊 Report Card — ' + s.name,
       `<div class="report-total">Problems solved: <b>${total.correct}</b> of <b>${total.answered}</b>` +
-      (total.answered ? ` (${Math.round(total.correct / total.answered * 100)}%)` : '') + `</div>${brave}${friends}${rows}`);
+      (total.answered ? ` (${Math.round(total.correct / total.answered * 100)}%)` : '') + `</div>${brave}${friends}${rows}${seaBlock}${yardBlock}`);
   };
 
   // ---------- the hatching (first voyage to the Isles) ----------
