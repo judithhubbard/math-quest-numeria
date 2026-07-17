@@ -3110,7 +3110,49 @@ Design session solved it; IMPLEMENT NEXT SESSION. Everything needed:
   SCREENSHOT AUDIT (the whole point is how it LOOKS — check the eye, the
   river gap, the mountain gaps, the tower approach) before deploy.
 
-## Wave 12 order — "The Proving Rooms" (user directive 2026-07-17, design session)
+## Wave 12 order — "The Proving Rooms" (user directive 2026-07-17, design session) — ✅ IMPLEMENTED 2026-07-17, awaiting design review
+
+**Implementation status (implementer session, 2026-07-17):** all four
+P-items shipped; unit suite green (incl. every new Wave 12 block), full
+32-drive sweep green (halls/spire flaky-in-sweep, green solo — the known
+trio), `tests/drive-wing.js` = 53 checks, screenshots audited by eye.
+Deviations from this order, and why:
+- **The forced-chunk Spiral leg lives in `tests/drive-wing.js`, not
+  drive-tending** (the implementer work order placed it there). The chunk
+  rotation is deterministic by floor — entering floors 8/9/11/15 IS
+  pinning the roll; no random hook was needed.
+- **New Spiral chunks are APPENDED to the pools**, so floors 1-7 keep
+  their historical templates and an old save's `s.opened` keys still line
+  up there. Floors 8+ re-template once; a stale opened key on those floors
+  can blank at most one cell, strictly opening-only (never sealing).
+  First appearances: pads f8, slides f9/f12, lever/gate chest f11, tide
+  pools f22, the gear-plate landing f15 (then every 15).
+- **The slab-on-ice stretch goal was CUT** (as the order permits): a slab
+  pushed onto the Wing's slick strip simply rests on it.
+- **The skip-count pond landed NORTH of Finn (rows 1-3, a sea-cove), not
+  beside him** — every open tile south/east of Finn is claimed by the TRUE
+  golden spiral's chain and stones; the first placement broke the Turning
+  Stones unit block within seconds of being written (the eye of the spiral
+  owns that grass). Stones 2-4-6-8 + odd decoys 5 and 7; a wrong stone
+  splashes you back to the bank, soundly and wordlessly.
+- **Glyph choices:** plate `+`, plate-gate `&`, cracked floor `!` —
+  non-letters, zero collision surface with the NPC letter space; the Wing
+  (mapId `'wing'`, an OVERWORLD like the castle) owns its whole alphabet
+  in its own tileSprite block, and every shared char carries a unit
+  context guard (`H`/`S`/`M`/`O`/`T`/`0`/`w`/`d`/`k`/`G`…).
+- **Wing rewards are gold** (the order allows "a furnishing piece or
+  gold"); the pantry pays cheese + gold. 80g per room, 30g cellar bonus.
+- **The wardrobe's far-bob period is 900ms** (first draft 500ms aliased
+  with screenshot latency — the two far frames of the drive's proof came
+  out identical; at 900ms the 5px offset is visible frame to frame).
+- **Closed-gate safety is a unit invariant**: with every `&`/`G` modeled
+  shut, any walkable region cut off from the Wing's entrance must contain
+  its own plate — and the Vault's pocket has no interior floor at all
+  (the chest is bumped from the gate tile), so a closing gate can never
+  trap anyone anywhere.
+- **NG+ now resets/restores `s.freeSlabs`** alongside gearState and
+  repairSites (snapshot, restore, reconstruct, and startGolden) — the
+  Vault's slab goes home when the kingdom does.
 
 Context, from three audits (2026-07-17, in the session log): (1) the isles
 introduce nine special-tile grammars and then strand them — the gear plate

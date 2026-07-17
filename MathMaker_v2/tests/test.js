@@ -14,8 +14,9 @@ function fail(msg) { fails++; console.log('FAIL: ' + msg); }
 // This suite runs headless (no DOM) — stub the browser-only bits any engine
 // function might touch (sound effects, UI logging/refresh) so a call like
 // MM.engine.resetSite doesn't crash just because there's no <audio> tag here.
-MM.sound = { fanfare() {}, thud() {}, coin() {}, correct() {}, wrong() {}, levelup() {}, tone() {}, whoosh() {} };
-MM.ui = { log() {}, refresh() {}, modalOpen: () => false, dialog() {}, dialogChoices() {}, showProblem() {} };
+MM.sound = { fanfare() {}, thud() {}, coin() {}, correct() {}, wrong() {}, levelup() {}, tone() {}, whoosh() {}, dodge() {}, splash() {}, sigh() {}, chirp() {}, creak() {}, soothe() {}, fret() {}, purr() {} };
+MM.ui = { log() {}, refresh() {}, modalOpen: () => false, dialog() {}, dialogChoices() {}, showProblem() {}, playerMoved() {} };
+MM.battle = MM.battle || { active: () => false, start() {} };   // Wave 12: tryMove is exercised headlessly now
 MM.track = MM.track || function () {};   // tracker.js isn't loaded headlessly
 { // Node 25's built-in `localStorage` global is read-only-ish here; replace it outright
   const store = {};
@@ -386,19 +387,22 @@ MM.maps.DUNGEONS.forEach((raw, di) => {
 // list below was hardcoded. New glyph => classify it here first.
 const DUNGEON_GLYPHS = {
   doors: 'DKZY',             // math, locked, clock (Z), echo (Y)
-  solid: '#GABCUilr',        // walls, lever-gates, gear gates, slabs,
+  solid: '#GABCUilr&',       // walls, lever-gates, gear gates, slabs,
                              // blueprint plaques, reset levers, broken
-                             // floor (impassable until mended, Wave 6.5).
+                             // floor (impassable until mended, Wave 6.5),
+                             // plate-gates (& — Wave 12: shut whenever no
+                             // plate is held, so the audit treats them shut).
                              // A/B/C stay SOLID here on purpose: the audit
                              // asks "does this door gate anything if it were
                              // shut", and any one gear gate can be shut. Their
                              // per-rotation reachability has its own test
                              // (the Spire block) — Wave 7 kept them in the
                              // live grid but did not change what they gate.
-  open: '.mgtbk*%<>Xv^,_osRL ', // floor, spawn markers, pickups, stairs,
+  open: '.mgtbk*%<>Xv^,_osRL+! ', // floor, spawn markers, pickups, stairs,
                              // chutes, terrain effects, singing stones,
                              // gear plates (walk-on), one-shot levers
-                             // (post-pull = open route)
+                             // (post-pull = open route), pressure plates
+                             // (+, walk-on) and cracked floor (!, Wave 12)
 };
 function auditDoors(rawGrid, label) {
   const grid = MM.maps.parse(rawGrid, '#');
@@ -1330,6 +1334,7 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   checkMap(MM.maps.CHIME, 'chime', 'chime');
   checkMap(MM.maps.GULLWRACK, 'gullwrack', 'gullwrack');
   checkMap(MM.maps.CASTLE, 'castle', 'castle');   // Wave 7
+  checkMap(MM.maps.WING, 'wing', 'wing');         // Wave 12
   for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
     MM.maps.dungeonFloors(idx).forEach((raw, fi) => checkMap(raw, `d${idx}f${fi}`, `render d${idx} f${fi}`));
   }
@@ -2818,6 +2823,559 @@ for (const skill of skills) {
   // not a pure string-returning function like the NPCS.*.talk() pool — it's
   // covered by tests/drive-notices.js instead, which has a real DOM to read
   // #modalBox from.
+}
+
+// ========================================================================
+// ---------- Wave 12: "The Proving Rooms" ----------
+// ========================================================================
+
+// ---------- P3: the Workshop Wing map ----------
+{
+  const rows = MM.maps.WING;
+  rows.forEach((r, i) => { if (r.length !== 40) fail(`wing row ${i} length ${r.length}, want 40`); });
+  if (rows.length !== 26) fail(`wing has ${rows.length} rows, want 26`);
+  const g = MM.maps.parse(rows, '#');
+  // NO combat, ever — the castle rule extends to the Wing
+  for (const ch of ['m', 'g', 't', 'b']) {
+    if (MM.maps.find(g, ch).length) fail(`wing: monster marker '${ch}' — there is no combat in the Wing`);
+  }
+  if (!MM.maps.isOverworld('wing')) fail('wing must be in OVERWORLD_IDS (castle rules: NPC pass, no dungeon-grey floor)');
+  // the townsfolk NPC-draw pass runs on every overworld — no wing glyph may
+  // collide with an MM.data.NPCS key (the Wave 9 furnishing lesson)
+  {
+    const glyphs = new Set();
+    for (const row of g) for (const ch of row) glyphs.add(ch);
+    for (const ch of glyphs) {
+      if (MM.data.NPCS[ch]) fail(`wing: glyph '${ch}' collides with an MM.data.NPCS key — a villager would draw over it`);
+    }
+  }
+  // one of each singleton, the right number of everything else
+  for (const [ch, n] of [['X', 1], ['P', 1], ['H', 1], ['w', 1], ['@', 1], ['$', 1], ['O', 1], ['<', 1]]) {
+    if (MM.maps.find(g, ch).length !== n) fail(`wing: want ${n} of '${ch}', found ${MM.maps.find(g, ch).length}`);
+  }
+  if (MM.maps.find(g, 'T').length !== MM.data.WING_PORTRAITS.length) {
+    fail(`wing: ${MM.maps.find(g, 'T').length} portraits on the map vs ${MM.data.WING_PORTRAITS.length} in WING_PORTRAITS`);
+  }
+  if (MM.maps.find(g, 'M').length !== MM.maps.WING_ARMORY.mirrors.length) fail('wing: mirror-stand count mismatch');
+  if (MM.maps.find(g, 'S').length !== MM.maps.WING_CATS.statues.length) fail('wing: cat-statue count mismatch');
+  if (MM.maps.find(g, '0').length !== MM.maps.WING_WREN.sockets.length) fail('wing: socket count mismatch');
+  // every plaque tile has prose, every prose key has a tile
+  {
+    const tiles = new Set(MM.maps.find(g, 'i').map(p => `${p.x},${p.y}`));
+    for (const key of Object.keys(MM.data.WING_PLAQUES)) {
+      if (!tiles.has(key)) fail(`wing: WING_PLAQUES['${key}'] has no 'i' tile on the map`);
+    }
+    for (const t of tiles) if (!MM.data.WING_PLAQUES[t]) fail(`wing: plaque tile ${t} has no WING_PLAQUES entry`);
+  }
+  // every declared coordinate points at the right glyph
+  const expect = (x, y, ch, label) => { if (g[y][x] !== ch) fail(`wing: ${label} at ${x},${y} is '${g[y][x]}', want '${ch}'`); };
+  MM.maps.WING_SLABS.forEach(t => expect(t.x, t.y, 'U', `slab ${t.id}`));
+  MM.maps.WING_WREN.sockets.forEach(p => expect(p.x, p.y, '0', 'socket'));
+  MM.maps.WING_ARMORY.mirrors.forEach(p => expect(p.x, p.y, 'M', 'mirror'));
+  expect(MM.maps.WING_ARMORY.lamp.x, MM.maps.WING_ARMORY.lamp.y, '@', 'lamp');
+  expect(MM.maps.WING_ARMORY.crystal.x, MM.maps.WING_ARMORY.crystal.y, '$', 'crystal');
+  MM.maps.WING_CATS.statues.forEach(p => expect(p.x, p.y, 'S', 'cat statue'));
+  expect(MM.maps.WING_CATS.fountain.x, MM.maps.WING_CATS.fountain.y, 'O', 'fountain');
+  expect(MM.maps.WING_WARDROBE.x, MM.maps.WING_WARDROBE.y, 'w', 'wardrobe');
+  expect(MM.maps.WING_DOORWAY.x, MM.maps.WING_DOORWAY.y, 'H', 'teaser doorway');
+  expect(MM.maps.WING_CELLAR_CHEST.x, MM.maps.WING_CELLAR_CHEST.y, '*', 'cellar chest');
+  Object.keys(MM.maps.WING_ROOM_CHESTS).forEach(k => {
+    const [x, y] = k.split(',').map(Number);
+    expect(x, y, '*', `room chest (${MM.maps.WING_ROOM_CHESTS[k]})`);
+  });
+  Object.keys(MM.maps.WING_RESET_LEVERS).forEach(k => {
+    const [x, y] = k.split(',').map(Number);
+    expect(x, y, 'l', 'reset lever');
+  });
+  // reachability from P: gates modeled OPEN; every bumpable adjacent-reachable
+  const WALK = '.PX+0!_v<&G';
+  const bfs = (sx, sy, walk) => {
+    const seen = new Set([sx + ',' + sy]);
+    const q = [[sx, sy]];
+    while (q.length) {
+      const [x, y] = q.shift();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+        const ch = (g[ny] || [])[nx];
+        if (ch == null || seen.has(k) || !walk.includes(ch)) continue;
+        seen.add(k); q.push([nx, ny]);
+      }
+    }
+    return seen;
+  };
+  const start = MM.maps.find(g, 'P')[0];
+  const seen = bfs(start.x, start.y, WALK);
+  const inCellar = (x, y) => x <= 8 && y >= 22;   // teleport-in, ladder out
+  const adjSeen = p => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen.has((p.x + dx) + ',' + (p.y + dy)));
+  for (const ch of ['T', 'i', 'w', 'M', 'S', 'O', 'U', '*', 'l', '@', '$', 'H', 'k']) {
+    for (const p of MM.maps.find(g, ch)) {
+      if (inCellar(p.x, p.y)) continue;
+      if (!adjSeen(p)) fail(`wing: bumpable '${ch}' at ${p.x},${p.y} can never be reached`);
+    }
+  }
+  for (const ch of ['+', '0', '!', '_', 'v', '<']) {
+    for (const p of MM.maps.find(g, ch)) {
+      if (inCellar(p.x, p.y)) continue;
+      if (!seen.has(p.x + ',' + p.y)) fail(`wing: walk-on '${ch}' at ${p.x},${p.y} unreachable`);
+    }
+  }
+  // the cellar: the ladder must be reachable from the drop landing
+  const land = MM.maps.WING_CELLAR.landing;
+  if (!bfs(land.x, land.y, WALK).has('2,23')) fail('wing: the cellar ladder is unreachable from the fall landing');
+  // CLOSED-GATE SAFETY: with every '&' and 'G' shut, any walkable region cut
+  // off from the entrance must contain its own pressure plate — a kid inside
+  // when the gates fall shut must always be able to lift them again.
+  {
+    const closedWalk = '.PX+0!_v<';
+    const main = bfs(start.x, start.y, closedWalk);
+    for (let y = 0; y < g.length; y++) for (let x = 0; x < g[y].length; x++) {
+      if (!closedWalk.includes(g[y][x]) || main.has(x + ',' + y) || inCellar(x, y)) continue;
+      const region = bfs(x, y, closedWalk);
+      const hasPlate = [...region].some(k => { const [rx, ry] = k.split(',').map(Number); return g[ry][rx] === '+'; });
+      if (!hasPlate) fail(`wing: region at ${x},${y} is sealed behind gates with no plate of its own`);
+    }
+  }
+}
+
+// ---------- P3: the Armory beam is solvable, and not solved at the start ----------
+{
+  MM.engine.state = { mapId: 'wing', grid: MM.maps.parse(MM.maps.WING, '#'), wing: null };
+  MM.engine.ensureWing();
+  if (MM.engine.wingBeamLit()) fail('armory: the beam must NOT reach the crystal in the initial mirror states');
+  // solution: M1 and M3 flipped to '\'
+  MM.engine.state.wing.mirrors = [1, 0, 1];
+  if (!MM.engine.wingBeamLit()) fail('armory: the beam should reach the crystal with mirrors [1,0,1]');
+  const pts = MM.engine.wingBeam().points;
+  if (pts.length < 5) fail(`armory: expected a multi-segment beam (lamp + 3 mirrors + crystal), got ${pts.length} points`);
+  const A = MM.maps.WING_ARMORY;
+  if (pts[0].x !== A.lamp.x || pts[0].y !== A.lamp.y) fail('armory: beam does not start at the lamp');
+  const last = pts[pts.length - 1];
+  if (last.x !== A.crystal.x || last.y !== A.crystal.y) fail('armory: lit beam does not end at the crystal');
+  MM.engine.state = null;
+}
+
+// ---------- P3: Petronella's cats — needed facings are derivable & initial is unsolved ----------
+{
+  const needed = MM.maps.WING_CATS.statues.map((c, i) => MM.engine.wingCatNeeded(i));
+  if (JSON.stringify(needed) !== JSON.stringify([1, 3, 0])) fail(`cats: expected needed facings [E,W,N] = [1,3,0], got ${JSON.stringify(needed)}`);
+  MM.maps.WING_CATS.statues.forEach((c, i) => {
+    if (c.initial === needed[i]) fail(`cats: statue ${i} starts already facing the fountain — nothing to do`);
+  });
+}
+
+// ---------- P3: Numberling sockets — EVERY true filling accepted ----------
+{
+  const ok = MM.engine.wingEquationOk;
+  for (const [a, b] of [[3, 8], [8, 3], [4, 6], [6, 4]]) {
+    if (!ok(a, b)) fail(`numberlings: true filling ${a}×${b} rejected — every correct answer must be accepted`);
+  }
+  for (const [a, b] of [[7, 9], [3, 4], [8, 8], [null, 8]]) {
+    if (ok(a, b)) fail(`numberlings: false filling ${a}×${b} accepted`);
+  }
+  // live: two DISTINCT true fillings, each completing the room via real pushes
+  const fill = (pairA, pairB) => {
+    MM.engine.state = {
+      mapId: 'wing', grid: MM.maps.parse(MM.maps.WING, '#'), wing: null, opened: {},
+      gold: 0, calmMode: true, isles: { lenses: {}, pet: null }, px: 2, py: 11, items: { food: {}, charms: [] }, charmsOn: [],
+      equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null },
+    };
+    const w = MM.engine.ensureWing();
+    MM.engine.applyWingState();
+    const s = MM.engine.state;
+    const [sa, sb] = MM.maps.WING_WREN.sockets;
+    // teleport the slabs beside the sockets and push them in with real bumps
+    const place = (id, sock) => {
+      const slab = w.slabs.find(t => t.id === id);
+      s.grid[slab.y][slab.x] = '.';
+      slab.x = sock.x; slab.y = sock.y + 1; slab.under = '.';
+      s.grid[slab.y][slab.x] = 'U';
+      s.px = sock.x; s.py = sock.y + 2;
+      MM.engine.wingSlabBump(0, -1, sock.x, sock.y + 1);
+    };
+    place(pairA, sa);
+    place(pairB, sb);
+    return !!w.rooms.wren;
+  };
+  if (!fill('n3', 'n8')) fail('numberlings: 3×8 did not complete the room');
+  if (!fill('n4', 'n6')) fail('numberlings: 4×6 did not complete the room (a second true filling MUST work)');
+  if (fill('n7', 'n9')) fail('numberlings: 7×9 completed the room — false filling accepted');
+  MM.engine.state = null;
+}
+
+// ---------- P3: the 9 next to the 7 — cosmetic ONLY, never blocks a push ----------
+{
+  MM.engine.state = {
+    mapId: 'wing', grid: MM.maps.parse(MM.maps.WING, '#'), wing: null, opened: {},
+    gold: 0, calmMode: true, isles: { lenses: {}, pet: null }, px: 2, py: 11, items: { food: {}, charms: [] }, charmsOn: [],
+      equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null },
+  };
+  const w = MM.engine.ensureWing();
+  MM.engine.applyWingState();
+  const s = MM.engine.state;
+  const nine = w.slabs.find(t => t.id === 'n9'), seven = w.slabs.find(t => t.id === 'n7');
+  // 9 and 7 START adjacent (the gag is visible from the door)
+  if (Math.abs(nine.x - seven.x) + Math.abs(nine.y - seven.y) !== 1) fail('numberlings: 9 and 7 should start adjacent');
+  // push the 7 one tile north (9 stays adjacent-diagonal, then push 9 north
+  // to become adjacent again) — every push must succeed
+  s.px = seven.x; s.py = seven.y + 1;
+  MM.engine.wingSlabBump(0, -1, seven.x, seven.y);
+  if (seven.y !== 5) fail('numberlings: pushing the 7 failed');
+  s.px = nine.x; s.py = nine.y + 1;
+  MM.engine.wingSlabBump(0, -1, nine.x, nine.y);
+  if (nine.y !== 5) fail('numberlings: pushing the 9 NEXT TO the 7 was blocked — the aversion must stay cosmetic');
+  if (Math.abs(nine.x - seven.x) + Math.abs(nine.y - seven.y) !== 1) fail('numberlings: 9 should now sit adjacent to 7');
+  // the asleep Numberling wakes on its first push — and the push happens
+  const six = w.slabs.find(t => t.id === 'n6');
+  if (!six.asleep) fail('numberlings: the 6 should start asleep');
+  s.px = six.x; s.py = six.y + 1;
+  MM.engine.wingSlabBump(0, -1, six.x, six.y);
+  if (six.asleep) fail('numberlings: the 6 should wake on its first push');
+  if (six.y !== 5) fail('numberlings: the sleeping 6\'s first push must still MOVE it (a joke is never an obstacle)');
+  MM.engine.state = null;
+}
+
+// ---------- P2: pressure plates — open while occupied, closed on leave,
+// slab holds, OR across plates, pet counts ----------
+{
+  const mkState = () => {
+    MM.engine.state = {
+      mapId: 'wing', grid: MM.maps.parse(MM.maps.WING, '#'), wing: null, opened: {},
+      gold: 0, calmMode: true, isles: { lenses: {}, pet: null }, px: 2, py: 11, items: { food: {}, charms: [] }, charmsOn: [],
+      equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null },
+    };
+    MM.engine.ensureWing();
+    MM.engine.applyWingState();
+    return MM.engine.state;
+  };
+  const s = mkState();
+  MM.engine.petPos = null;
+  if (MM.engine.platePowered('wing')) fail('plates: powered with nothing on any plate');
+  // player occupies the plate room's near plate -> open
+  s.px = 28; s.py = 15;
+  if (!MM.engine.platePowered('wing')) fail('plates: player standing on a plate should power the gates');
+  // step off -> closed
+  s.px = 28; s.py = 16;
+  if (MM.engine.platePowered('wing')) fail('plates: gates must close the moment the plate is released');
+  // OR across plates: the pantry plate (a different plate, same floor) opens them too
+  s.px = 21; s.py = 18;
+  if (!MM.engine.platePowered('wing')) fail('plates: ANY held plate must power the floor (OR across plates)');
+  // pet on a plate counts (the delight, not the assumption)
+  s.px = 2; s.py = 11;
+  s.isles.pet = { species: 'blue', name: 'Puddle', stage: 1, fed: 0, correct: 0 };
+  MM.engine.petPos = { x: 28, y: 15 };
+  if (!MM.engine.platePowered('wing')) fail('plates: a pet sitting on a plate should hold it');
+  MM.engine.petPos = { x: 2, y: 11 };
+  s.isles.pet = null;
+  // a slab pushed onto the plate HOLDS it (the canonical solution)
+  const w = MM.engine.state.wing;
+  const slab = w.slabs.find(t => t.id === 'plate');
+  s.px = slab.x; s.py = slab.y + 1;
+  MM.engine.wingSlabBump(0, -1, slab.x, slab.y);   // 17 -> 16
+  MM.engine.wingSlabBump(0, -1, slab.x, slab.y);   // 16 -> 15 (the plate)
+  if (slab.under !== '+') fail(`plates: slab should now rest ON the plate (under='${slab.under}')`);
+  if (!MM.engine.platePowered('wing')) fail('plates: a slab resting on a plate must hold the gates open');
+  // ...and the hold survives the player walking away
+  s.px = 2; s.py = 11;
+  if (!MM.engine.platePowered('wing')) fail('plates: the slab hold must not depend on where the player stands');
+  MM.engine.state = null;
+}
+
+// ---------- P2: the Vault's free slab + plate pocket ----------
+{
+  const grid = MM.maps.parse(MM.maps.dungeonFloors(18)[0], '#');
+  if (!MM.maps.FREE_SLABS.d18 || grid[10][20] !== 'U') fail('vault: free slab missing at (20,10)');
+  if (grid[10][22] !== '+') fail('vault: pressure plate missing at (22,10)');
+  if (grid[11][23] !== '&') fail('vault: plate-gate missing at (23,11)');
+  if (grid[12][23] !== '*') fail('vault: pocket chest missing at (23,12)');
+  // the pocket has NO interior floor beyond the gate — a closing gate can
+  // never trap anyone (the chest is bumped from the gate tile itself)
+  const around = [[22, 12], [24, 12], [23, 13]].map(([x, y]) => grid[y][x]);
+  if (around.some(ch => ch !== '#')) fail(`vault: the chest pocket must be fully walled (got ${around.join(',')})`);
+  // slab -> plate is a straight two-push line with standing room
+  if (grid[10][19] !== '.' || grid[10][21] !== '.') fail('vault: the slab push lane to the plate is blocked');
+}
+
+// ---------- P3: cracked floor — crosses once, crumbles, cellar-ladder return ----------
+{
+  MM.engine.state = {
+    mapId: 'wing', grid: MM.maps.parse(MM.maps.WING, '#'), wing: null, opened: {},
+    gold: 0, calmMode: true, isles: { lenses: {}, pet: null }, px: 6, py: 6, items: { food: {}, charms: [] }, charmsOn: [],
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null },
+    monsters: [],
+  };
+  MM.engine.ensureWing();
+  MM.engine.applyWingState();
+  const s = MM.engine.state;
+  // step ONTO a cracked tile (6,5), then off it (6,4 — also cracked): the
+  // tile stepped OFF of must crumble to a chute
+  MM.engine.wingMove(0, -1, 6, 5, s.grid[5][6]);
+  if (!(s.px === 6 && s.py === 5)) fail('cracked: could not step onto a cracked tile');
+  MM.engine.wingMove(0, -1, 6, 4, s.grid[4][6]);
+  if (s.grid[5][6] !== 'v') fail(`cracked: the crossed tile should crumble to a chute, got '${s.grid[5][6]}'`);
+  // step onto the crumbled hole -> fall to the cellar
+  MM.engine.wingMove(0, 1, 6, 5, s.grid[5][6]);
+  const land = MM.maps.WING_CELLAR.landing;
+  if (!(s.px === land.x && s.py === land.y)) fail(`cracked: falling should land in the cellar (at ${s.px},${s.py})`);
+  // the ladder brings you home
+  MM.engine.wingMove(-1, 0, 2, 23, s.grid[23][2]);
+  const ret = MM.maps.WING_CELLAR.ladderReturn;
+  if (!(s.px === ret.x && s.py === ret.y)) fail(`cracked: the ladder should return to the hall (at ${s.px},${s.py})`);
+  MM.engine.state = null;
+}
+
+// ---------- P3: the wardrobe — three bumps, then the Study ----------
+{
+  MM.engine.state = {
+    mapId: 'wing', grid: MM.maps.parse(MM.maps.WING, '#'), wing: null, opened: {},
+    gold: 0, calmMode: true, isles: { lenses: {}, pet: null }, px: 23, py: 12, items: { food: {}, charms: [] }, charmsOn: [],
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null },
+  };
+  MM.engine.ensureWing();
+  MM.engine.applyWingState();
+  const s = MM.engine.state;
+  MM.engine.wingWardrobeBump();
+  MM.engine.wingWardrobeBump();
+  if (s.wing.wardrobeMoved) fail('wardrobe: two bumps must not be enough');
+  MM.engine.wingWardrobeBump();
+  if (!s.wing.wardrobeMoved) fail('wardrobe: the third bump should trigger the confession + move');
+  const wd = MM.maps.WING_WARDROBE;
+  if (s.grid[wd.y][wd.x] !== '.') fail('wardrobe: its wing tile should clear once it moves');
+  // the castle spot now draws a wardrobe (live state, no grid rewrite)
+  if (MM.maps.tileSprite('o', 2, 9, 'castle', 0) !== 'wardrobe') fail("castle: 'o' should draw the wardrobe once it has moved in");
+  MM.engine.state = null;
+  if (MM.maps.tileSprite('o', 2, 9, 'castle', 0) !== 'hallFloor') fail("castle: 'o' must stay plain floor before the move");
+}
+
+// ---------- P3: castle door + title ----------
+{
+  const g = MM.maps.parse(MM.maps.CASTLE, '#');
+  if (MM.maps.find(g, 'H').length !== 1) fail('castle: want exactly one Workshop Wing door (H)');
+  if (MM.maps.find(g, 'o').length !== 1) fail("castle: want exactly one wardrobe spot (o)");
+  for (const ch of ['H', 'o']) {
+    if (MM.data.NPCS[ch]) fail(`castle: '${ch}' collides with an MM.data.NPCS key`);
+  }
+  // titlesFor derives the Wing honour from room flags
+  const done = { wing: { rooms: { grumbold: 1, wren: 1, armory: 1, petronella: 1, pantry: 1, plate: 1 } } };
+  if (!MM.engine.titlesFor(done).includes('Keeper of the Proving Rooms')) fail('titlesFor: full wing should grant Keeper of the Proving Rooms');
+  const part = { wing: { rooms: { grumbold: 1 } } };
+  if (MM.engine.titlesFor(part).includes('Keeper of the Proving Rooms')) fail('titlesFor: a partial wing must not grant the title');
+}
+
+// ---------- Wave 12: new-glyph context guards (the v1.7.9 'Y' lesson) ----------
+{
+  const cases = [
+    ['+', 'd18', 'plate'], ['+', 'wing', 'plate'],
+    ['&', 'd18', 'plateGateShut'], ['&', 'wing', 'plateGateShut'],
+    ['!', 'd18', 'crackedFloor'], ['!', 'wing', 'crackedFloor'],
+    ['d', 'world', 'stepStone'], ['d', 'castle', 'gardenEmpty'],
+    ['w', 'wing', 'wardrobe'], ['w', 'isles', 'murk'], ['w', 'castle', 'plinth'],
+    ['H', 'wing', 'teaseDoor'], ['H', 'castle', 'wingDoor'], ['H', 'world', 'spiralTower'], ['H', 'isles', 'lighthouse'],
+    ['S', 'wing', 'catStatue'], ['S', 'world', 'shop'],
+    ['M', 'wing', 'mirrorSlash'], ['M', 'world', 'mountain'],
+    ['O', 'wing', 'fountain'], ['O', 'castle', 'throne'],
+    ['T', 'wing', 'portrait'], ['T', 'world', 'tree'],
+    ['0', 'wing', 'socket'], ['0', 'world', 'hole'],
+    ['@', 'wing', 'lamp'], ['$', 'wing', 'crystalDark'],
+    ['G', 'wing', 'gateShut'], ['G', 'd19f3', 'gate'],
+    ['k', 'wing', 'shelfFull'], ['k', 'd16f0', 'keyTile'],
+    ['l', 'wing', 'resetLever'], ['i', 'wing', 'board'],
+    ['U', 'wing', 'slab'], ['*', 'wing', 'chest'], ['<', 'wing', 'stairsUp'],
+    ['v', 'wing', 'chute'], ['_', 'wing', 'slick'], ['X', 'wing', 'castleDoor'],
+  ];
+  for (const [ch, mapId, want] of cases) {
+    const got = MM.maps.tileSprite(ch, 0, 0, mapId, 0);
+    if (got !== want) fail(`tileSprite('${ch}', ${mapId}) = '${got}', want '${want}'`);
+    if (!MM.sprites.DEFS[got]) fail(`tileSprite('${ch}', ${mapId}) -> '${got}' has no sprite def`);
+  }
+  // state-readable sprites flip with state
+  MM.engine.state = { mapId: 'wing', grid: MM.maps.parse(MM.maps.WING, '#'), px: 28, py: 15, wing: null, isles: {} };
+  if (MM.maps.tileSprite('&', 33, 15, 'wing', 0) !== 'plateGateOpen') fail('plate-gate: should draw OPEN while the player holds a plate');
+  if (MM.maps.tileSprite('+', 28, 15, 'wing', 0) !== 'platePressed') fail('plate: the occupied plate should draw pressed');
+  MM.engine.state.wing = { rooms: { armory: true } };
+  if (MM.maps.tileSprite('G', 36, 2, 'wing', 0) !== 'gateOpen') fail('armory gate: should draw open once the room is solved');
+  MM.engine.state = null;
+}
+
+// ---------- P1: the new Spiral chunks — grammar counts + plain-floor law ----------
+{
+  // the pool now seeds the stranded grammar: >=2 slick chunks, a teleport
+  // pair, a lever/gate (gate guards a CHEST), a tide-pool flavor chunk
+  const has = (rows, ch) => rows.some(r => r.includes(ch));
+  const regular = MM.maps.SPIRAL_REGULAR;
+  if (regular.filter(rows => has(rows, '_')).length < 2) fail('spiral: want >=2 slick-rock chunks in the regular pool');
+  const padChunks = regular.filter(rows => has(rows, 'o'));
+  if (padChunks.length < 1) fail('spiral: want a teleport-pair chunk');
+  for (const rows of padChunks) {
+    const n = MM.maps.find(MM.maps.parse(rows, '#'), 'o').length;
+    if (n !== 2) fail(`spiral: a teleport chunk must hold exactly a PAIR of pads (found ${n})`);
+  }
+  const leverChunks = regular.filter(rows => has(rows, 'L'));
+  if (leverChunks.length < 1) fail('spiral: want a lever/gate chunk');
+  for (const rows of leverChunks) {
+    if (!has(rows, 'G')) fail('spiral: a lever chunk needs its gate');
+    if (!has(rows, '*')) fail('spiral: the gate must guard a CHEST (never the stairs)');
+  }
+  if (regular.filter(rows => has(rows, ',')).length < 1) fail('spiral: want a tide-pool flavor chunk');
+  // one gear-plate landing (R + A/B/C) in the landing pool
+  const gearLandings = MM.maps.SPIRAL_LANDING.filter(rows => has(rows, 'R'));
+  if (gearLandings.length !== 1) fail('spiral: want exactly one gear-plate landing');
+  for (const rows of gearLandings) {
+    for (const ch of ['A', 'B', 'C']) if (!has(rows, ch)) fail(`spiral gear landing: missing gate '${ch}'`);
+  }
+  // THE STANDING RULE: procedural content never gates its exit on a special
+  // tile — every chunk keeps a PLAIN-FLOOR walk from X to '>' with every
+  // special tile treated as a wall (D doors are core practice stations and
+  // stay passable; markers sit on plain floor).
+  const SPECIALS = '_o,LGRABC+&!v^%';
+  const plainPath = (rows, label) => {
+    const g = MM.maps.parse(rows, '#');
+    const X = MM.maps.find(g, 'X')[0];
+    const target = MM.maps.find(g, '>')[0];
+    if (!target) return;   // the capped top floor has none
+    const seen = new Set([X.x + ',' + X.y]);
+    const q = [X];
+    while (q.length) {
+      const { x, y } = q.shift();
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy, k = nx + ',' + ny;
+        const ch = (g[ny] || [])[nx];
+        if (ch == null || ch === '#' || SPECIALS.includes(ch) || seen.has(k)) continue;
+        seen.add(k); q.push({ x: nx, y: ny });
+      }
+    }
+    if (!seen.has(target.x + ',' + target.y)) fail(`${label}: no plain-floor walk from X to '>' (a special tile gates the exit)`);
+    // monster markers must never sit on special tiles (spawn replaces them with '.')
+    for (const ch of ['m', 'b']) for (const p of MM.maps.find(g, ch)) {
+      if (SPECIALS.includes(rows[p.y][p.x])) fail(`${label}: marker '${ch}' sits on a special tile`);
+    }
+  };
+  MM.maps.SPIRAL_REGULAR.forEach((rows, i) => plainPath(rows, `spiral regular chunk ${i}`));
+  MM.maps.SPIRAL_LANDING.forEach((rows, i) => plainPath(rows, `spiral landing chunk ${i}`));
+}
+
+// ---------- P1: per-floor state scoping on the Spiral ----------
+{
+  // gear rotation is keyed by the per-floor mapId — floor 15's plate must
+  // never leak to any other floor
+  MM.engine.state = { gearState: { d22f14: 1 } };
+  if (MM.maps.gearRotation('d22f14') !== 1) fail('spiral gears: rotation not read for its own floor');
+  if (MM.maps.gearRotation('d22f19') !== 0) fail('spiral gears: floor 15\'s rotation LEAKED to floor 20');
+  if (!MM.maps.gateOpenNow('B', 'd22f14')) fail('spiral gears: B should be open on the rotated floor');
+  if (MM.maps.gateOpenNow('B', 'd22f19')) fail('spiral gears: B must stay shut on other floors');
+  MM.engine.state = null;
+  // a spiral lever writes s.opened keys that INCLUDE the floor
+  {
+    const floors = MM.maps.dungeonFloors(MM.maps.SPIRAL_INDEX);
+    // floor 11 (index 10) is the lever/gate chunk
+    const raw = floors[10];
+    if (!raw.some(r => r.includes('L'))) fail('spiral: expected the lever/gate chunk at floor 11');
+    MM.engine.state = {
+      mapId: 'd22f10', dungeonIndex: 22, floorIndex: 10,
+      grid: MM.maps.parse(raw, '#'), monsters: [], opened: {}, isles: { keys: {}, lenses: {}, pet: null },
+      px: 2, py: 6, calmMode: true, stamina: 100, maxStamina: 100, items: { food: {}, charms: [] }, charmsOn: [], gold: 0,
+      parent: { pin: null, topics: {} }, mastery: {}, tasksDone: [], badges: {}, totals: { answered: 0, correct: 0 },
+      equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null },
+    };
+    MM.engine.tryMove(1, 0);   // pull the L at (3,6)
+    const keys = Object.keys(MM.engine.state.opened);
+    if (!keys.length) fail('spiral lever: nothing was opened');
+    if (!keys.every(k => k.startsWith('d22f10:'))) fail(`spiral lever: opened keys must carry the floor (got ${keys.join(' ')})`);
+    MM.engine.state = null;
+  }
+  // the chunk rotation puts each new chunk where the drive expects it
+  const floors = MM.maps.dungeonFloors(MM.maps.SPIRAL_INDEX);
+  if (!floors[7].some(r => r.includes('o'))) fail('spiral: floor 8 should be the teleport chunk');
+  if (!floors[8].some(r => r.includes('_'))) fail('spiral: floor 9 should be a slick chunk');
+  if (!floors[14].some(r => r.includes('R'))) fail('spiral: floor 15 should be the gear-plate landing');
+}
+
+// ---------- P4: the skip-count stepping stones ----------
+{
+  const ow = MM.maps.parse(MM.maps.OVERWORLD, '~');
+  const stones = MM.maps.SKIP_STONES;
+  const seen = new Set();
+  for (const st of stones) {
+    if (seen.has(`${st.x},${st.y}`)) fail(`skip stones: duplicate position ${st.x},${st.y}`);
+    seen.add(`${st.x},${st.y}`);
+    if (ow[st.y][st.x] !== 'd') fail(`skip stones: stone '${st.label}' at ${st.x},${st.y} is '${ow[st.y][st.x]}' on the map, want 'd'`);
+  }
+  // the ×2 order is genuinely carved on them: 2, 4, 6, 8
+  const path = stones.filter(s => s.seq >= 0).sort((a, b) => a.seq - b.seq);
+  if (path.map(s => s.label).join(',') !== '2,4,6,8') fail('skip stones: path labels should read 2,4,6,8');
+  // consecutive path stones are orth-adjacent (walkable one to the next)
+  for (let i = 1; i < path.length; i++) {
+    const d = Math.abs(path[i].x - path[i - 1].x) + Math.abs(path[i].y - path[i - 1].y);
+    if (d !== 1) fail(`skip stones: stone ${path[i].label} is not adjacent to ${path[i - 1].label}`);
+  }
+  // every decoy touches the path (a temptation, not scenery), and reads odd
+  for (const st of stones.filter(s => s.seq < 0)) {
+    if (+st.label % 2 === 0) fail(`skip stones: decoy '${st.label}' is even — it would read as a fair next step`);
+    if (!path.some(p => Math.abs(p.x - st.x) + Math.abs(p.y - st.y) === 1)) fail(`skip stones: decoy '${st.label}' touches no path stone`);
+  }
+  // the first stone touches the bank; the chest sits at the far end
+  const bank = MM.maps.SKIP_STONES_BANK;
+  if (Math.abs(path[0].x - bank.x) + Math.abs(path[0].y - bank.y) !== 1) fail('skip stones: stone 2 must touch the bank');
+  if (ow[bank.y][bank.x] !== '.') fail('skip stones: the bank must be plain grass');
+  const chest = MM.maps.SKIP_STONES_CHEST;
+  if (ow[chest.y][chest.x] !== '*') fail('skip stones: the islet chest is missing');
+  const last = path[path.length - 1];
+  if (Math.abs(last.x - chest.x) + Math.abs(last.y - chest.y) !== 1) fail('skip stones: the chest must be bumpable from the last stone');
+
+  // live behavior: in-order steps advance; a wrong stone splashes you back
+  // to the bank (no HP, no gold, no text — sound only)
+  MM.engine.state = {
+    mapId: 'world', grid: MM.maps.parse(MM.maps.OVERWORLD, '~'), monsters: [],
+    px: bank.x, py: bank.y, hp: 24, maxhp: 24, gold: 10, stamina: 100, maxStamina: 100,
+    calmMode: true, isles: { lenses: {}, pet: null }, items: { food: {}, charms: [], treasures: [] }, charmsOn: [],
+    opened: {}, tasksDone: [], mastery: {}, badges: {}, totals: { answered: 0, correct: 0 },
+    parent: { pin: null, topics: {} }, seenGoldenBird: true,
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null },
+  };
+  const s = MM.engine.state;
+  MM.engine._skipNext = 0;
+  MM.engine.tryMove(0, -1);   // bank -> stone 2
+  if (!(s.px === path[0].x && s.py === path[0].y)) fail('skip stones: stepping onto stone 2 failed');
+  MM.engine.tryMove(-1, 0);   // stone 2 -> decoy 7 (wrong!)
+  if (!(s.px === bank.x && s.py === bank.y)) fail(`skip stones: a wrong stone should splash you back to the bank (at ${s.px},${s.py})`);
+  if (s.hp !== 24 || s.gold !== 10) fail('skip stones: a splash must cost nothing');
+  // the full crossing, in order
+  MM.engine._skipNext = 0;
+  MM.engine.tryMove(0, -1);   // 2
+  MM.engine.tryMove(0, -1);   // 4
+  MM.engine.tryMove(1, 0);    // 6
+  MM.engine.tryMove(1, 0);    // 8
+  if (!(s.px === last.x && s.py === last.y)) fail(`skip stones: the in-order crossing should reach stone 8 (at ${s.px},${s.py})`);
+  MM.engine.tryMove(1, 0);    // bump the chest
+  if (!s.opened[`world:${chest.x},${chest.y}`]) fail('skip stones: bumping the chest from stone 8 should open it');
+  if (s.gold <= 10) fail('skip stones: the chest should pay gold');
+  // ...and it STAYS open through a world rebuild
+  MM.engine.enterWorld();
+  if (MM.engine.state.grid[chest.y][chest.x] !== '.') fail('skip stones: the opened chest should persist through enterWorld');
+  MM.engine.state = null;
+}
+
+// ---------- Wave 12: migration — an old save gets sane defaults ----------
+{
+  localStorage.setItem('mathmaker2_save_wave12migrant', JSON.stringify({
+    version: 4, name: 'wave12migrant', hp: 24, maxhp: 24, stamina: 100, maxStamina: 100,
+    gold: 10, level: 1, xp: 0, potions: 1, difficulty: 'hero',
+    parent: { pin: null, topics: {} }, taskIndex: 3, haveItem: false, tasksDone: [1, 2],
+    mastery: {}, badges: {}, bestiary: { seen: {}, kills: {}, gauntlet: {} },
+    continent: 'west', isles: { lenses: {}, keys: {}, egg: null, pet: null },
+    charmsOn: [], opened: {}, bossesDefeated: {}, defeatedAt: {}, streak: 0,
+    totals: { answered: 0, correct: 0 }, worldPos: null, seenBattleHelp: true,
+    gear: { weapon: ['stick'], body: ['clothes'], helmet: [], boots: [], ring: [], amulet: [] },
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null }, enchants: {},
+    items: { food: {}, treasures: [], charms: [], gems: [] },
+  }));
+  MM.engine.load('wave12migrant');
+  const s = MM.engine.state;
+  if (s.wing !== null) fail('migration: wing should default to null (never visited)');
+  if (!s.freeSlabs || Object.keys(s.freeSlabs).length) fail('migration: freeSlabs should default to {}');
+  // and the wing builds itself cleanly on first touch
+  MM.engine.ensureWing();
+  if (!s.wing || !s.wing.slabs || s.wing.slabs.length !== MM.maps.WING_SLABS.length) fail('migration: ensureWing did not build a full wing state');
+  MM.engine.state = null;
 }
 
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');

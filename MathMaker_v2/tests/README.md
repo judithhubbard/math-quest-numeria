@@ -454,6 +454,30 @@ a dock, and rest), and the sail-destination registry.
   actually answered, verified via the `braveSolved` counter rather than
   raw damage magnitude, which a low roll could false-negative).
 
+- `drive-wing.js` — Wave 12 ("The Proving Rooms", 53 checks): the
+  **Workshop Wing's endingDone gate** (the brass name-plate "Not yet"
+  modal pre-ending, the same bump entering post-ending), **all six proving
+  rooms completed end-to-end** — Grumbold's cracked floors (crumble behind
+  you, fall to the cellar, ladder home), **Wren's Numberlings with TWO
+  distinct true fillings accepted** (4×6 then a rewound 3×8 — multiple
+  solutions are load-bearing) plus the **9-adjacent-7 regression** (the
+  lean is cosmetic; the push always succeeds), the Armory's mirror-routed
+  lamp beam (screenshot LOOKED at: segments visibly connect lamp → three
+  mirrors → crystal), Petronella's cats, Bartleby's pantry (slab holds the
+  plate, gate walkable, cheese), and Milla's plate room
+  (**open-while-occupied / close-on-leave / slab-holds**, plus a
+  slick-rock ride) — then the **wardrobe's inverted mimic tell** (far
+  frames 5px apart, near frame dead still, screenshots), its three-bump
+  confession and relocation to the Study (tiny hat verified in a cropped
+  screenshot), the portrait bump-modals (Ondine wrong about zero, Hesper
+  shushing her), the hall's-end doorway bearing the kid's name, the
+  **Keeper of the Proving Rooms** title, a full save/load round-trip, and
+  a **forced-chunk Spiral Stair leg** (the chunk rotation is deterministic
+  by floor, so entering the floor IS pinning the roll): floor 8's teleport
+  pads, floor 9's slide, floor 11's lever-gated chest with per-floor
+  `s.opened` keys, and floor 15's gear-plate landing (one pull opens the
+  ••-door on THAT floor only, rotating vault chest solved).
+
 Operational note (2026-07-11): do NOT run drives while Dropbox is
 indexing a big file operation (e.g. right after refreshing the play
 copy) — the I/O contention can starve headless Chrome past even 90s

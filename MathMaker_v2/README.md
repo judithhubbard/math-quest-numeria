@@ -642,6 +642,43 @@ how anything plays; it's paint, not a puzzle.
   sizes too small, watching the fire like television. About a third of the
   time she walks you to the door on the way out, tail up like a flag.
 
+### 🛠 The Proving Rooms
+
+After the ending, a door by the castle's Study — a brass plate with **your
+own name** on it, and under that, *"Not yet"* — finally opens onto the
+**Workshop Wing**: six proving rooms, each signed by a MathMaker of old,
+each mixing puzzles you know with one new trick.
+
+- **Grumbold the Third's room** — cracked floors that hold a crossing
+  exactly once, then crumble behind you. Falling isn't a punishment: you
+  land in Grumbold's cellar (there's a chest, and a ladder home).
+- **MathMaker Wren's Numberlings** — pushable numbered stone slabs and two
+  sockets carved *▢ × ▢ = 24*. **Any true filling works** — 3×8, 4×6,
+  either way round. One Numberling starts asleep; the 9 leans very slightly
+  away from the 7, and nobody knows why.
+- **The Armory** — no math at all: turn the shield-stands until the lamp's
+  beam threads its way to the dark crystal.
+- **Petronella's Garden of Cats** — turn the stone cats until all of them
+  face the fish fountain. They pretend not to care.
+- **Bartleby's Pantry** — mostly a pantry. The chest is cheese. It has
+  always been cheese.
+- **Milla's Plate Room** — teaches the Wing's new tile: a **pressure
+  plate** holds its floor's counterweight gates open only *while* something
+  rests on it — you, your pet, or a pushed slab.
+
+Finish all six for the title **Keeper of the Proving Rooms** — and take a
+look at the empty doorway at the hall's end afterward. Also in the Wing: the
+portraits talk if you knock (one of them is wrong about the history of zero,
+and the portrait beside her knows it), and there is a wardrobe that is
+standing *very*, very still. Knock three times.
+
+Elsewhere in the same update: a pressure-plate puzzle appears in the
+**Smugglers' Vault**; the **Spiral Stair** finally uses the whole toolbox on
+the climb (slick-rock slides, teleport pads, tide pools, a lever-gated
+chest, and a rotating gear-vault landing every 15 floors); and a little pond
+of **stepping stones** turns up near Old Fisher Finn — cross the carved
+numbers in ×2 order to reach the chest. A wrong stone is only ever a splash.
+
 ### A few playtest fixes
 
 A real play session turned up some friction, since fixed: every locked door

@@ -98,6 +98,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Wave 4: a 5-tone scale (do-re-mi-fa-sol) for singing stones (flavor,
     // engine.js tileEffects) and echo doors (the tone-memory puzzle, below).
     tone(i, delay) { beep(TONE_FREQS[i % TONE_FREQS.length], 0.35, 'triangle', delay || 0, 0.1); },
+    // ---------- Wave 12: the Proving Rooms' sound palette ----------
+    // splash: a wrong stepping stone — water, never a whack (and no text).
+    splash() { noise(0.22, 1000, 0, 0.22); beep(320, 0.18, 'sine', 0.02, 0.07); beep(210, 0.24, 'sine', 0.1, 0.05); },
+    // sigh: the armory stand's two-note descending sigh (every 7th turn).
+    sigh() { beep(392, 0.3, 'sine', 0, 0.07); beep(311, 0.45, 'sine', 0.24, 0.06); },
+    // chirp: the wardrobe, when walked past. Wardrobes do not chirp. This one does.
+    chirp() { beep(1319, 0.08, 'triangle', 0, 0.06); beep(1760, 0.1, 'triangle', 0.09, 0.05); },
+    // creak: cracked floor underfoot — wood about to change its mind.
+    creak() { beep(150, 0.22, 'sawtooth', 0, 0.045); beep(122, 0.2, 'sawtooth', 0.1, 0.035); },
   };
   const TONE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00]; // C4 D4 E4 F4 G4
   const TONE_COLORS = ['#e05252', '#e0a952', '#ffd94a', '#68c470', '#52a8e0'];
@@ -844,6 +853,128 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
   }
 
+  // ---------- Wave 12: the Workshop Wing's field comedy + puzzle overlays ----------
+  // The wardrobe's INVERTED mimic tell (v1.7.13 flipped): a big 5px bob only
+  // when the player is FAR, dead still when adjacent — pure function so the
+  // drive can assert both halves of the tell without screenshot pixel-diffs.
+  UI.wardrobeBob = function (dist, now) {
+    return dist <= 2 ? 0 : (Math.floor(now / 900) % 2 ? 5 : 0);
+  };
+  const WING_SLAB_PAL = { F: '#8f819c', f: '#77697f' };   // slab bg matches hall floor
+  function drawWingTile(ch, x, y, vx, vy, now, s) {
+    const E = MM.engine;
+    ctx.drawImage(MM.sprites.get('hallFloor', { scale: 3 }), vx * TILE, vy * TILE);
+    if (ch === 'w') {
+      const dist = Math.max(Math.abs(x - s.px), Math.abs(y - s.py));
+      const bob = s.calmMode ? 0 : UI.wardrobeBob(dist, now);
+      ctx.drawImage(MM.sprites.get('wardrobe', { scale: 3 }), vx * TILE, vy * TILE + bob);
+      if (s.calmMode) { // static tell: the doors sit ever so slightly ajar
+        ctx.fillStyle = '#2a1626';
+        ctx.fillRect(vx * TILE + 21, vy * TILE + 9, 6, 3);
+      }
+      if (E._wardrobeSweatUntil && Date.now() < E._wardrobeSweatUntil) {
+        ctx.font = '13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('💧', vx * TILE + TILE - 8, vy * TILE + 8);
+      }
+      return;
+    }
+    // a Numberling (or plain) slab: lean/slump/desaturate are COSMETIC ONLY
+    // (standing rule: the 9's aversion to the 7 is a 1px lean + occasional
+    // 💧 — never movement or blocking logic).
+    const slab = E.wingSlabAt && E.wingSlabAt(x, y);
+    const w = s.wing;
+    let lx = 0, ly = 0, pal = WING_SLAB_PAL;
+    let sevenAdjacent = false;
+    if (slab && w && w.slabs) {
+      if (slab.num === 9) {
+        const seven = w.slabs.find(o => o.num === 7 && Math.abs(o.x - x) + Math.abs(o.y - y) === 1);
+        if (seven) { sevenAdjacent = true; lx = Math.sign(x - seven.x) || 1; }
+      }
+      if (slab.asleep) ly = 1;                                   // a 1px snoozing slump
+      // a slab in a FALSE socket (both filled, product wrong) slumps and
+      // desaturates one notch — it is embarrassed, not obstructive
+      if (slab.under === '0' && !slab.locked) {
+        const [sa, sb] = MM.maps.WING_WREN.sockets;
+        const a = E.wingSlabAt(sa.x, sa.y), b = E.wingSlabAt(sb.x, sb.y);
+        if (a && b && !E.wingEquationOk(a.num, b.num)) {
+          ly = 1;
+          pal = MM.sprites.softPalette('slab', WING_SLAB_PAL, 0.3);
+        }
+      }
+    }
+    ctx.drawImage(MM.sprites.get('slab', { palette: pal, scale: 3 }), vx * TILE + lx, vy * TILE + ly);
+    if (slab && slab.num != null) {
+      ctx.font = '10px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#141221';
+      ctx.fillText(String(slab.num), vx * TILE + TILE / 2 + 1 + lx, vy * TILE + TILE / 2 + 5 + ly);
+      ctx.fillStyle = '#fff6d8';
+      ctx.fillText(String(slab.num), vx * TILE + TILE / 2 + lx, vy * TILE + TILE / 2 + 4 + ly);
+    }
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    if (slab && slab.asleep) ctx.fillText('💤', vx * TILE + TILE - 8, vy * TILE + 6);
+    if (sevenAdjacent && !s.calmMode && now % 6000 < 1500) ctx.fillText('💧', vx * TILE + 8 * (lx > 0 ? 1 : 1), vy * TILE + 6);
+    const pop = E._slabPop;
+    if (pop && pop.x === x && pop.y === y && Date.now() < pop.until && !s.calmMode) {
+      ctx.fillText('💢', vx * TILE + TILE / 2, vy * TILE - 2);
+    }
+  }
+  function drawWingOverlays(camX, camY, now, s) {
+    const E = MM.engine;
+    // the lamp beam: tile-to-tile line segments, recomputed per rotation —
+    // connection must be TRUE (lamp → mirrors → crystal), so we stroke one
+    // polyline through the actual beam path's tile centers.
+    const beam = E.wingBeam && E.wingBeam();
+    if (beam && beam.points.length > 1) {
+      const cx = p => (p.x - camX) * TILE + TILE / 2;
+      const cy = p => (p.y - camY) * TILE + TILE / 2;
+      for (const [width, color, alpha] of [[9, '#ffd94a', 0.16], [3, beam.lit ? '#fff6d8' : '#ffd94a', 0.75]]) {
+        ctx.beginPath();
+        ctx.moveTo(cx(beam.points[0]), cy(beam.points[0]));
+        for (const p of beam.points.slice(1)) ctx.lineTo(cx(p), cy(p));
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = alpha;
+        ctx.lineWidth = width;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      ctx.lineWidth = 1;
+    }
+    // the Numberlings' carved equation shape: ▢ × ▢ = 24 on the floor
+    {
+      const wren = MM.maps.WING_WREN;
+      const [sa, sb] = wren.sockets;
+      const midX = ((sa.x + sb.x) / 2 - camX) * TILE + TILE / 2;
+      const rowY = (sa.y - camY) * TILE + TILE / 2 + 5;
+      ctx.font = '11px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#4a4458';
+      ctx.fillText(wren.op, midX, rowY);
+      ctx.textAlign = 'left';
+      ctx.fillText(`= ${wren.target}`, (sb.x + 1 - camX) * TILE + 6, rowY);
+      ctx.textAlign = 'center';
+    }
+    // cat statues wear a small facing pip (gold triangle) — state readable
+    // from the sprite alone, the gear-gate rule
+    MM.maps.WING_CATS.statues.forEach((c, i) => {
+      const f = E.wingCatFacing(i);
+      const bx = (c.x - camX) * TILE, by = (c.y - camY) * TILE;
+      const cxm = bx + TILE / 2, cym = by + TILE / 2;
+      ctx.fillStyle = '#ffd94a';
+      ctx.beginPath();
+      if (f === 0) { ctx.moveTo(cxm, by + 2); ctx.lineTo(cxm - 5, by + 9); ctx.lineTo(cxm + 5, by + 9); }
+      else if (f === 1) { ctx.moveTo(bx + TILE - 2, cym); ctx.lineTo(bx + TILE - 9, cym - 5); ctx.lineTo(bx + TILE - 9, cym + 5); }
+      else if (f === 2) { ctx.moveTo(cxm, by + TILE - 2); ctx.lineTo(cxm - 5, by + TILE - 9); ctx.lineTo(cxm + 5, by + TILE - 9); }
+      else { ctx.moveTo(bx + 2, cym); ctx.lineTo(bx + 9, cym - 5); ctx.lineTo(bx + 9, cym + 5); }
+      ctx.closePath();
+      ctx.fill();
+    });
+  }
+
   function drawWorld(s, now) {
     const grid = s.grid;
     const H = grid.length, W = grid[0].length;
@@ -894,7 +1025,13 @@ var MM = globalThis.MM = globalThis.MM || {};
         // the room and feel clever. The pet's adjacent sniff is unchanged.
         // Calm Mode swaps motion for a static tell: a dark grin at the seam.
         const isMimic = ch === '*' && MM.engine._mimics && MM.engine._mimics.has(`${x},${y}`);
-        if (isMimic && !s.calmMode) {
+        // Wave 12: the Wing's wardrobe + Numberling slabs draw with their
+        // own offsets/overlays (bob, lean, slump, numeral) — handled here
+        // instead of the default draw, exactly like the mimic's breathing.
+        const wingSpecial = s.mapId === 'wing' && (ch === 'w' || ch === 'U');
+        if (wingSpecial) {
+          drawWingTile(ch, x, y, vx, vy, now, s);
+        } else if (isMimic && !s.calmMode) {
           const near = Math.abs(x - s.px) <= 2 && Math.abs(y - s.py) <= 2;
           const bob = near ? (Math.floor(performance.now() / 550) % 2 ? 3 : 0)
                            : (performance.now() % 4200 < 140 ? 2 : 0);
@@ -942,6 +1079,35 @@ var MM = globalThis.MM = globalThis.MM || {};
           ctx.fillText(label, vx * TILE + TILE / 2 + 1, vy * TILE + 12);
           ctx.fillStyle = '#ffd94a';
           ctx.fillText(label, vx * TILE + TILE / 2, vy * TILE + 11);
+        }
+        // Wave 12 (P4): the stepping stones carry their numerals — same
+        // recipe as the dungeon-entrance numbers, one size smaller.
+        if (s.mapId === 'world' && ch === 'd') {
+          const st = MM.maps.SKIP_STONES.find(t => t.x === x && t.y === y);
+          if (st) {
+            ctx.font = '9px "Press Start 2P", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#141221';
+            ctx.fillText(st.label, vx * TILE + TILE / 2 + 1, vy * TILE + TILE / 2 + 5);
+            ctx.fillStyle = '#fff6d8';
+            ctx.fillText(st.label, vx * TILE + TILE / 2, vy * TILE + TILE / 2 + 4);
+          }
+        }
+        // Wave 12 (P3): the confessed wardrobe wears its tiny hat in the
+        // Study — non-negotiable, same emoji-overlay idiom as the pet's.
+        if (s.mapId === 'castle' && ch === 'o' && s.wing && s.wing.wardrobeMoved) {
+          ctx.font = '13px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('🎩', vx * TILE + TILE / 2 + 4, vy * TILE + 6);
+        }
+        // Wave 12 (P2): the just-lifted plate-gates glint (the gear-gate
+        // recipe) so the kid sees WHICH distant thing the plate changed.
+        if (ch === '&' && MM.maps.plateOpenNow(s.mapId)
+            && MM.engine.gateGlinting && MM.engine.gateGlinting()) {
+          ctx.globalAlpha = 0.30 + 0.25 * Math.sin(now / 120);
+          ctx.fillStyle = '#ffd94a';
+          ctx.fillRect(vx * TILE, vy * TILE, TILE, TILE);
+          ctx.globalAlpha = 1;
         }
         const expLabel = !inDungeon && { A: '11', B: '12', K: '13' }[ch];
         if (expLabel) {
@@ -1009,6 +1175,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
 
     drawTurningStones(camX, camY, now);
+    if (s.mapId === 'wing') drawWingOverlays(camX, camY, now, s);
 
     // Scout: secret walls on this floor shimmer for 10s
     if (MM.engine.scoutActive && MM.engine.scoutActive()) {

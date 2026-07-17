@@ -17,6 +17,16 @@
 //            r broken floor (repair target)   U pushable stone slab
 //            i blueprint plaque (area problem gates that site's pushing)
 //            l reset lever (re-spawns that site's slabs to start)
+// Wave 12 ("The Proving Rooms") adds two UNIVERSAL tiles + the Workshop Wing:
+//            + pressure plate (opens this floor's plate-gates WHILE occupied
+//              by the player, the pet, or a pushed slab — OR across plates)
+//            & plate-gate (open only while some plate on this floor is held;
+//              visibly distinct from the lever-gate G)
+//            ! cracked floor (crosses once, then crumbles to a drop chute)
+// The Workshop Wing (mapId 'wing', castle-adjacent, combat-free) owns its
+// own alphabet — see MM.maps.WING below.
+// The mainland overworld adds  d  skip-count stepping stones (P4) and a
+// pond chest '*' near Old Fisher Finn.
 var MM = globalThis.MM = globalThis.MM || {};
 (function () {
   'use strict';
@@ -28,13 +38,19 @@ var MM = globalThis.MM = globalThis.MM || {};
   // is laid over the BRIDGE cells — that happens when task 10 is complete.
   const WEST = [
     '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~',
-    '~~....T.......TT..........T.......TT..',
+    // Wave 12 (P4): the skip-count stepping stones — a sea-cove pond north
+    // of Old Fisher Finn ('e' at 33,5), clear of the golden spiral's chain
+    // (which owns cols ~19-21 up here and the whole eye further south-east).
+    // Numeral-carved stones ('d', labels in MM.maps.SKIP_STONES) cross to a
+    // chest at (33,2). Walk them in ×2 order (2, 4, 6, 8); a wrong stone is
+    // a splash and a walk back to the bank — no HP, no cost, no scold.
+    '~~....T.......TT..........T.~~~~~~TT..',
     // The grove beside the castle sits in its original pre-v1.7.1 layout
     // (the compact-spiral edits were reverted for the true golden spiral —
     // see the TURNING_STONES note in data.js). ONE decorative tree moved,
     // (35,8)→(37,7), to clear the numbered "1" stone at the chain anchor.
-    '~~..T...................T.........T...',
-    '~~.T.....T.....TTT.H...........T......',
+    '~~..T...................T...~dddd*T...',
+    '~~.T.....T.....TTT.H........~ddT~~....',
     '~~..T..........TT..C.n......T.....5...',
     // Wave 7.1: (34,5) was a day-one trap pocket under dungeon 5's door
     '~~.....T..............T..........eMM..',
@@ -665,6 +681,12 @@ var MM = globalThis.MM = globalThis.MM || {};
   // found only via the pet's nose or a nudge on the isle overworld. A thief
   // gauntlet, the game's best treasure density, a guarded chest holding the
   // first ranged weapon, and a secret alcove.
+  // Wave 12 (P2): the SE room gains the game's first pressure-plate puzzle
+  // in existing content — a free slab (U, MM.maps.FREE_SLABS), a plate (+)
+  // and a plate-gate (&) guarding a walled chest pocket. The pocket has no
+  // interior floor (the chest is bumped from the gate tile itself), so a
+  // closing gate can never trap anyone. Slab-on-plate is the canonical
+  // solution; a pet on the plate works too, as a delight.
   const VAULT_F1 = [
     '##########################',
     '#........#........#......#',
@@ -676,10 +698,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     '#.................#......#',
     '#........#...........b...#',
     '#........#........#......#',
-    '#.*......#.t......#......#',
-    '#........#........#......#',
-    '#.....*..#.....*..#....*.#',
-    '#X.......#%.......#......#',
+    '#.*......#.t......#.U.+..#',
+    '#........#........#...#&##',
+    '#.....*..#.....*..#...#*##',
+    '#X.......#%.......#....#.#',
     '#........#*.......#......#',
     '##########################',
   ];
@@ -1108,6 +1130,12 @@ var MM = globalThis.MM = globalThis.MM || {};
   // on, and a reused NPC letter draws that villager sprite RIGHT OVER the
   // furniture (caught only by actually looking at a screenshot — the
   // automated tileSprite() checks were green the whole time).
+  // Wave 12 (P3): two additions by the Study — 'H' is the door to the
+  // WORKSHOP WING (E.wingDoor: a brass "not yet" plate pre-ending, the
+  // proving rooms after), and 'o' is the spot where the confessed wardrobe
+  // settles once it relocates from the Wing (plain floor until
+  // s.wing.wardrobeMoved, then a wardrobe in a tiny hat — the same live-
+  // state trick as the furnishing tiles). Neither is an MM.data.NPCS key.
   MM.maps.CASTLE = [
     '##########################',
     '##########################',
@@ -1118,13 +1146,135 @@ var MM = globalThis.MM = globalThis.MM || {};
     '##........#....#.F...F..##',
     '###########....###########',
     '###########....###########',
-    '##.......##....#...VV...##',
+    '##o......H#....#...VV...##',
     '##..Q.J.................##',
     '##.......##F..F#........##',
     '##diklnwr##....#........##',
     '###########..P.###########',
     '############X#############',
   ];
+
+  // ===== Wave 12 (P3): the Workshop Wing — the castle's proving rooms =====
+  // Combat-free (s.monsters = [] — the castle rule extends here), entered
+  // through the castle's 'H' door by the Study, gated on s.endingDone.
+  // Rendered as an OVERWORLD (no monsters, castle-style movement, no
+  // stamina) with its own tileSprite alphabet block. Every glyph here was
+  // checked against MM.data.NPCS (the townsfolk draw pass runs on every
+  // overworld — the Wave 9 furnishing lesson) and against the dungeon
+  // alphabet where shared ('U', 'i', 'l', 'k', 'G', '_', 'v', '<', '*').
+  //   X exit to the castle   P arrival   T portrait (bump-to-hear)
+  //   i room plaque          w the wardrobe (an obvious mimic, terrible tell)
+  //   H the empty doorway at the hall's end (the Wave 13 Your-Room teaser)
+  //   ! cracked floor        v crumbled hole (drops to the cellar)
+  //   < the cellar ladder    * chest      0 equation socket (Numberlings)
+  //   U pushable slab (Numberlings carry nums — MM.maps.WING_SLABS)
+  //   @ the lamp   M a shield-mirror stand   $ the dark crystal
+  //   G the armory's beam-gate   S a cat statue   O the fish fountain
+  //   k pantry shelves   + pressure plate   & plate-gate   l reset lever
+  MM.maps.WING = [
+    '########################################',
+    '#..........#.............#..$.......####',
+    '#.....*....#...0.0.......#..........G*##',
+    '#..........#.............#@....M....####',
+    '#!!!v!!!!!!#.............#.............#',
+    '#!!!!!!v!!!#.............#.............#',
+    '#..........#.U.U.U.U.UU..#..M..M.......#',
+    '#..........#.............#.............#',
+    '#..........#............l#.............#',
+    '###T#i.#TT########i.#T#########i.#T#####',
+    '#......................................#',
+    '#XP....................................H',
+    '#.......................w..............#',
+    '#####i.#T#########i.#T#########i.#T#####',
+    '#..........#...........###.......#.....#',
+    '#.S.....S..#.kkkkk....#*##..+....&...*.#',
+    '#..........#...........&.#.......&.....#',
+    '#....O.....#.kkkkk.......#..U....#.....#',
+    '#..........#.........+...#.......#.+...#',
+    '#....S.....#.kkkkk...U...#._____.#.....#',
+    '#..........#............l#.......#.....#',
+    '########################################',
+    '#........###############################',
+    '#.<...*..###############################',
+    '#........###############################',
+    '########################################',
+  ];
+
+  // Geometry the Wing's engine handlers read (prose lives in data.js).
+  MM.maps.WING_CELLAR = { landing: { x: 4, y: 23 }, ladderReturn: { x: 6, y: 10 } };
+  // The Numberlings (MathMaker Wren): the plaque states the equation SHAPE;
+  // ANY true filling completes — 3×8 and 4×6 (either order) both work, and
+  // accepting every correct answer is load-bearing. 7 and 9 are decoys
+  // (and a running gag: the 9 leans 1px away from any adjacent 7 —
+  // cosmetic ONLY, never a movement rule).
+  MM.maps.WING_WREN = {
+    target: 24, op: '×',
+    sockets: [{ x: 15, y: 2 }, { x: 17, y: 2 }],
+    resetLever: { x: 24, y: 8 },
+  };
+  // Slab start positions + numbers (the template s.wing.slabs initializes
+  // from; positions then persist). The '6' starts asleep (💤 — wakes on its
+  // first push; the push itself is NEVER blocked).
+  MM.maps.WING_SLABS = [
+    { id: 'n3', num: 3, x: 13, y: 6 },
+    { id: 'n8', num: 8, x: 15, y: 6 },
+    { id: 'n4', num: 4, x: 17, y: 6 },
+    { id: 'n6', num: 6, x: 19, y: 6, asleep: true },
+    { id: 'n9', num: 9, x: 21, y: 6 },
+    { id: 'n7', num: 7, x: 22, y: 6 },
+    { id: 'pantry', num: null, x: 21, y: 19 },
+    { id: 'plate', num: null, x: 28, y: 17 },
+  ];
+  // The Armory: a lamp beam routed by two-state shield-mirrors ('/' = 0,
+  // '\' = 1) to the dark crystal. Zero math. E.wingBeam walks this.
+  MM.maps.WING_ARMORY = {
+    lamp: { x: 26, y: 3 }, dir: [1, 0], crystal: { x: 28, y: 1 },
+    mirrors: [{ x: 31, y: 3 }, { x: 31, y: 6 }, { x: 28, y: 6 }],
+    initial: [0, 0, 0],   // all '/' — two toggles from lit (M1 and M3 to '\')
+  };
+  // Petronella's cats: bump cycles facing N(0) E(1) S(2) W(3); all facing
+  // the fish fountain (dominant axis toward it) = the chime.
+  MM.maps.WING_CATS = {
+    fountain: { x: 5, y: 17 },
+    statues: [
+      { x: 2, y: 15, initial: 2 },   // needs E
+      { x: 8, y: 15, initial: 0 },   // needs W
+      { x: 5, y: 19, initial: 1 },   // needs N
+    ],
+  };
+  // Which chest completes which proving room (the wardrobe, portraits and
+  // per-room rewards live in engine/data).
+  MM.maps.WING_ROOM_CHESTS = {
+    '6,2': 'grumbold', '37,2': 'armory', '23,15': 'pantry', '37,15': 'plate',
+  };
+  MM.maps.WING_CELLAR_CHEST = { x: 6, y: 23 };
+  MM.maps.WING_WARDROBE = { x: 24, y: 12 };
+  MM.maps.WING_DOORWAY = { x: 39, y: 11 };
+  MM.maps.WING_RESET_LEVERS = {
+    '24,8': 'wren',     // Wren's room: loose (unlocked) Numberlings shuffle home
+    '24,20': 'pantry',  // the pantry + plate room share the south hall lever
+  };
+
+  // Wave 12 (P2): free-standing pushable slabs OUTSIDE repair sites/the
+  // Wing — position persists in s.freeSlabs[mapId], reset by a non-site
+  // 'l' lever on the same floor. d18 = the Vault's plate puzzle.
+  MM.maps.FREE_SLABS = {
+    d18: [{ x: 20, y: 10 }],
+  };
+
+  // Wave 12 (P4): the skip-count stepping stones near Old Fisher Finn.
+  // seq 0..3 is the crossing order (the ×2 skip-count: 2, 4, 6, 8);
+  // seq -1 marks a decoy. Wrong stone = splash + back to the bank.
+  MM.maps.SKIP_STONES = [
+    { x: 30, y: 3, label: '2', seq: 0 },
+    { x: 30, y: 2, label: '4', seq: 1 },
+    { x: 31, y: 2, label: '6', seq: 2 },
+    { x: 32, y: 2, label: '8', seq: 3 },
+    { x: 29, y: 2, label: '5', seq: -1 },
+    { x: 29, y: 3, label: '7', seq: -1 },
+  ];
+  MM.maps.SKIP_STONES_BANK = { x: 30, y: 4 };
+  MM.maps.SKIP_STONES_CHEST = { x: 33, y: 2 };
 
   // ===== Wave 9 (P2): the Spiral Stair — a procedural post-game tower =====
   // "Infinite content from finite assets" (FUTURE_LEVELS.md 5c), pragmatically
@@ -1220,6 +1370,77 @@ var MM = globalThis.MM = globalThis.MM || {};
       '#.........>#',
       '############',
     ],
+    // ---------- Wave 12 (P1): the stranded grammar, seeded ----------
+    // Five new chunks APPENDED (floors 1-7 keep their historical chunks —
+    // an old save's s.opened keys on those floors still line up). Standing
+    // rule: specials (slides/pads/levers/gates) decorate OPTIONAL routes
+    // only — every chunk keeps a plain-floor walk from X to '>' (unit-
+    // checked below in tests/test.js with specials treated as walls).
+    // [7] teleport-pair shortcut across the dividing wall (first at floor 8)
+    [
+      '############',
+      '#X....#.o..#',
+      '#.....#....#',
+      '#..o..#.D..#',
+      '#.....#....#',
+      '#..m..#..*.#',
+      '#.....#....#',
+      '#.....#....#',
+      '#......D..>#',
+      '############',
+    ],
+    // [8] slick-rock shelves — the slides are shortcuts, never the only way
+    [
+      '############',
+      '#X.........#',
+      '#.....___..#',
+      '#..#..___..#',
+      '#..D.......#',
+      '#......m...#',
+      '#..___..#..#',
+      '#..___.....#',
+      '#.........>#',
+      '############',
+    ],
+    // [9] tide-pool flavor — wading costs stamina; the dry route is free
+    [
+      '############',
+      '#X.........#',
+      '#..,,......#',
+      '#..,,..D...#',
+      '#.......m..#',
+      '#.D....,,..#',
+      '#....m.,,..#',
+      '#..........#',
+      '#.........>#',
+      '############',
+    ],
+    // [10] lever/gate — the gate guards a CHEST, never the stairs
+    [
+      '############',
+      '#X......#*##',
+      '#........G.#',
+      '#..m.......#',
+      '#......D...#',
+      '#..........#',
+      '#..L.....m.#',
+      '#..........#',
+      '#.........>#',
+      '############',
+    ],
+    // [11] slick-rock crossing — two slides, one plain detour
+    [
+      '############',
+      '#X....D....#',
+      '#.._____...#',
+      '#..........#',
+      '#...#..#...#',
+      '#.._____...#',
+      '#....m.....#',
+      '#......D...#',
+      '#.........>#',
+      '############',
+    ],
   ];
   MM.maps.SPIRAL_LANDING = [
     [
@@ -1243,6 +1464,24 @@ var MM = globalThis.MM = globalThis.MM || {};
       '#..........#',
       '#..........#',
       '#..........#',
+      '#.........>#',
+      '############',
+    ],
+    // Wave 12 (P1): the gear-plate landing — the game's single best one-shot
+    // mechanic, finally recurring (first at floor 15, then every 15). The
+    // rotating vault has three doors (A/B/C); whichever way the plate R is
+    // wound, exactly one stands open, so the bonus chest is never locked
+    // away — cycling the plate is the fun, not the key. Gear state is
+    // per-floor by construction (s.gearState is keyed by mapId, 'd22f14').
+    [
+      '############',
+      '#X.........#',
+      '#......b...#',
+      '#.*........#',
+      '#...#B##...#',
+      '#...A.*C...#',
+      '#...####...#',
+      '#..R.......#',
       '#.........>#',
       '############',
     ],
@@ -1306,7 +1545,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   // (the empty-island bug, three times over).
   // 'castle' (Wave 7) is an OVERWORLD, not a dungeon: no monsters, and the
   // NPC pass must run so the MathMaker and Miscount are actually drawn.
-  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle'];
+  // 'wing' (Wave 12) is an overworld like the castle: no monsters ever, the
+  // NPC pass may run (its alphabet avoids every NPCS key), castle movement.
+  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing'];
   MM.maps.isOverworld = mapId => MM.maps.OVERWORLD_IDS.includes(mapId);
 
   // Gear gates (Clockwork Spire): exactly one of A/B/C is open at a time, and
@@ -1320,6 +1561,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     return ((s && s.gearState && s.gearState[mapId]) || 0) % 3;
   };
   MM.maps.gateOpenNow = (ch, mapId) => MM.maps.GEAR_LETTERS[MM.maps.gearRotation(mapId)] === ch;
+
+  // Wave 12 (P2): pressure plates — same pure-lookup shape as gearRotation,
+  // so tileSprite can draw live open/shut state and the headless render
+  // audit (no engine state) sees everything closed. The real occupancy
+  // logic lives in MM.engine.platePowered.
+  MM.maps.plateOpenNow = function (mapId) {
+    const E = MM.engine;
+    return !!(E && E.platePowered && E.state && E.platePowered(mapId));
+  };
 
   // ---------- Wave 11: the Grand Descent ----------
   // Pure glyph/geometry logic, same reasoning as the rest of this section:
@@ -1448,6 +1698,46 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (ch === 'w') return (cf && cf.statues[1]) ? 'statueFull' : 'plinth';
         if (ch === 'r') return (cf && cf.statues[2]) ? 'statueFull' : 'plinth';
       }
+      // Wave 12 (P3): the Workshop Wing door by the Study, and the
+      // confessed wardrobe's spot (plain floor until it moves in).
+      if (ch === 'H') return 'wingDoor';
+      if (ch === 'o') {
+        const wg = MM.engine && MM.engine.state && MM.engine.state.wing;
+        return (wg && wg.wardrobeMoved) ? 'wardrobe' : 'hallFloor';
+      }
+      return 'hallFloor';
+    }
+    // Wave 12 (P3): the Workshop Wing owns its whole alphabet, castle-style
+    // — several of its letters mean OTHER things elsewhere ('M' mountain,
+    // 'S' shop, 'O' throne, 'T' tree, 'H' tower, 'w' murk, '0' entrance),
+    // so this block must sit before every shared case (the v1.7.9 'Y'
+    // lesson: a shadowed context case renders the wrong sprite). Each
+    // collision has a unit guard in tests/test.js.
+    if (mapId === 'wing') {
+      const eng = MM.engine, st = eng && eng.state;
+      if (ch === '#') return 'wall';
+      if (ch === 'X') return 'castleDoor';
+      if (ch === 'T') return 'portrait';
+      if (ch === 'i') return 'board';
+      if (ch === 'w') return 'wardrobe';
+      if (ch === 'H') return 'teaseDoor';
+      if (ch === '*') return 'chest';
+      if (ch === 'U') return 'slab';
+      if (ch === 'l') return 'resetLever';
+      if (ch === 'k') return 'shelfFull';
+      if (ch === 'S') return 'catStatue';
+      if (ch === 'O') return 'fountain';
+      if (ch === '@') return 'lamp';
+      if (ch === '$') return (eng && eng.wingBeamLit && eng.wingBeamLit()) ? 'crystalLit' : 'crystalDark';
+      if (ch === 'M') return (eng && eng.wingMirrorStateAt && eng.wingMirrorStateAt(x, y)) ? 'mirrorBack' : 'mirrorSlash';
+      if (ch === 'G') return (st && st.wing && st.wing.rooms && st.wing.rooms.armory) ? 'gateOpen' : 'gateShut';
+      if (ch === '&') return MM.maps.plateOpenNow(mapId) ? 'plateGateOpen' : 'plateGateShut';
+      if (ch === '+') return (eng && eng.plateOccupied && eng.state && eng.plateOccupied(x, y)) ? 'platePressed' : 'plate';
+      if (ch === '0') return 'socket';
+      if (ch === '!') return 'crackedFloor';
+      if (ch === 'v') return 'chute';
+      if (ch === '<') return 'stairsUp';
+      if (ch === '_') return 'slick';
       return 'hallFloor';
     }
     if (mapId === 'isles' && (ch === 'u' || ch === 'v' || ch === 'w')) return 'murk';
@@ -1466,6 +1756,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       const st = MM.engine && MM.engine.state;
       return (st && st.tasksDone && st.tasksDone.includes(6)) ? 'fenceMended' : 'fenceBroken';
     }
+    // Wave 12 (P4): the skip-count stepping stones — 'd' is the castle's
+    // garden bed on the castle map (intercepted above) and unused in every
+    // dungeon; here it is a numeral-carved stone (labels painted by
+    // drawWorld, same recipe as the dungeon-entrance numbers).
+    if (mapId === 'world' && ch === 'd') return 'stepStone';
     if (mapId === 'horologe' && ch === '5') return 'spireTower';
     if (mapId === 'chime' && ch === '6') return 'hallTower';
     if (mapId === 'gullwrack' && ch === '7') return 'breakArch';
@@ -1481,6 +1776,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (inDungeon && (ch === 'A' || ch === 'B' || ch === 'C')) {
       return MM.maps.gateOpenNow(ch, mapId) ? 'gateOpen' : 'gateShut';
     }
+    // Wave 12 (P2): pressure plates + plate-gates in dungeons (the Wing's
+    // own block already handled its copies above). Live state on the
+    // sprite, exactly like the gear gates — a plate-gate must never look
+    // like a lever-gate (different rule, different look).
+    if (inDungeon && ch === '&') return MM.maps.plateOpenNow(mapId) ? 'plateGateOpen' : 'plateGateShut';
+    if (inDungeon && ch === '+') {
+      const eng = MM.engine;
+      return (eng && eng.plateOccupied && eng.state && eng.plateOccupied(x, y)) ? 'platePressed' : 'plate';
+    }
+    if (inDungeon && ch === '!') return 'crackedFloor';
     switch (ch) {
       case '~': return waterFrame ? 'water2' : 'water';
       case 'T': return 'tree';
