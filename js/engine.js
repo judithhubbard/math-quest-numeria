@@ -85,7 +85,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       daysTended: 0,        // counts UP only. Never resets, never shames.
       lastTendedDate: null, // dedupe: 2 tangles same day = still 1 day tended
       tangles: null,        // {date, items:[{x,y,done}]} — like s.bounties
-      spiral: { highest: 0, landing: 0 }, // Spiral Stair: deepest floor reached, highest checkpoint
+      spiral: { highest: 0, landing: 0, toppedOut: false }, // Spiral Stair: deepest floor, highest checkpoint, reached-the-top-once flag
       academyTotal: 0,      // lifetime Academy slates checked (attendance; never resets)
       castleFurnish: { rug: false, garden: false, library: false, statues: [] },
       petHats: [],          // owned pet-hat ids; s.isles.pet.hat is which one is WORN
@@ -222,7 +222,8 @@ var MM = globalThis.MM = globalThis.MM || {};
     // v1.7.2: heal a non-numeric streak at load (JSON turns NaN into null;
     // a pre-streak save has undefined) — see the matching recordAnswer guard
     if (!Number.isFinite(s.streak)) s.streak = 0;
-    if (!s.spiral) s.spiral = { highest: 0, landing: 0 };
+    if (!s.spiral) s.spiral = { highest: 0, landing: 0, toppedOut: false };
+    if (s.spiral.toppedOut == null) s.spiral.toppedOut = (s.spiral.highest || 0) >= MM.maps.SPIRAL_MAX_FLOOR;
     if (s.academyTotal == null) s.academyTotal = 0;
     if (!s.castleFurnish) s.castleFurnish = { rug: false, garden: false, library: false, statues: [] };
     if (!s.castleFurnish.statues) s.castleFurnish.statues = [];
@@ -617,6 +618,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (st.tasksDone && st.tasksDone.includes(10)) out.push('Crownbearer');
     if (isles.lampLit) out.push('Keeper of the Light');
     if (isles.gullwrackRebuilt) out.push('Guildmember of Gullwrack');
+    if (st.spiral && st.spiral.toppedOut) out.push('Top of the Spiral');
     if (st.endingDone) out.push('The New MathMaker');
     return out;
   };
@@ -1538,6 +1540,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (landing && n > s.spiral.landing) s.spiral.landing = n;
       MM.ui.log(landing ? `🌀 <b>Floor ${n}</b> — a landing. Catch your breath.` : `🌀 <b>Floor ${n}</b> of the Spiral Stair.`);
       E.save();
+      // the very top: once ever, the climb gets a real destination
+      if (n >= MM.maps.SPIRAL_MAX_FLOOR && !s.spiral.toppedOut) E.spiralSummit();
     }
     if (idx !== MM.maps.SPIRAL_INDEX && floor === 0) {
       MM.ui.log(`You enter the ${task.dungeon}. (${task.mixed ? 'Everything you\'ve learned!' : MM.data.SKILL_NAMES[task.skill]})`);
@@ -4301,6 +4305,30 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.save();
   };
   E.spiralStoneGlinting = idx => !!(E.spiralGlintUntil && idx === E.spiralGlintIndex && performance.now() < E.spiralGlintUntil);
+
+  // Reaching the top of the Spiral Stair (floor SPIRAL_MAX_FLOOR) — once ever,
+  // the "endless"-feeling climb gets a real destination: a moment, a title,
+  // and a reward, so a kid who grinds all the way up isn't met with silence.
+  E.spiralSummit = function () {
+    const s = E.state;
+    if (!s.spiral || s.spiral.toppedOut) return;
+    s.spiral.toppedOut = true;
+    const gold = E.gainGold(300);
+    E.save();
+    MM.sound.fanfare();
+    if (MM.ui.worldBurst) {
+      const cols = ['#ffd94a', '#7ee0e8', '#e0c24a', '#fff6d8'];
+      for (let i = 0; i < 4; i++) MM.ui.worldBurst(s.px, s.py, cols[i], 20);
+    }
+    MM.ui.dialog('🌀 The Top of the Spiral',
+      `<i>You climb the last step — and there is no next one.</i><br><br>` +
+      `Just open sky, and the whole of Numeria spread out far, far below: the castle, the harbor, the isles ` +
+      `like stepping-stones out to the edge of the world. You have climbed as high as the stair goes. ` +
+      `<b>Floor ${MM.maps.SPIRAL_MAX_FLOOR}.</b> The very top.<br><br>` +
+      `<i>"Sixty floors," you can almost hear the MathMaker say. "One careful step at a time, all sixty. ` +
+      `Of course you did."</i><br><br>` +
+      `From this day you are <b>Top of the Spiral</b>. <span class="dim">(+${gold} gold — and the climb down is all downhill.)</span>`);
+  };
 
   // ---------- v1.7.0: bosses attack with wrong math ----------
   // Canon completion: monsters are tangles (disorder where working
