@@ -884,12 +884,20 @@ var MM = globalThis.MM = globalThis.MM || {};
           sprOpts.palette = MM.sprites.themePalette(sprName, descentTheme);
         }
         const spr = MM.sprites.get(sprName, sprOpts);
-        // Playtest round 4: a mimic chest BREATHES — a slow 1-pixel bob (the
+        // Playtest round 4: a mimic chest BREATHES — a slow bob (the
         // telegraph rule: a surprise you could have spotted, never a gotcha).
+        // Live playtest (v1.7.13): the constant bob broadcast the secret
+        // across the whole room, so the tell is distance-gated — steady
+        // breathing only within 2 tiles (arriving exactly when the kid is
+        // deciding whether to open it), a single furtive shudder every few
+        // seconds beyond that, so a sharp eye can still catch one across
+        // the room and feel clever. The pet's adjacent sniff is unchanged.
         // Calm Mode swaps motion for a static tell: a dark grin at the seam.
         const isMimic = ch === '*' && MM.engine._mimics && MM.engine._mimics.has(`${x},${y}`);
         if (isMimic && !s.calmMode) {
-          const bob = Math.floor(performance.now() / 550) % 2 ? 3 : 0;
+          const near = Math.abs(x - s.px) <= 2 && Math.abs(y - s.py) <= 2;
+          const bob = near ? (Math.floor(performance.now() / 550) % 2 ? 3 : 0)
+                           : (performance.now() % 4200 < 140 ? 2 : 0);
           ctx.drawImage(spr, vx * TILE, vy * TILE + bob);
         } else {
           ctx.drawImage(spr, vx * TILE, vy * TILE);
