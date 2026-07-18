@@ -3277,3 +3277,15 @@ cracked-floor fall+ladder-return, forced spiral chunks) + MARATHON
 final lines — killed runs don't count). SCREENSHOT AUDIT every room —
 open and LOOK: beam segments render, Numberling numerals legible at
 scale, wardrobe bob visible in a far frame and absent in a near frame.
+
+## v1.8.1 (2026-07-18, live playtest): spiral doors — DOORS GATE, NEVER DECORATE
+Kid report: "in the tower, lots of locked doors that serve no purpose."
+Correct: the spiral chunks scattered freestanding D doors in open floor —
+walk-around-able, guarding nothing (old chunks 0-6 had no chests at all).
+Every spiral door now seals a walled vault pocket with a chest (or, chunk
+7, gates a walk-route a teleport pad honestly bypasses); freestanding
+doors cut (22 → 9 doors pool-wide, every one paying). STANDING RULE (all
+future chunk/dungeon authoring): a shut door reads as "passage, gated" —
+a door must gate a pocket with something desirable, or a route with an
+honest bypass. Never decoration. Same save-migration class as Wave 12
+re-templating (stale s.opened keys can only open cells, never lock).
