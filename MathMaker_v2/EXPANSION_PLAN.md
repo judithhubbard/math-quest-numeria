@@ -3303,3 +3303,129 @@ the log, so the log-only lever explanation was invisible; (3) the TOOT:
 (scandalized; "it wasn't me") — field+sound channels, never louder than
 the thud, never control flow. Unit: every Wing 'l' must be registered in
 WING_RESET_LEVERS (an unregistered lever is false hope). drive-wedge.js.
+
+## Wave 13 order — "The Understudy & Your Own Room" (user directive 2026-07-19, design session)
+
+Context: Wave 12 shipped this wave's hooks on purpose — pressure plates
+built plain (the Understudy's switch), and the named doorway at the
+Wing's end (Your Own Room's front door; its "masons" holding-note ships
+in v1.8.2 and is REPLACED by this wave). Live-playtest signals driving
+this wave: the kid LIKES the puzzle aspect (2026-07-19); the doorway
+teaser confused a family until its prose said "not yet" plainly; a
+cornered slab taught us the wedge-rescue pattern (v1.8.2), which is LAW
+in every new puzzle space below. ALL Wave 12 standing rules apply
+(jokes are observations never obstacles; comedy channels =
+field/glyph/sound/modal, never the log; new glyphs get tileSprite
+context checks + unit guards; doors gate, never decorate; every slab
+space keeps its own reset affordance + the 3-futile-push nudge works).
+
+### P1 — The Understudy (echo plates)
+A new stand-on tile, the ECHO PLATE (pick a free char per the collision
+rule). The engine keeps a rolling buffer of the player's last 12 steps.
+Stepping on an echo plate summons THE UNDERSTUDY: a palette-swapped
+slime wearing a pixel paper crown and carrying a stick sword — it has
+been watching the hero this whole time, and this is its moment. It
+appears AT the plate and replays the buffered steps as real movement,
+with one theatrical half-beat pause before the final step. Wherever its
+route ends, it stays — and if that tile is a pressure plate ('+'), it
+HOLDS it (the plate-occupancy check gains one clause), doing a small
+continuous happy-bob. Colliding with a wall/monster mid-replay stops it
+early, politely (no failure, it just stands there, committed).
+- Puzzle grammar: choreography — walk the route you want copied, then
+  step on the echo plate and go be somewhere else while your past self
+  holds the door. Introduce in ONE authored annex room off the Wing
+  hall (combat-free, wedge-rescue equipped), then leak back: one echo
+  plate room in the Cavern of Echoes (the name finally pays), one
+  Spiral chunk (optional route only, per the plain-floor law).
+- First-ever summon is a once-ever big beat (modal allowed): the
+  Understudy introduces itself. Implementer authors the prose; paste
+  for review. Comedy after that: 🎭 glyph on summon, happy-bob, sound
+  (a tiny ta-da, two notes) — never the log.
+- Persistence: buffer and Understudy position are per-map-visit
+  (rebuild on entry); nothing saved.
+
+### P2 — Your Own Room (behind the named doorway)
+Gate: Wing title earned (w.titleGiven). The doorway opens into a small
+empty room (interior ~11×8): bare stone, a fixed ENTRANCE arch, a fixed
+GOAL pedestal with a chest slot, and a WORKBENCH by the door.
+- Building is IN-WORLD — no new editor UI. Bump the workbench →
+  dialogChoices picks the piece in hand (shows remaining counts); then
+  bumping an empty floor tile places it; bumping a placed piece picks
+  it back up. No modes, no timer, placeable/removable forever.
+- Palette v1 (tight ON PURPOSE — a budget makes it design, not
+  sprawl): 10 wall blocks, 2 slabs, 1 pressure plate, 1 plate-gate,
+  1 cracked floor, 1 chest (the game supplies the pupil's prize
+  inside; the kid never spends anything). Cannot place on the
+  entrance, goal, or workbench tiles. A reset pull-cord is ALWAYS
+  present (shuffles slabs back to the kid's placed spots — the wedge
+  law applies to rooms the kid builds, from day one).
+- When ready: a pull-cord by the arch ("Invite a pupil"). A pupil
+  arrives (the enrolled slime first; later visits rotate kinds) and
+  ATTEMPTS THE ROOM VISIBLY, one step every ~250ms, while the kid
+  watches. Solver: BFS over (pupil pos, slab positions, plate/gate
+  states) — the room is tiny and the budget is 2 slabs, so the state
+  space is bounded; cap explored states defensively and treat cap-hit
+  as unsolvable. It may try the chest before the pedestal, pause at
+  gates, etc. — the solver's PATH is real, the theater is in pacing.
+- UNSOLVABLE IS ALLOWED and is the pedagogy: the pupil tries, visibly,
+  then walks back to the arch with a 💭 glyph and one modal: it could
+  not find a way, said kindly, asking for "a hint — or a hallway."
+  (Implementer authors; paste for review.) The kid revises and pulls
+  the cord again. No cost, no scold, ever. Watching a real solver fail
+  at your room and fixing it IS level design — and teaching.
+- First successful solve is a once-ever celebration (worldBurst +
+  fanfare + the pupil's joy; Miscount drops by with one line — he of
+  all people knows what it means to build a room that tests fairly).
+  After that: purely social. The room pays no gold; the room is the
+  trophy. On later days, entering the Wing sometimes finds a pupil
+  mid-solve in the room (day-keyed roll) — the kid's design has a life
+  of its own. (Implementer may cut the day-keyed revisits if hairy —
+  see deviation authority.)
+- Persistence: layout + solve-count in s.wing.myRoom; survives NG+
+  snapshot/restore like the rest of the Wing.
+- The doorway's v1.8.2 "masons" note is REMOVED; the named plate now
+  opens the door. Pre-title, the doorway keeps the blank-plate tease.
+
+### P3 — The homesick staircase
+Post-ending only: a small staircase with two pixel feet stands lost in
+the Cavern of Echoes (floor 1, authored spot). Bump it → it explains
+nothing (it is a staircase) but a 🏠 glyph pops and it starts FOLLOWING
+— pet-follower logic, lagging two moves behind, stiff. Monsters ignore
+it (code-level indifference is the joke; one log echo for parents:
+"The Bonepile looks at the staircase. The staircase looks at nothing.
+It is a staircase."). It waits outside during battles; if the kid
+sails, it waits at the pier (persisted), radiating patience. Escort it
+overland to the Spiral Stair tower and bump the tower: once-ever
+homecoming moment (modal, authored, paste for review) and a PERMANENT
+reward — the spiral menu gains "⤴ Start from floor 10" (the staircase
+knows a shortcut; it should, it is one). State in s.spiral.staircase:
+'lost' | 'following' | { waiting: {x,y} } | 'home'.
+
+### Evidence & prose discipline (unchanged, mandatory)
+Unit: new-glyph context guards; step-buffer record/replay determinism;
+plate-occupancy clause (Understudy holds '+'); myRoom serialization
+round-trip + budget enforcement + illegal-placement rejection; solver
+solves a known-solvable fixture and rejects a known-unsolvable one
+(deterministic, no Math.random in the solver); staircase state machine
+(lost→following→waiting→home) incl. save/load mid-escort; NG+ snapshot
+carries myRoom + staircase state. Drives: drive-understudy (~12
+checks: summon, exact replay, half-beat, holds plate, gate stays open,
+early-stop is polite), drive-myroom (~18: build solvable room by
+synthetic bumps, budget caps, pupil solves + celebration, REBUILD to
+unsolvable, polite-stuck modal, revise, solve), drive-staircase (~10:
+find, lag-follow, battle-wait, deliver, menu option, persistence).
+Full sweep (will be 36 drives) + DETACHED marathon (`nohup … & disown`,
+logs in tests/logs/, paste final lines). SCREENSHOT AUDIT: the crown
+pixels read at scale, the Understudy mid-replay, a pupil mid-solve in
+a kid-built room, the staircase's feet, far/near frames for any new
+tell. NO COMMIT — stop and report with ALL new prose verbatim (the
+Understudy's introduction, the pupil's stuck line, Miscount's visit
+line, the staircase homecoming, workbench strings).
+
+### Deviation authority
+May cut freely if hairy: day-keyed pupil revisits; the pier-waiting
+staircase nuance (fallback: it teleports home to the dungeon entrance
+and waits there); pupil kind rotation (slime-only is fine for v1).
+May NOT cut: the polite-stuck flow (it is the feature), budget caps,
+the always-present reset cord, once-ever celebrations, wedge-nudge
+coverage inside the kid's room, the doorway prose swap.
