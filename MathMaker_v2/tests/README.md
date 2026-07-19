@@ -484,3 +484,4 @@ copy) — the I/O contention can starve headless Chrome past even 90s
 timeouts. Every "mystery" drive failure to date has occurred under
 sync load and passed under quiet conditions.
 - drive-report.js — report-card completeness (2026-07-17): the three sea-taught topics (clocks/geometry/music) appear on the card and badge shelf once attempted, labeled by where they're taught; Practice Yard clean-run stars get their own section, capped at ★★★.
+- drive-wedge.js — wedged-slab rescue (v1.8.2): 3 futile pushes raise the one-time lever-naming modal; the plate room's own reset lever shuffles the slab home; the toot is flavor only (slab still moves, 💨 glyph pops).

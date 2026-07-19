@@ -1192,7 +1192,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     '#....O.....#.kkkkk.......#..U....#.....#',
     '#..........#.........+...#.......#.+...#',
     '#....S.....#.kkkkk...U...#._____.#.....#',
-    '#..........#............l#.......#.....#',
+    // v1.8.2: the plate room gets its OWN reset lever at (31,20) — a kid
+    // wedged the slab in a corner and the only lever was a room away.
+    '#..........#............l#.....l.#.....#',
     '########################################',
     '#........###############################',
     '#.<...*..###############################',
@@ -1252,7 +1254,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   MM.maps.WING_DOORWAY = { x: 39, y: 11 };
   MM.maps.WING_RESET_LEVERS = {
     '24,8': 'wren',     // Wren's room: loose (unlocked) Numberlings shuffle home
-    '24,20': 'pantry',  // the pantry + plate room share the south hall lever
+    '24,20': 'pantry',  // the pantry lever (resets pantry + plate slabs)
+    '31,20': 'plate',   // v1.8.2: the plate room's own lever — a wedged slab
+                        // must be rescuable from INSIDE the room it wedged in
   };
 
   // Wave 12 (P2): free-standing pushable slabs OUTSIDE repair sites/the

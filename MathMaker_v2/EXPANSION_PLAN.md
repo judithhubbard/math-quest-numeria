@@ -3289,3 +3289,17 @@ future chunk/dungeon authoring): a shut door reads as "passage, gated" —
 a door must gate a pocket with something desirable, or a route with an
 honest bypass. Never decoration. Same save-migration class as Wave 12
 re-templating (stale s.opened keys can only open cells, never lock).
+
+## v1.8.2 (2026-07-19, live playtest): wedged slabs rescued + the toot
+Kid cornered the plate-room slab and thought the puzzle was ruined. Three
+fixes: (1) the plate room gets its OWN reset lever at (31,20) — a wedged
+slab must be rescuable from inside the room it wedged in (the pantry
+lever technically covered it, from a room away, invisibly); (2) wedge
+nudge: 3 futile pushes in a row (any slab system: wing/free/site) raise
+ONE modal naming the reset lever ("A wedged slab is not a failed proof."
+— Milla), counter clears on success, once per session — kids don't read
+the log, so the log-only lever explanation was invisible; (3) the TOOT:
+~1 push in 7, stone-on-stone emits a small rude noise + 💨 over the slab
+(scandalized; "it wasn't me") — field+sound channels, never louder than
+the thud, never control flow. Unit: every Wing 'l' must be registered in
+WING_RESET_LEVERS (an unregistered lever is false hope). drive-wedge.js.

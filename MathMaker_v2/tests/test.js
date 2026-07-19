@@ -14,7 +14,7 @@ function fail(msg) { fails++; console.log('FAIL: ' + msg); }
 // This suite runs headless (no DOM) — stub the browser-only bits any engine
 // function might touch (sound effects, UI logging/refresh) so a call like
 // MM.engine.resetSite doesn't crash just because there's no <audio> tag here.
-MM.sound = { fanfare() {}, thud() {}, coin() {}, correct() {}, wrong() {}, levelup() {}, tone() {}, whoosh() {}, dodge() {}, splash() {}, sigh() {}, chirp() {}, creak() {}, soothe() {}, fret() {}, purr() {} };
+MM.sound = { fanfare() {}, thud() {}, coin() {}, correct() {}, wrong() {}, levelup() {}, tone() {}, whoosh() {}, dodge() {}, splash() {}, sigh() {}, chirp() {}, creak() {}, toot() {}, soothe() {}, fret() {}, purr() {} };
 MM.ui = { log() {}, refresh() {}, modalOpen: () => false, dialog() {}, dialogChoices() {}, showProblem() {}, playerMoved() {} };
 MM.battle = MM.battle || { active: () => false, start() {} };   // Wave 12: tryMove is exercised headlessly now
 MM.track = MM.track || function () {};   // tracker.js isn't loaded headlessly
@@ -2887,6 +2887,13 @@ for (const skill of skills) {
     const [x, y] = k.split(',').map(Number);
     expect(x, y, 'l', 'reset lever');
   });
+  // v1.8.2: the reverse — every 'l' on the Wing floor must be a REGISTERED
+  // reset lever (an unregistered lever is a wedged kid's false hope). And
+  // the plate room specifically must have its own (the corner-wedge lesson).
+  MM.maps.WING.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch === 'l' && !MM.maps.WING_RESET_LEVERS[`${x},${y}`]) fail(`wing: unregistered reset lever at ${x},${y}`);
+  }));
+  if (!MM.maps.WING_RESET_LEVERS['31,20']) fail('wing: the plate room lost its own reset lever');
   // reachability from P: gates modeled OPEN; every bumpable adjacent-reachable
   const WALK = '.PX+0!_v<&G';
   const bfs = (sx, sy, walk) => {
