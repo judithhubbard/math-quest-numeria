@@ -1447,7 +1447,14 @@ var MM = globalThis.MM = globalThis.MM || {};
   MM.data.WING_ENTER_LINE = '🛠 <b>The Workshop Wing.</b> Six proving rooms, each signed by a MathMaker before you. Someone has dusted, recently.';
   MM.data.WING_DOORWAY_BLANK = 'At the very end of the hall: a doorway with nothing behind it yet — just clean stone, and a blank brass plate waiting for a name.<br><br><i>Whoever finishes the proving rooms, presumably.</i>';
   MM.data.WING_DOORWAY_NAMED = name =>
-    `The blank plate isn\'t blank anymore. It reads: <b>${name}</b>.<br><br>There is still nothing behind the doorway — but somehow it reads less like an ending and more like a promise: <i>your room, when you\'re ready to build it.</i>`;
+    `The blank plate isn\'t blank anymore. It reads: <b>${name}</b>.<br><br>` +
+    // v1.8.2 (live playtest): the old line ("your room, when you're ready to
+    // build it") read as a RIDDLE — a kid stood here hunting for the trigger,
+    // and there isn't one yet. The promise must say "not today, and not
+    // because you're missing something" in so many words. Wave 13 replaces
+    // this note with the actual door opening.
+    `Behind the doorway: clean stone, waiting. A note is pinned to the frame, in the MathMaker\'s hand:<br><br>` +
+    `<i>"Every Keeper builds a proving room of their own, when its time comes. Yours hasn\'t come yet — there is nothing to find and nothing to solve behind this door today. But the wall knows your name now. When the masons are ready, so is the doorway."</i>`;
   MM.data.WING_TITLE_LINE = 'Six rooms, six signatures, six proofs — every one of them answered.<br><br>From this day you are <b>Keeper of the Proving Rooms</b>. The empty doorway at the hall\'s end has been listening. Go and see.';
   // Pantry shelf flavor (bump pool — a modal would be friction; these are
   // log echoes of a purely visual room, mechanics-free).

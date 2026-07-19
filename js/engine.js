@@ -1991,10 +1991,12 @@ var MM = globalThis.MM = globalThis.MM || {};
         s.grid[ny][nx] = '.'; // the vacated cell
         site.slabPos[i] = { x: bx, y: by };
         MM.sound.thud();
+        E.slabScrape(bx, by);
         E.applySiteState(mapId);
         E.save();
       } else {
         MM.sound.thud(); // blocked — a wall, water, another slab, or an unrelated broken tile
+        E.slabWedged();
       }
       return true;
     }
@@ -2144,6 +2146,36 @@ var MM = globalThis.MM = globalThis.MM || {};
     MM.sound.creak();
   };
 
+  // ---------- v1.8.2: wedged slabs + the toot (live playtest) ----------
+  // A kid pushed a slab into a corner and thought the puzzle was ruined.
+  // The reset lever already existed, but only the LOG explained it — and
+  // kids don't read the log. So: three futile pushes in a row (any slab
+  // system) → ONE modal, kid-initiated by the pushing itself, that names
+  // the lever. The counter clears on any successful push.
+  E._futileSlab = 0;
+  E.slabWedged = function () {
+    E._futileSlab++;
+    if (E._futileSlab < 3 || E._wedgeNoted) return;
+    E._wedgeNoted = true;
+    MM.ui.dialog('🪨 Wedged tight',
+      'The slab is jammed against something — and that\'s allowed. It costs nothing.<br><br>' +
+      'Every slab room keeps a <b>reset lever</b> ⚙️ on the wall: one pull, and the loose slabs ' +
+      'shuffle home to their starting spots for a fresh try.<br><br>' +
+      '<i>"A wedged slab is not a failed proof." — MathMaker Milla</i>');
+  };
+  // The toot: stone scraped over stone occasionally emits a small rude
+  // noise (~1 push in 7). The slab is scandalized (💨, "it wasn't me").
+  // Field + sound channels only; never louder than the thud it rides on.
+  E.slabScrape = function (bx, by) {
+    E._futileSlab = 0;
+    if (Math.random() < 0.15) {
+      MM.sound.toot();
+      E._slabPop = { x: bx, y: by, until: Date.now() + 900, ch: '💨' };
+      return true;
+    }
+    return false;
+  };
+
   // Free-standing slabs (P2): pushable 'U' slabs OUTSIDE repair sites and
   // the Wing (MM.maps.FREE_SLABS). Position persists per mapId; a non-site
   // 'l' lever on the floor shuffles them home (gentle failure).
@@ -2166,11 +2198,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     const blocked = !(destCh === '.' || destCh === '+' || destCh === '_')
       || list.some(o => o !== slab && o.x === bx && o.y === by)
       || s.monsters.some(m => m.hp > 0 && m.x === bx && m.y === by);
-    if (blocked) { MM.sound.thud(); return; }
+    if (blocked) { MM.sound.thud(); E.slabWedged(); return; }
     s.grid[ny][nx] = slab.under || '.';
     slab.x = bx; slab.y = by; slab.under = destCh;
     s.grid[by][bx] = 'U';
     MM.sound.thud();
+    E.slabScrape(bx, by);
     if (destCh === '+') E.platePressFeedback();
     E.save();
     MM.ui.refresh();
@@ -2442,17 +2475,18 @@ var MM = globalThis.MM = globalThis.MM || {};
     const destCh = s.grid[by] && s.grid[by][bx];
     const blocked = !(destCh === '.' || destCh === '+' || destCh === '0' || destCh === '_')
       || w.slabs.some(o => o !== slab && o.x === bx && o.y === by);
-    if (blocked) { MM.sound.thud(); return; }
+    if (blocked) { MM.sound.thud(); E.slabWedged(); return; }
     s.grid[ny][nx] = slab.under || '.';
     slab.x = bx; slab.y = by; slab.under = destCh;
     s.grid[by][bx] = 'U';
     MM.sound.thud();
+    const tooted = E.slabScrape(bx, by);
     if (slab.asleep) {
       // the 💤 gag never blocks the push — the bump both wakes AND moves it
       slab.asleep = false;
       MM.sound.tone(1);
       MM.ui.log(`💤 The ${slab.num} wakes with a start and pretends it was counting the whole time.`);
-    } else if (slab.num != null && Math.random() < 0.25) {
+    } else if (!tooted && slab.num != null && Math.random() < 0.25) {
       E._slabPop = { x: bx, y: by, until: Date.now() + 900 };   // 💢, in the field
     }
     if (destCh === '+') E.platePressFeedback();

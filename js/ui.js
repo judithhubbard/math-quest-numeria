@@ -107,6 +107,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     chirp() { beep(1319, 0.08, 'triangle', 0, 0.06); beep(1760, 0.1, 'triangle', 0.09, 0.05); },
     // creak: cracked floor underfoot — wood about to change its mind.
     creak() { beep(150, 0.22, 'sawtooth', 0, 0.045); beep(122, 0.2, 'sawtooth', 0.1, 0.035); },
+    // v1.8.2 — the toot: stone slabs, scraped across a floor, occasionally
+    // emit a small rude noise. Nobody in the castle will discuss it.
+    // Descending contour (comedic deflation), soft, brief.
+    toot() { beep(110, 0.08, 'sawtooth', 0, 0.07); beep(88, 0.09, 'sawtooth', 0.06, 0.08); beep(62, 0.18, 'sawtooth', 0.13, 0.07); noise(0.14, 300, 0.03, 0.08); },
   };
   const TONE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00]; // C4 D4 E4 F4 G4
   const TONE_COLORS = ['#e05252', '#e0a952', '#ffd94a', '#68c470', '#52a8e0'];
@@ -918,7 +922,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (sevenAdjacent && !s.calmMode && now % 6000 < 1500) ctx.fillText('💧', vx * TILE + 8 * (lx > 0 ? 1 : 1), vy * TILE + 6);
     const pop = E._slabPop;
     if (pop && pop.x === x && pop.y === y && Date.now() < pop.until && !s.calmMode) {
-      ctx.fillText('💢', vx * TILE + TILE / 2, vy * TILE - 2);
+      ctx.fillText(pop.ch || '💢', vx * TILE + TILE / 2, vy * TILE - 2);
     }
   }
   function drawWingOverlays(camX, camY, now, s) {
