@@ -1534,6 +1534,90 @@ var MM = globalThis.MM = globalThis.MM || {};
     },
   };
 
+  // ===== Wave 15: "The Parlor" — the card game "Tiny Hats" =====
+  // Post-ending, combat-free (the monsters are on CARDS, never hit), no timers.
+  // A becalmed monster deals; play is compare-and-capture; a lost match is
+  // "good game — again?", never a scold, never a real loss. Comedy lands on the
+  // cards and the courteous opponents, never the kid. Every card wears (or can
+  // earn) a tiny hat. The math is the play: reading which edge is bigger, and
+  // totting up the running tally — no quiz is ever bolted on.
+  MM.data.PARLOR = {
+    dealer: {
+      name: '🎩 Deuce the Dealer',
+      // Bump the parlor DOOR pre-ending — a gentle "not yet" (the room is a
+      // reward for a finished kingdom, like the Wing and the Court).
+      notYet: 'A curtained archway, warm light behind it, and a hand-lettered sign: <b>THE PARLOR — members only.</b><br><br>Under it, smaller: <i>Membership: one (1) finished kingdom. You\'re nearly there.</i>',
+      // First time in, the dealer introduces the house (once ever).
+      intro: 'A Skeleton in an improbably tiny top hat looks up from a green felt table, mid-shuffle. It has, it must be said, EXCELLENT hands for shuffling — being, as it is, mostly hands.<br><br>"Welcome, welcome! I\'m <b>Deuce</b>. This is the Parlor. We play <b>Tiny Hats</b> — you place a card, I place a card, and whoever\'s number is bigger takes the neighbor." It fans a deck like a magician. "Every card is somebody you\'ve met. No fighting in here — we settled all that. Now we just play. Care for a round?"',
+      // The hub menu blurb (returning visits).
+      hub: 'Deuce sets out the felt and taps the deck twice, for luck it does not believe in. "Same rules, always: bigger edge takes the neighbor, most squares wins, and losing costs you nothing but a rematch." <i>Its tiny hat is, as ever, immaculate.</i>',
+      // Bump the dealer once you\'re a member but haven\'t met it yet is handled
+      // by intro; this is the everyday greeting.
+    },
+    // The parlor room's arrival line.
+    enterLine: '🎩 <b>The Parlor.</b> Green felt, warm lamps, and a faint permanent smell of card. Somewhere, someone is losing very graciously.',
+    // Match result lines (never a scold on a loss — "good game, again?").
+    winLines: [
+      'A clean win! Deuce sweeps the felt, entirely delighted to have lost. "Beautifully counted. Beautifully."',
+      'The last square flips your way and Deuce applauds with a sound like a xylophone falling downstairs. "Well PLAYED."',
+      'You take the board. Deuce doffs its tiny hat, revealing a slightly smaller tiny hat underneath. "The student becomes the dealer. Almost."',
+    ],
+    lossLines: [
+      '"Good game — again?" Deuce is already reshuffling. Nothing is lost here but the round; the felt forgets instantly, and so should you.',
+      'Deuce edges you out on the last square, and immediately looks a little sorry about it. "Rematch? I insist. I\'ll even use my worse cards." <i>It will not use its worse cards. But it means well.</i>',
+      '"So close! One bigger number and it was yours." Deuce fans a fresh hand. "Good news: the deck is free and the night is long."',
+    ],
+    tieLines: [
+      'Dead even, square for square. Deuce studies the board with enormous respect. "A draw. Rare as a polite dragon. Shall we break the tie?"',
+    ],
+    // Winning sometimes yields the opponent's card into your collection.
+    cardWon: 'Deuce slides one of its own cards across the felt with a little bow. "Yours. It\'s been wanting a hat anyway." <b>A new card joins your collection.</b>',
+    // The courteous trash-talk pool (opponents are unfailingly polite — the
+    // joke is the courtesy, never anything aimed at the kid).
+    trashTalk: [
+      '"I have been practicing. I lost anyway. But I practiced."',
+      '"A bold placement. I respect it enormously. I am also about to take three of your cards."',
+      '"No pressure. There is never any pressure here. That is rather the point."',
+      '"My grandmother taught me this game. She cheated. I do not. It shows, frankly."',
+      '"I brought my second-best cards, out of politeness. You are welcome."',
+      '"If I win, I shall be gracious. If you win, I shall be gracious AND take notes."',
+      '"That corner is mine now. I\'ve grown attached. We\'ve been through a lot, this turn and I."',
+      '"Bigger number, bigger number… ah. Yours. Well played, genuinely, ugh."',
+    ],
+    // The card album (reuses the Monster Book idiom).
+    album: {
+      title: '🃏 Your Card Collection',
+      empty: 'No trophies yet — win a match and Deuce sometimes parts with one of its own cards. That\'s the collection: cards you\'ve <i>beaten</i>, each in a tiny hat of its own.',
+      intro: 'Cards you\'ve won across the felt, each retired here in a tiny hat. Deuce keeps a very similar shelf. Deuce\'s is longer. For now.',
+      countLine: n => `<b>${n}</b> card${n === 1 ? '' : 's'} won and hatted.`,
+    },
+    // The Games Den side-table: "reach 20, don't go over."
+    dice: {
+      title: '🎲 The Side-Table — "Reach 20"',
+      intro: 'A small felt table with two dice and a bowl of tokens. "Roll, add it up, stop when you like," says the croupier — a Slime in a visor. "Land on twenty exactly and the bowl is yours. Go over and you just… don\'t. No harm in it." <i>It nudges the bowl encouragingly.</i>',
+      prompt: 'Your running total is your call — roll again, or hold. Twenty is the target; over twenty is a bust (costs you nothing).',
+      bust: 'Over twenty! The visored Slime tips an imaginary hat. "The dice giveth. Rounds are free — go again?"',
+      jackpotLine: 'TWENTY on the nose! The bowl slides your way with great ceremony.',
+      holdLine: total => `You hold at <b>${total}</b>. A tidy number, well counted.`,
+    },
+    // The token shop — cosmetic ONLY (card-backs / a hat for your favorite
+    // card). Tokens, never gold; never real-money framing; losing costs zero.
+    shop: {
+      title: '🪙 Token Table',
+      intro: 'Tokens buy nothing that helps you win — Deuce is very firm about that. "Where\'s the fun in BUYING an advantage? No, no. Tokens are for looking good." What\'s on offer is purely for show:',
+      backLine: 'A fresh card-back — purely how your deck looks across the felt.',
+      hatLine: 'A tiny hat for your favorite card — because of course.',
+      bought: name => `Deuce wraps it in tissue it produced from nowhere. "<b>${name}</b> — excellent taste." <i>Purely cosmetic. Purely wonderful.</i>`,
+      cantAfford: 'Not enough tokens yet — but the felt is free, and tokens come with playing. No rush; nothing here expires.',
+    },
+    backs: [
+      { id: 'default', name: 'House Blue', price: 0 },
+      { id: 'star', name: 'Starfield Back', price: 6 },
+      { id: 'spiral', name: 'Golden Spiral Back', price: 10 },
+      { id: 'felt', name: 'Green-Felt Back', price: 8 },
+    ],
+  };
+
   // ===== Wave 14 (P2): the Faculty — the connective thread =====
   // As the kid teaches, the castle visibly fills with reformed monsters who
   // take up posts. Records nothing, gates nothing — a pure cumulative reward
@@ -1577,6 +1661,17 @@ var MM = globalThis.MM = globalThis.MM || {};
       line: 'The Court Recorder drifts above its ledger, writing down absolutely everything, including this. "Don\'t mind me," it murmurs, minding all of it. "Someone has to remember how fairly it all went. It went very fairly. I\'m writing THAT down too."',
     },
     // ── later castle waves APPEND their posts below this line ──
+    // Wave 15 (P4): the House Dealer. Appended with its OWN earned(state)
+    // predicate (games played) — E.checkFaculty claims it with ZERO changes
+    // there, exactly the extension the Court built this list for. A reformed
+    // Skeleton, visible in the castle once the kid is a parlor regular.
+    {
+      id: 'dealer', title: 'House Dealer', sprite: 'skeleton',
+      pal: { A: '#3a3352', H: '#e0dcd0', F: '#e8c24a' }, badge: '🎩', x: 13, y: 4,
+      earned: s => ((s.parlor && s.parlor.games) || 0) >= 3,
+      spawnLine: 'Word of the Parlor has reached the castle. A reformed <b>Skeleton</b> — Deuce, of the excellent shuffling hands — has taken up the official post of <b>House Dealer</b>, and looks thrilled to be on the staff.',
+      line: 'The House Dealer riffles a deck it does not strictly need to riffle. "I have a POST now," Deuce says, adjusting its tiny hat with evident pride. "A desk, a title, a little brass plate. I used to be a pile of bones in a catacomb. Now I run a card table in a castle." It fans the deck. "Life is mostly a matter of finding the right table."',
+    },
   ];
   // The castle door ('H' by the Study) and the hall's-end teaser doorway.
   MM.data.WING_DOOR_LOCKED = name =>

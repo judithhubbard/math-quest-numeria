@@ -1171,12 +1171,34 @@ var MM = globalThis.MM = globalThis.MM || {};
     '##........#....#.F...F..##',
     '###########....###########',
     '###########....###########',
-    '##o......H#....#...VV...##',
+    '##o......H#....#Z..VV...##',
     '##..Q.J.................##',
     '##.......##F..F#........##',
     '##diklnwr##....#........##',
     '###########..P.###########',
     '############X#############',
+  ];
+
+  // ===== Wave 15 (P4): the Parlor — the card game "Tiny Hats" =====
+  // A combat-free room off the castle (through the 'Z' door on the castle's
+  // right inner wall), gated on s.endingDone. An overworld like the castle and
+  // the Wing (no monsters ever, no stamina), with its own tileSprite alphabet:
+  //   X  back out to the castle        P  arrival
+  //   D  Deuce the dealer (bump → the parlor hub / a match)
+  //   C  the felt card table (bump → a match)
+  //   T  the "reach 20" dice side-table (bump → the dice game)
+  // The dealer/tables are drawn by the tile pass (D/T/C are NOT NPCS keys, so
+  // the overworld NPC pass leaves them alone).
+  MM.maps.PARLOR = [
+    '#############',
+    '#...........#',
+    '#..C.....T..#',
+    '#...........#',
+    '#.....D.....#',
+    '#...........#',
+    '#...........#',
+    '#.....P.....#',
+    '######X######',
   ];
 
   // ===== Wave 12 (P3): the Workshop Wing — the castle's proving rooms =====
@@ -1656,7 +1678,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   // NPC pass may run (its alphabet avoids every NPCS key), castle movement.
   // 'myroom' (Wave 13) is an overworld like the castle and the Wing: no
   // monsters ever, no stamina, its own alphabet block below.
-  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom'];
+  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom', 'parlor'];
   MM.maps.isOverworld = mapId => MM.maps.OVERWORLD_IDS.includes(mapId);
 
   // Gear gates (Clockwork Spire): exactly one of A/B/C is open at a time, and
@@ -1810,6 +1832,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       // Wave 12 (P3): the Workshop Wing door by the Study, and the
       // confessed wardrobe's spot (plain floor until it moves in).
       if (ch === 'H') return 'wingDoor';
+      // Wave 15 (P4): the Parlor door on the right inner wall (mirrors 'H').
+      // 'Z' is the Spire's clock-door glyph in DUNGEONS — this castle block
+      // returns first, so there is no collision (unit-guarded in test.js).
+      if (ch === 'Z') return 'parlorDoor';
       if (ch === 'o') {
         const wg = MM.engine && MM.engine.state && MM.engine.state.wing;
         return (wg && wg.wardrobeMoved) ? 'wardrobe' : 'hallFloor';
@@ -1873,6 +1899,20 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ch === '!') return 'crackedFloor';
       if (ch === 'v') return 'chute';
       return 'hallFloor';
+    }
+    // Wave 15 (P4): the Parlor owns its whole alphabet, castle-style — a
+    // combat-free overworld room off the castle. 'D'/'T'/'C' mean OTHER things
+    // in dungeons ('D' door, 'T' tree/portrait, 'C' gear gate) but the Parlor
+    // is an overworld with its own block sitting before every shared case, and
+    // each collision has a unit guard in tests/test.js (the v1.7.9 'Y' lesson).
+    // None of D/T/C is an NPCS key, so the overworld NPC pass never draws them.
+    if (mapId === 'parlor') {
+      if (ch === '#') return 'wall';
+      if (ch === 'X') return 'castleDoor';    // back out to the castle
+      if (ch === 'D') return 'dealer';         // Deuce, the house dealer (bump → play)
+      if (ch === 'T') return 'diceTable';      // the "reach 20" side-table
+      if (ch === 'C') return 'cardTable';      // the felt table (bump → play)
+      return 'hallFloor';                      // '.', 'P'
     }
     if (mapId === 'isles' && (ch === 'u' || ch === 'v' || ch === 'w')) return 'murk';
     if (mapId === 'isles' && ch === 'H') return 'lighthouse';
