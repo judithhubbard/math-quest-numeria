@@ -543,6 +543,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     desc: 'Practiced being a chest for years. The giggle still needs work — real chests don\'t.',
   };
 
+  // Look up a monster KIND's card (name → {name, sprite, pal, desc}) across the
+  // whole catalog — every roster type + boss, plus the shared Golem and Mimic
+  // cards. The bestiary (s.bestiary.befriended / .kills) is keyed by this
+  // `name` (E.beastKey), so this is how the Monster Book, the Parlor deck, and
+  // the Wave 17 Menagerie turn a befriended KEY back into a drawable creature.
+  MM.data.beastByName = function (name) {
+    const all = MM.data.MONSTERS.flatMap(r => [...r.types, r.boss]).concat([MM.data.GOLEM_CARD, MM.data.MIMIC_CARD]);
+    return all.find(t => t.name === name) || null;
+  };
+
   // Balance: monsters attack EVERY round; their attack is a MAXIMUM that gets
   // rolled (75-110%) and then reduced by the player's total block. Attack
   // tracks the block a reasonably-geared kid has at that dungeon (armor +
@@ -734,6 +744,20 @@ var MM = globalThis.MM = globalThis.MM || {};
     { name: 'Companion', correct: 40, fed: 5 },
     { name: 'Champion', correct: 150, fed: 15 },
   ];
+  // Wave 17: befriended creatures in the Menagerie grow exactly as the pet
+  // does — a three-stage arc with ascending thresholds (PET_STAGES-style).
+  // There is no "feeding" verb in the nursery, so growth is driven by a single
+  // `tended` counter (a tend is both the practice AND the care). Modest
+  // thresholds so a returning kid SEES a creature settle in and flourish.
+  MM.data.MENAGERIE_STAGES = [
+    { name: 'Newcomer' },                      // just arrived, still shy
+    { name: 'Settled', tended: 3 },            // knows the place now — earns its first hat
+    { name: 'Flourishing', tended: 8 },        // thriving, thoroughly at home
+  ];
+  // The tiny hats a settled creature may wear (reuse of the pet-hat cosmetic
+  // idiom — no new art). Which one a creature wears is a PURE function of its
+  // name (deterministic, so it never changes on it), granted when it settles in.
+  MM.data.MENAGERIE_HAT_IDS = ['bow', 'party', 'flower', 'crown', 'numberling', 'anchor'];
   MM.data.PET_FEED_LINES = [
     '{name} munches happily. Tail status: wagging.',
     '{name} does a little spin before eating. The spin is mandatory.',
@@ -1690,6 +1714,19 @@ var MM = globalThis.MM = globalThis.MM || {};
       spawnLine: 'The smell of something wonderful has reached the throne room. A reformed <b>Slime</b> in a tall white toque has taken up the post of <b>Castle Cook</b> — it says running a proper kitchen is "a dream I did not know I was allowed to have."',
       line: 'The Castle Cook adjusts its toque, which is nearly as tall as it is. "A KITCHEN," it says, savoring the word. "With measuring cups. Real ones." It stirs a pot that smells improbably good. "The trick, they tell me, is the fractions. Half of this, three-quarters of that, doubled if company comes." It offers you a spoon. "I got them all wrong at first. Made some truly alarming soups. But nothing was ever wasted — the pet ate every one, bless it."',
     },
+    // Wave 17 (P4): the Menagerie's Keeper. Appended with its OWN earned(state)
+    // predicate (distinct befriended kinds tended) — the Wave 14 E.checkFaculty
+    // loop claims it with ZERO changes there, exactly the extension this list
+    // was built for. A reformed Bat, now the gentlest soul on the staff. THIS
+    // IS THE LAST FACULTY POST: after it the Faculty is full and the castle is
+    // a living place. (Later work should not append below this line.)
+    {
+      id: 'keeper', title: 'Menagerie Keeper', sprite: 'bat',
+      pal: { A: '#7a6f9a', a: '#5a5078', W: '#e6ded0', k: '#2a2438' }, badge: '🐾', x: 21, y: 11,
+      earned: s => ((s.menagerie && s.menagerie.kindsTended) || 0) >= 2,
+      spawnLine: 'Word of the nursery has reached the throne room. A reformed <b>Bat</b> — who used to swoop at travellers and now swoops at nothing but bedtime — has taken up the post of <b>Menagerie Keeper</b>, and has never in its life been so gently, thoroughly needed.',
+      line: 'The Menagerie Keeper hangs contentedly by the door, a reformed Bat with a soft voice and a very organized clipboard. "I KNOW them all now," it says, meaning the creatures in the nursery. "Who likes the sunny patch, who naps at noon, who and who are inseparable and simply must have neighbouring pens." It consults the clipboard, though it plainly has every word by heart. "I used to frighten people for a living. Turns out I am much, much better at tucking them in."',
+    },
   ];
 
   // ===== Wave 16: "The Kitchen Garden" (Castle Expansion Wave C) =====
@@ -1790,6 +1827,69 @@ var MM = globalThis.MM = globalThis.MM || {};
       'Your pet gamely tries the disaster dish, makes a face known to zoologists as "the flavor of a brave decision," and finishes every scrap. Nothing wasted. 😤',
     ],
     // Milestone celebration prefix when a Faculty post is claimed here.
+    facultyClaimed: 'And there is news:',
+  };
+
+  // ===== Wave 17: "The Menagerie" (Castle Expansion Wave D) =====
+  // The gentlest, most additive castle wave — a nursery for the BEFRIENDED
+  // KINDS the kid has soothed. Tend-don't-fight: tending draws a weakest-first
+  // review problem across the WHOLE curriculum and RECORDS to mastery (the
+  // gentlest spaced-review surface in the game); a missed tend re-asks warmly
+  // (never a scold, never a loss). Creatures grow like the pet, collect tiny
+  // hats, and have a social life. Comedy channels: field / glyph / sound /
+  // modal — never the log. All prose below is authored (paste for design review).
+  MM.data.MENAGERIE = {
+    // The castle-side 'M' door: a gentle "not yet" pre-ending (like the Wing).
+    doorNotYet: 'A warm wooden gate with a little carved paw-print, and soft rustling sounds beyond — hay, and something snuffling contentedly in its sleep. It is latched, for now.<br><br><i>The kingdom has to be set right before its friends can be settled in peace. Not yet.</i>',
+    // Entering with at least one befriended kind present.
+    enterLine: '🐾 <b>The Menagerie.</b> A soft green field of little pens in the castle grounds, where every creature you ever soothed has come to live. They look up as you arrive, and — in their various ways — are glad.',
+    // Entering (or bumping the noticeboard) with ZERO befriended kinds. NOT a
+    // failure state — an invitation. The pens are empty, waiting, unhurried.
+    emptyPen: '🐾 <b>The Menagerie.</b> Rows of soft, empty pens in the castle grounds, freshly raked and waiting. A hand-painted board reads:<br><br><i>"Room for a friend, when you find one. No rush. They keep the hay fresh."</i><br><br><span class="dim">Soothe a monster out in the world — face the tangles gently — and it will come to live here.</span>',
+    // The Keeper's noticeboard (bump 'B'): the nursery's signage.
+    signTitle: '🐾 The nursery board',
+    signBody: 'A hand-painted board on a friendly post:<br><br><i>"Welcome to the Menagerie — a home for every friend you soothed instead of struck.<br><br>Bump a creature to sit with it a while. Tend it — work a little something out together — and it will settle in, grow, and (if it likes) put on a very small hat.<br><br>Nothing here can be lost, hurried, or harmed. That is the whole point."</i>',
+    // A creature bump: the FLAVOR line shown above the Tend / Leave choice —
+    // the social life of becalmed monsters (field/glyph/sound + this modal).
+    social: [
+      'It is dozing in a sunbeam it has clearly been saving all day. One eye opens, regards you fondly, and closes again.',
+      'It has, at some point, become inseparable best friends with the pile of bones two pens over. Nobody planned this. Nobody could have.',
+      'It looks up hopefully, then pretends it was not looking up hopefully. It was, though. It absolutely was.',
+      'Your pet is supervising this pen with enormous authority it does not, strictly speaking, possess. The creature is humouring it. This is friendship.',
+      'It is very carefully rearranging its hay into a shape only it understands. The shape is, on reflection, extremely reasonable hay.',
+      'A slime and this creature are taking turns being the leader of a parade that is only two creatures long. They are having the time of their lives.',
+      'It waddles a slow, delighted circle at the sight of you and then sits down, satisfied, as though the circle were a formal ceremony now concluded.',
+    ],
+    // Bump-line suffix noting the worn hat (when the creature has one).
+    hatNote: hat => `It is wearing ${hat}, and could not be prouder of it.`,
+    // Tend header flavor (above the plain math problem) — the creature waits.
+    tendFrames: [
+      'You settle in beside it and work a little something out together.',
+      'It leans in to watch, patient as anything, while you two puzzle it through.',
+      'No hurry, no clock — just you, this creature, and one thing worth figuring out.',
+    ],
+    // Gentle-failure line on a wrong TEND. The worked answer shows above it;
+    // this re-asks, never scolds — the creature waits, entirely unbothered.
+    patient: [
+      'Not quite — but the creature does not mind in the slightest. It settles in to wait. There is all the time in the world here. Look it over and try again.',
+      'Close! Nothing is lost. The creature yawns, stretches, and waits for you to have another go whenever you like.',
+      'The nursery is the one place that is never in a hurry. The creature nudges you gently: take another look, and try once more.',
+    ],
+    // A correct TEND: the creature is happy. Pulled at random.
+    tended: [
+      '✓ Worked out true! The creature does a small, delighted wiggle and settles a little more deeply into its home here. 💚',
+      '✓ Just right. The creature bumps its head against your hand, purring in whatever way its kind purrs, and looks thoroughly content.',
+      '✓ Lovely. The creature blinks slowly at you — which, everyone knows, is how a soothed thing says it trusts you completely.',
+    ],
+    // A GROWTH stage-up line (appended to the tend result). {name}=creature, {stage}=new stage name.
+    grew: (name, stage) => `✨ <b>${name} is settling in!</b> It has grown into a <b>${stage}</b> — plumper, calmer, and utterly at home.`,
+    // A hat is granted on settling in (appended to the tend result). {name}=creature, {hat}=hat phrase.
+    hatEarned: (name, hat) => `🎩 And look — ${name} has taken to wearing ${hat}. It wears it at a jaunty, deeply pleased angle.`,
+    // THE CAPSTONE — the Parade. Once-ever, day-agnostic, no mechanic. Fired
+    // when every present befriended kind has been tended (a thriving nursery).
+    // The cut Festival, earned here, the one place it belongs.
+    paradeLine: '🎉 <b>The Parade!</b><br><br>It starts, as these things do, with the slime. It hops to the front of its pen, and then — because a soothed heart is a contagious thing — every creature in the nursery falls in behind it: the bonepile and its inseparable slime, the little imps, the great gentle golem bringing up the rear at a dignified plod. Your pet leads them, of course, conducting with a stick it found and a seriousness it has earned.<br><br>They march a full, joyful lap of the Menagerie — every friend you chose to soothe instead of strike — and then, delighted with themselves, they all sit down at once.<br><br><i>You did this. Not by winning. By being kind, over and over, until kindness was just how the world worked.</i>',
+    // Milestone celebration prefix when the Keeper Faculty post is claimed.
     facultyClaimed: 'And there is news:',
   };
 

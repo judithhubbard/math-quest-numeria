@@ -795,6 +795,38 @@ joined by a supply chain — grow it, then cook it.
   Grow and cook enough and two reformed monsters take up posts — a **Gardener**
   and a **Cook** — turning up in the throne room to stay.
 
+### 🐾 The Menagerie
+
+Through the paw-marked gate in the throne room's east wall (once the crown is
+yours) is a **nursery** in the castle grounds — a home, at last, for every
+monster you ever chose to **soothe** instead of strike. The creatures living
+here *are* the kinds in your Monster Book's befriended list: soothe more out in
+the world, and the pens fill in. (Never soothed anyone yet? The pens wait,
+freshly raked — *"room for a friend, when you find one."* It's an invitation,
+never an empty scoreboard.)
+
+- **Tend, don't fight — the gentlest practice in the game.** Bump a creature to
+  sit with it, and **tend** it: one quiet review problem, drawn from *whatever
+  topic you're rustiest at across the whole curriculum*, and it **counts on your
+  report card** under that real skill. There's no timer and nothing to lose — a
+  wrong answer just shows the worked solution, and the creature waits, patient
+  as anything, while you try again. It's the one place the anxious kid can keep
+  every topic warm at their own pace.
+- **They grow, and they collect tiny hats.** Tend a creature and it settles in,
+  grows plumper and calmer (just like your pet does), and — once it's at home —
+  puts on a very small hat at a jaunty, deeply pleased angle.
+- **They have a whole social life.** A bonepile and a slime become inseparable
+  best friends for reasons no one can explain; your pet supervises the pens with
+  enormous authority it does not, strictly speaking, possess.
+- **The Parade.** Tend every friend in the nursery and, once ever, they throw a
+  **parade** — every creature you soothed instead of struck, marching a joyful
+  lap behind your baton-conducting pet. *You did this. Not by winning — by being
+  kind, over and over, until kindness was just how the world worked.*
+- A reformed **Bat**, gentlest soul on the staff, takes up the post of
+  **Menagerie Keeper** and turns up in the throne room to stay. With that, the
+  castle's Faculty is **full** — the throne room is a living, crowded, happy
+  place, staffed entirely by monsters who found something better to do.
+
 ### A few playtest fixes
 
 A real play session turned up some friction, since fixed: every locked door

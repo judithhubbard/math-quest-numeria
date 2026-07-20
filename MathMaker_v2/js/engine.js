@@ -139,6 +139,14 @@ var MM = globalThis.MM = globalThis.MM || {};
       // spends; harvests/dishes count UP only (the Faculty milestones + the
       // teacher-flavored tally). seenChef = the sous-chef's once-ever intro.
       garden: { plot: null, ready: false, ingredients: 0, harvests: 0, dishes: 0, seenChef: false },
+      // ---------- Wave 17: "The Menagerie" (post-ending, renewable) ----------
+      // A nursery for the BEFRIENDED KINDS (s.bestiary.befriended). Tending
+      // RECORDS to mastery (weakest-first across the whole curriculum — the
+      // gentlest spaced-review surface in the game). pets = per befriended key
+      // {tended, stage, hat} (grows like the pet, PET_STAGES-style); tends and
+      // kindsTended count UP only (the Keeper milestone + a teacher-flavored
+      // tally); paradeSeen guards the once-ever Parade capstone.
+      menagerie: { pets: {}, tends: 0, kindsTended: 0, paradeSeen: false, seen: false },
     };
     E.enterWorld();
     E.save();
@@ -312,6 +320,17 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.garden.harvests == null) s.garden.harvests = 0;
     if (s.garden.dishes == null) s.garden.dishes = 0;
     if (s.garden.seenChef == null) s.garden.seenChef = false;
+    // Wave 17: the Menagerie — a pre-Wave-17 save migrates clean (no residents
+    // tended, all counters at zero, the Parade unseen). A save with ZERO
+    // befriended kinds simply shows the empty-pen "room for a friend" state —
+    // never a crash. The nursery records under existing skills (weakest-first
+    // across cappedSkills), which already have their own parent switches.
+    if (!s.menagerie) s.menagerie = { pets: {}, tends: 0, kindsTended: 0, paradeSeen: false, seen: false };
+    if (s.menagerie.pets == null) s.menagerie.pets = {};
+    if (s.menagerie.tends == null) s.menagerie.tends = 0;
+    if (s.menagerie.kindsTended == null) s.menagerie.kindsTended = 0;
+    if (s.menagerie.paradeSeen == null) s.menagerie.paradeSeen = false;
+    if (s.menagerie.seen == null) s.menagerie.seen = false;
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     // Session-shape pass (2026-07-13): resuming has ALWAYS pulled you to the
@@ -1392,6 +1411,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Wave 16: s.garden (the plot + ingredients + harvests/dishes counters) is
     // ALSO left untouched, for the same reason — the Kitchen Garden the kid
     // tended as teacher survives NG+ in both directions (unit-tested).
+    // Wave 17: s.menagerie (the befriended residents + their growth/hats +
+    // tends/kindsTended counters + paradeSeen) is likewise left untouched — the
+    // nursery of friends the kid soothed survives NG+ in both directions
+    // (snapshot/restore only ever touch the fixed KINGDOM fields; unit-tested).
+    // s.bestiary.befriended is a KEPT field too (like mastery/badges), so the
+    // roster that drives the pens carries through a Golden run intact.
     s.hp = s.maxhp;
     s.stamina = s.maxStamina;
     E.enterWorld();
@@ -1752,6 +1777,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (ch === 'H') return E.wingDoor();
         if (ch === 'Z') return E.parlorDoor();   // Wave 15: the card parlor
         if (ch === 'K') return E.gardenDoor();   // Wave 16: the Kitchen Garden
+        if (ch === 'M') return E.menagerieDoor(); // Wave 17: the Menagerie
         if (ch === 'o' && s.wing && s.wing.wardrobeMoved) {
           return MM.ui.dialog('🚪 The wardrobe, at home', MM.data.WING_WARDROBE_HOME);
         }
@@ -1779,6 +1805,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (s.mapId === 'parlor') return E.parlorMove(dx, dy, nx, ny, ch);
       // Wave 16: the Kitchen Garden — combat-free, castle rules, its own alphabet.
       if (s.mapId === 'garden') return E.gardenMove(dx, dy, nx, ny, ch);
+      // Wave 17: the Menagerie — combat-free, castle rules, its own alphabet.
+      if (s.mapId === 'menagerie') return E.menagerieMove(dx, dy, nx, ny, ch);
       if (s.mapId === 'gullwrack') {
         if (ch === '7') return E.tryEnterDungeon(21);
         if (ch === 'W') return E.gullwrackDock();
@@ -4575,6 +4603,281 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.gardenPetReact = function (good) {
     E.petEmote = { ch: good ? '😋' : '😖', until: Date.now() + 2600 };
     if (good) MM.sound.purr(); else MM.sound.chirp();
+  };
+
+  // ---------- Wave 17: "The Menagerie" (Castle Expansion Wave D) ----------
+  // A nursery in the castle grounds for the BEFRIENDED KINDS (s.bestiary
+  // .befriended). The gentlest surface in the game: tend-don't-fight, no timer,
+  // no failure state. TENDING draws a weakest-first review problem across the
+  // WHOLE capped skill set (respecting parent switches) and RECORDS to mastery
+  // under the drawn problem's real skill — genuine distributed spaced practice,
+  // which is the wave's pedagogical point. A missed tend re-asks warmly (the
+  // worked answer shows; the creature waits, patient) — never a scold, never a
+  // loss. Creatures grow like the pet (PET_STAGES-style thresholds), collect
+  // tiny hats, and have a social life. THE CAPSTONE is the once-ever Parade.
+  // Comedy channels: field / glyph / sound / modal — never the log.
+  E.MENAGERIE_PARADE_MIN = 3;   // fewest present kinds for the Parade to fire
+
+  E.ensureMenagerie = function () {
+    const s = E.state;
+    if (!s.menagerie) s.menagerie = { pets: {}, tends: 0, kindsTended: 0, paradeSeen: false, seen: false };
+    const m = s.menagerie;
+    if (m.pets == null) m.pets = {};
+    if (m.tends == null) m.tends = 0;
+    if (m.kindsTended == null) m.kindsTended = 0;
+    if (m.paradeSeen == null) m.paradeSeen = false;
+    if (m.seen == null) m.seen = false;
+    return m;
+  };
+  // Per befriended KEY: {tended, stage, hat} — grows like the pet.
+  E.ensureMenageriePet = function (key) {
+    const m = E.ensureMenagerie();
+    if (!m.pets[key]) m.pets[key] = { tended: 0, stage: 0, hat: null };
+    return m.pets[key];
+  };
+
+  // The residents = the kinds in s.bestiary.befriended, mapped to their catalog
+  // cards (sprite/pal/desc) and assigned a pen slot in a STABLE order (sorted
+  // by name), so a soothed kind always keeps its patch. Kinds beyond the slot
+  // count still persist in s.menagerie — they just don't roam on-screen (a kid
+  // with 15+ befriended already has a full house). This is what drives the
+  // pens: zero befriended → an empty list → the "room for a friend" state.
+  E.menagerieRoster = function (st) {
+    const s = st || E.state;
+    const b = s && s.bestiary && s.bestiary.befriended;
+    const slots = MM.maps.MENAGERIE_SLOTS;
+    if (!b) return [];
+    const keys = Object.keys(b).sort();
+    const out = [];
+    for (let i = 0; i < keys.length && out.length < slots.length; i++) {
+      const card = MM.data.beastByName(keys[i]);
+      if (!card) continue;   // a befriended key with no catalog card (defensive) — skip
+      out.push({
+        key: keys[i], name: card.name, sprite: card.sprite, pal: card.pal || null,
+        desc: card.desc || '', slot: slots[out.length], pet: E.ensureMenageriePet(keys[i]),
+      });
+    }
+    return out;
+  };
+  // A resident standing on (x,y) in the nursery — used by menagerieMove (bump
+  // to visit, blocks the tile like an NPC) and by the ui.js overlay.
+  E.menagerieCreatureAt = function (x, y) {
+    const s = E.state;
+    if (!s || s.mapId !== 'menagerie') return null;
+    return E.menagerieRoster().find(c => c.slot.x === x && c.slot.y === y) || null;
+  };
+  // Distinct befriended kinds tended at least once — the Keeper's milestone and
+  // a teacher-flavored tally. Kept in s.menagerie.kindsTended (counts UP only),
+  // incremented on a kind's FIRST tend; this derives it defensively too.
+  E.menagerieKindsTended = function (st) {
+    const m = (st || E.state || {}).menagerie;
+    if (!m || !m.pets) return 0;
+    return Object.values(m.pets).filter(p => (p.tended || 0) > 0).length;
+  };
+  // Which tiny hat a creature wears — a PURE function of its name (so it never
+  // changes on it), reusing the pet-hat cosmetic path.
+  E.menagerieHatFor = function (key) {
+    const ids = MM.data.MENAGERIE_HAT_IDS;
+    let h = 0;
+    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+    return ids[h % ids.length];
+  };
+
+  // The castle-side 'M' door: a gentle "not yet" pre-ending (like the Wing).
+  E.menagerieDoor = function () {
+    const s = E.state;
+    if (!s.endingDone) return MM.ui.dialog('🐾 A latched gate', MM.data.MENAGERIE.doorNotYet);
+    E.enterMenagerie();
+  };
+  E.menagerieOpen = () => !!(E.state && E.state.endingDone);
+
+  E.enterMenagerie = function () {
+    const s = E.state;
+    MM.track('enterMenagerie');
+    if (E.resetTransientEntities) E.resetTransientEntities();
+    const m = E.ensureMenagerie();
+    s.mapId = 'menagerie';
+    s.grid = MM.maps.parse(MM.maps.MENAGERIE, '#');
+    s.monsters = [];   // the castle rule extends here: no combat, ever
+    const start = MM.maps.MENAGERIE_ARRIVAL;
+    s.px = start.x; s.py = start.y;
+    E.petPos = { x: s.px, y: s.py };
+    m.seen = true;
+    // Empty pens are an invitation, never a failure — the "room for a friend"
+    // state (order rule). A full nursery gets the warm arrival line instead.
+    const empty = E.menagerieRoster().length === 0;
+    MM.ui.log(empty ? '🐾 The Menagerie stands ready and empty — room for a friend, when you find one.' : MM.data.MENAGERIE.enterLine);
+    E.save();
+    MM.ui.refresh();
+    if (empty) MM.ui.dialog(MM.data.MENAGERIE.signTitle, MM.data.MENAGERIE.emptyPen);
+  };
+  E.exitMenagerie = function () {
+    E.enterCastle();
+    const s = E.state;
+    s.px = 22; s.py = 11;   // land beside the Menagerie door 'M' (23,11)
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.refresh();
+  };
+
+  E.menagerieMove = function (dx, dy, nx, ny, ch) {
+    const s = E.state;
+    if (ch === 'X') return E.exitMenagerie();
+    if (ch === 'B') return E.menagerieSign();
+    const cr = E.menagerieCreatureAt(nx, ny);
+    if (cr) return E.bumpCreature(cr);   // a resident blocks its tile (bump to visit)
+    if (ch === '#') return;
+    // lawn ('.'/'P') and pen patches (',') are all WALKABLE — you may stroll
+    // among your friends (they never judge), so nothing here can ever wedge.
+    if (ch === '.' || ch === 'P' || ch === ',') {
+      E.petPos = { x: s.px, y: s.py };
+      s.px = nx; s.py = ny;
+    }
+  };
+
+  // Bump the noticeboard 'B': the nursery's signage, or the empty-pen state.
+  E.menagerieSign = function () {
+    const M = MM.data.MENAGERIE;
+    if (E.menagerieRoster().length === 0) return MM.ui.dialog(M.signTitle, M.emptyPen);
+    MM.ui.dialog(M.signTitle, M.signBody);
+  };
+
+  // Bump a resident: its social-life flavor + a choice to TEND it or leave it.
+  E.bumpCreature = function (cr) {
+    const M = MM.data.MENAGERIE;
+    let body = MM.data.pick(M.social);
+    if (cr.pet.hat) {
+      const hat = MM.data.petHatById(cr.pet.hat);
+      if (hat) body += `<br><br>${M.hatNote(`${hat.emoji} <b>a ${hat.name}</b>`)}`;
+    }
+    MM.ui.dialogChoices(`🐾 ${cr.name}`, body, [
+      { label: `Tend ${cr.name} (a quiet review)`, primary: true, onClick: () => E.tendCreature(cr) },
+      { label: 'Leave them to it', onClick: () => {} },
+    ]);
+  };
+
+  // Which skill this tend draws: weakest-first across the WHOLE capped skill
+  // set (respecting parent switches) — so the nursery quietly keeps every
+  // topic warm. Records under that drawn skill (the pedagogical point).
+  E.menagerieTendSkill = function () {
+    const s = E.state;
+    const pool = MM.mastery.cappedSkills(s);
+    return MM.mastery.weakestFirst(s, pool)[0];
+  };
+  // TEND a creature: one weakest-first review problem, RECORDED under its real
+  // skill. A correct tend makes the creature happy AND advances its growth (and
+  // may earn it a hat); a miss re-asks warmly (worked answer shows; the
+  // creature waits) — never a loss, never a scold. No timer; tend when you like.
+  E.tendCreature = function (cr) {
+    const s = E.state;
+    const M = MM.data.MENAGERIE;
+    const skill = E.menagerieTendSkill();
+    const tier = Math.max(1, Math.min(3, MM.mastery.tierFor(s, skill)));
+    const prob = MM.problems.generate(skill, tier);
+    E._menageriePendingFaculty = null;
+    E._menageriePendingParade = false;
+    MM.ui.showProblem({
+      header: `🐾 Tending ${cr.name}<br><span class="dim">${MM.data.pick(M.tendFrames)}</span>`,
+      problem: prob,
+      leaveLabel: 'Sit with them a while',
+      onAnswer(correct, kidAnswer) {
+        recordAnswer(prob.skill, correct, { text: prob.text, kidAnswer });
+        if (!correct) {
+          // gentle failure: no `end`, so the button reads "Next ➜" and onNext
+          // re-asks. The worked solution shows above; the creature is patient.
+          return { msg: MM.data.pick(M.patient) };
+        }
+        const pet = E.ensureMenageriePet(cr.key);
+        const firstTend = (pet.tended || 0) === 0;
+        pet.tended = (pet.tended || 0) + 1;
+        const m = E.ensureMenagerie();
+        m.tends = (m.tends || 0) + 1;
+        if (firstTend) m.kindsTended = (m.kindsTended || 0) + 1;
+        const news = E.checkMenagerieStage(cr);   // may grow + grant a hat
+        E._menageriePendingFaculty = E.checkFaculty();   // the Keeper may come due
+        E._menageriePendingParade = E.checkMenagerieParade();   // the capstone
+        E.gardenPetReact(true);   // the pet approves (reuse the field emote)
+        E.save();
+        MM.sound.tada();
+        let msg = MM.data.pick(M.tended);
+        if (news.grew) msg += `<br><br>${M.grew(cr.name, news.grew)}`;
+        if (news.hat) {
+          const hat = MM.data.petHatById(news.hat);
+          if (hat) msg += `<br><br>${M.hatEarned(cr.name, `${hat.emoji} <b>a ${hat.name}</b>`)}`;
+        }
+        return { msg, end: 'win' };
+      },
+      onNext: () => E.tendCreature(cr),   // the patient re-ask (still no loss)
+      onEnd(how) {
+        MM.ui.refresh();
+        if (how !== 'win') return;
+        if (E._menageriePendingParade) { E._menageriePendingParade = false; return E.fireMenagerieParade(); }
+        if (E._menageriePendingFaculty && E._menageriePendingFaculty.length) {
+          const claimed = E._menageriePendingFaculty; E._menageriePendingFaculty = null;
+          return E.menagerieAnnounce('', claimed);
+        }
+      },
+    });
+  };
+
+  // Growth reuses the pet model: advance a stage once `tended` clears the next
+  // PET_STAGES-style threshold (MM.data.MENAGERIE_STAGES). Settling in (stage
+  // >= 1) earns the creature its deterministic tiny hat. Returns the news so
+  // the tend result modal can announce it (field/glyph handled by the caller).
+  E.checkMenagerieStage = function (cr) {
+    const pet = E.ensureMenageriePet(cr.key);
+    const next = MM.data.MENAGERIE_STAGES[pet.stage + 1];
+    const news = { grew: null, hat: null };
+    if (next && (pet.tended || 0) >= next.tended) {
+      pet.stage++;
+      news.grew = next.name;
+      if (!pet.hat) {   // settling in earns a hat, once (the collection hook)
+        pet.hat = E.menagerieHatFor(cr.key);
+        news.hat = pet.hat;
+        MM.sound.purr();
+      }
+      MM.sound.fanfare();
+      const s = E.state;
+      if (s && s.mapId === 'menagerie' && MM.ui.worldBurst && !s.calmMode) MM.ui.worldBurst(cr.slot.x, cr.slot.y, '#6ee87e', 12);
+    }
+    return news;
+  };
+
+  // The Parade capstone: fires ONCE, day-agnostic, no mechanic — a pure
+  // celebration when the nursery is thriving (every present befriended kind
+  // tended, and enough of them to be a proper parade). s.menagerie.paradeSeen
+  // guards the once-ever. Returns true when it should fire (the caller shows it
+  // after the tend modal closes, so the beat lands on its own).
+  E.checkMenagerieParade = function () {
+    const m = E.ensureMenagerie();
+    if (m.paradeSeen) return false;
+    const present = E.menagerieRoster();
+    if (present.length < E.MENAGERIE_PARADE_MIN) return false;
+    if (!present.every(c => (c.pet.tended || 0) > 0)) return false;
+    m.paradeSeen = true;
+    E.save();
+    return true;
+  };
+  E.fireMenagerieParade = function () {
+    const s = E.state;
+    MM.sound.fanfare();
+    if (MM.ui.worldBurst && !s.calmMode) {
+      for (const col of ['#ffd94a', '#7ee0e8', '#6ee87e', '#e88ac4']) {
+        for (const c of MM.maps.MENAGERIE_SLOTS.slice(0, 8)) MM.ui.worldBurst(c.x, c.y, col, 10);
+      }
+    }
+    E.save();
+    MM.ui.dialog('🎉 The Menagerie Parade', MM.data.MENAGERIE.paradeLine);
+  };
+
+  // Show a nursery dialog, appending any just-claimed Faculty post's spawnLine
+  // (the reformed monster who took the Keeper's post — the Court/Garden idiom).
+  E.menagerieAnnounce = function (body, claimed) {
+    if (claimed && claimed.length) {
+      body += `${body ? '<br><br>' : ''}${MM.data.MENAGERIE.facultyClaimed}`;
+      for (const post of claimed) body += `<br><br>${post.spawnLine}`;
+      MM.sound.fanfare();
+    }
+    if (body) MM.ui.dialog('🐾 The Menagerie', body);
   };
 
   // Untangling one = a short battle drawing the same weakest-first mixed

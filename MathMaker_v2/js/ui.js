@@ -1199,6 +1199,31 @@ var MM = globalThis.MM = globalThis.MM || {};
             ctx.fillText(post.badge, vx * TILE + TILE / 2 + 5, vy * TILE + 8 + fbob);
           }
         }
+        // Wave 17: the Menagerie's befriended residents — drawn as live overlays
+        // on their pen slots (never grid glyphs; the roster is s.bestiary
+        // .befriended). Each carries the constant friend 🖤 heart (befriended
+        // state, per the never-colour-alone rule), a becalmed slow sway, a
+        // stage-based size bump (growth reads at a glance), and its tiny hat.
+        if (s.mapId === 'menagerie' && MM.engine.menagerieCreatureAt) {
+          const cr = MM.engine.menagerieCreatureAt(x, y);
+          if (cr) {
+            const cbob = Math.sin(now / 900 + x * 2 + y) * 1.2;   // slow, easy — a soothed thing
+            const scale = (cr.pet.stage >= 2) ? 3 : 2;            // grows as it settles in
+            const spr = MM.sprites.get(cr.sprite, { palette: cr.pal || {}, scale });
+            const ox = vx * TILE + (TILE - spr.width) / 2, oy = vy * TILE + (TILE - spr.height) + cbob;
+            ctx.drawImage(spr, ox, oy);
+            const heart = MM.sprites.get('heart', { scale: 2 });
+            ctx.drawImage(heart, vx * TILE + TILE / 2 - heart.width / 2, oy - 10);
+            if (cr.pet.hat) {
+              const hat = MM.data.petHatById(cr.pet.hat);
+              if (hat) {
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(hat.emoji, vx * TILE + TILE / 2, oy - 1);
+              }
+            }
+          }
+        }
       }
     }
 

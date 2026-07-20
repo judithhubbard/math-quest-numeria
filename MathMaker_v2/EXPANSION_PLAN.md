@@ -4013,7 +4013,100 @@ recording, gentle disaster-dish failure (never a loss), the mason-trail
 placement + reset, the Gardener/Cook Faculty posts via the extension
 point, feeding the real food economy.
 
-## Wave 17 order — "The Menagerie" (Castle Expansion Wave D) (user directive 2026-07-20)
+## Wave 17 order — "The Menagerie" (Castle Expansion Wave D) (user directive 2026-07-20) — ✅ SHIPPED v1.13.0 2026-07-20 (design-reviewed; prose approved) — CASTLE EXPANSION A-D COMPLETE
+
+**Implementation status (implementer session, 2026-07-20):** all of P1–P4 +
+the capstone Parade shipped. Unit suite green (exit 0, incl. the new Wave 17
+block); `tests/drive-menagerie.js` = 29 checks, zero JS errors; full 41-drive
+sweep + detached marathon per the evidence discipline (logs in
+`tests/logs/*-wave17.log` + `sweep-wave17-summary.txt` + `marathon-wave17.log`).
+Sweep: 40/41 first pass; the one miss, `drive-isles`, is a known `#victOk`
+battle-timing flake under contention — green clean-solo (exit 0, see
+`isles-wave17-solo.log`), unrelated to this wave. Six screenshots audited by eye
+(the nursery with residents, a tending problem, a creature in a tiny hat, the
+Parade, the Keeper, the empty-pen state) — the pens read as pens, the creatures
+carry the friend-heart, the hats are the pet-hat emoji idiom (no numeral
+hazard), and the "room for a friend" state reads as an invitation, not a
+failure.
+
+**THE CASTLE EXPANSION (Waves A–D) IS NOW COMPLETE.** With the Keeper appended,
+the Faculty is FULL (Clerk / Bailiff / Recorder / House Dealer / Gardener / Cook
+/ Keeper — seven reformed monsters staffing the throne room) and the castle is a
+living, crowded, happy place. Later work should not append below the Keeper in
+`MM.data.FACULTY_POSTS` (a comment marks it as the last post).
+
+What shipped, per P-item:
+- **P1 — the nursery.** A new combined room (mapId `'menagerie'`, an overworld
+  like the castle), reached through the castle's `'M'` door (east wall, row 11,
+  gated on s.endingDone; pre-ending = a gentle "not yet"). Its own tileSprite
+  alphabet (`M` door / `B` noticeboard / `,` pen patch / `.`/`P` lawn), each
+  glyph unit-guarded. The residents ARE `s.bestiary.befriended`, mapped to their
+  catalog cards via the new `MM.data.beastByName`, sorted STABLY and laid out on
+  `MM.maps.MENAGERIE_SLOTS` — so a soothed kind keeps its patch, and the pens
+  fill in as the kid soothes more. ZERO befriended → an empty roster → the
+  "room for a friend" empty-pen state (the noticeboard + the arrival dialog),
+  never a crash.
+- **P2 — tending RECORDS to mastery.** Bump a resident → a social-flavor modal
+  with a Tend choice → `E.tendCreature` draws **weakest-first across the WHOLE
+  capped skill set** (`MM.mastery.weakestFirst(s, MM.mastery.cappedSkills(s))`,
+  respecting parent switches) via `MM.problems.generate`, presented through
+  `MM.ui.showProblem`, and **RECORDED via `recordAnswer` under the drawn
+  problem's real skill** (unit-asserted key). A correct tend makes the creature
+  happy AND advances growth; a miss re-asks warmly (worked answer shown, the
+  creature waits) — never a loss, never a scold. This is the game's gentlest
+  spaced-review surface.
+- **P2 growth.** Per befriended key `s.menagerie.pets[key] = {tended, stage,
+  hat}`, advanced by `E.checkMenagerieStage` at PET_STAGES-style thresholds
+  (`MM.data.MENAGERIE_STAGES`: Newcomer → Settled@3 → Flourishing@8).
+- **P3 — hats + social life + the capstone.** Settling in (stage ≥ 1) earns a
+  deterministic tiny hat (`E.menagerieHatFor`, a pure function of the name;
+  reuses the pet-hat cosmetic path — no new hat art) that persists per key and
+  draws as an emoji overlay. A social-life reaction pool (bonepile+slime best
+  friends, the supervising pet, etc.) shows on bump. **THE PARADE** — the cut
+  Festival, earned here: once every present befriended kind is tended (≥ 3
+  present), a once-ever `worldBurst` + `fanfare` + authored line, guarded by
+  `s.menagerie.paradeSeen`, day-agnostic (no timer).
+- **P4 — Faculty + rewards.** A **Menagerie Keeper** (reformed Bat,
+  `earned: kindsTended >= 2`) APPENDED to `MM.data.FACULTY_POSTS` — `E.checkFaculty`
+  claims it with ZERO changes (the Wave 14 extension point, used exactly as
+  designed). Rewards are the CREATURES (growth, hats, the social life) +
+  up-only counters (`tends`, `kindsTended`) — no gold-grind, no power reward.
+- **Records-to-mastery: YES** (confirmed) — the pedagogical point of the wave.
+
+Deviations from this order, and why:
+- **Growth counter is a single `tended`, not `{correct, fed}`** (deviation
+  authority — growth details): the nursery has no "feeding" verb, so a tend is
+  BOTH the practice and the care. The SHAPE mirrors the pet wholesale (3 stages,
+  ascending thresholds, a hat on settling, a stage-based size bump in the
+  render) — just driven by one honest counter.
+- **Distinct per-stage growth SPRITES were CUT** (permitted): a creature draws
+  at its existing catalog sprite with a **scale bump** at Flourishing (like the
+  pet's stage-based scale), plus the friend-heart and its hat.
+- **A NEW per-creature hat SET was CUT** (permitted): reuses the existing pet
+  hats (`MM.data.MENAGERIE_HAT_IDS` selects from `PET_HATS`).
+- **The social-life pool is a handful of lines for v1** (permitted trim of "the
+  richest pools") — generic (not per-kind), field/modal only.
+- **Kinds beyond the 15 pen slots persist in `s.menagerie` but don't roam
+  on-screen** (a kid with 15+ befriended already has a full house) — the
+  collection still counts; never a loss.
+- **Glyphs:** castle door `'M'` (the world map's `mountain` / the Wing's
+  mirror — the castle block returns first, no collision); menagerie alphabet
+  `B`/`,` (soft-collide with the garden's bench/soil and myroom's workbench —
+  the menagerie overlay block sits before every shared case); `.`/`P` draw as
+  `grass` (GRASS_OK in the render audit); each is unit-guarded (context →
+  sprite). New sprites: `menagerieDoor`, `nurserySign`, `penPatch` (all
+  non-numeric shapes — no numeral hazard). None of `M`/`B`/`,` is an NPCS key.
+- **NG+:** `s.menagerie` (residents + growth/hats + `tends`/`kindsTended`
+  counters + `paradeSeen`) survives `startGolden` AND `returnToFinishedKingdom`
+  by being left untouched (like `s.wing`/`s.court`/`s.parlor`/`s.garden`);
+  `s.bestiary.befriended` (the roster driver) is a KEPT field too, so the pens
+  carry through a Golden run — unit-tested both directions. `sw.js` /
+  `js/tracker.js` versions NOT bumped (the design session ships).
+
+New player-facing prose is pasted VERBATIM in the ship report (nursery
+signage + empty-pen line, keeper spawn/bump lines, the social-life &
+hat-reaction pools, the tend/patient/tended pools, the Parade line, the faculty
+bump-line). NO COMMIT — stopped for design review.
 
 Fourth and final wave of CASTLE_EXPANSION_PLAN.md (read it + the Court /
 Parlor / Kitchen-Garden orders first). A nursery in the castle grounds for

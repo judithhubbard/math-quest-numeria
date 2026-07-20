@@ -1339,6 +1339,7 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   checkMap(MM.maps.WING, 'wing', 'wing');         // Wave 12
   checkMap(MM.maps.PARLOR, 'parlor', 'parlor');   // Wave 15
   checkMap(MM.maps.GARDEN, 'garden', 'garden');   // Wave 16
+  checkMap(MM.maps.MENAGERIE, 'menagerie', 'menagerie');   // Wave 17
   // Wave 16: the plot's planted glyphs ('Y' seedling, 'R' ripe) only appear
   // once something is planted — audit a sample with both in the plot.
   {
@@ -4302,6 +4303,179 @@ for (const skill of skills) {
   if (JSON.stringify(s.garden) !== gstash) fail('W16: returnToFinishedKingdom must carry the garden through untouched');
 
   MM.ui.dialog = realDialog; MM.ui.dialogChoices = realChoices; MM.ui.showProblem = realShow; MM.ui.worldBurst = realBurst;
+  E.state = null;
+}
+
+// ---------- Wave 17: "The Menagerie" (Castle Expansion Wave D) ----------
+{
+  require(path.join(ROOT, 'js/sprites.js'));
+  const E = MM.engine;
+
+  // (a) new-glyph context guards (the v1.7.9 'Y' lesson). The Menagerie owns
+  // its whole alphabet; 'M'/'B'/',' mean OTHER things elsewhere.
+  const guard = (ch, x, y, mapId, want) => {
+    const got = MM.maps.tileSprite(ch, x, y, mapId, 0);
+    if (got !== want) fail(`W17 tileSprite('${ch}', ${mapId}) = '${got}', want '${want}'`);
+    if (!MM.sprites.DEFS[got]) fail(`W17 tileSprite('${ch}', ${mapId}) -> '${got}' has no sprite def`);
+  };
+  guard('M', 23, 11, 'castle', 'menagerieDoor');   // the castle's Menagerie door
+  guard('M', 0, 0, 'world', 'mountain');           // 'M' on the world map is still a mountain (unaffected)
+  guard('M', 0, 0, 'wing', 'mirrorSlash');         // 'M' in the wing is still a shield-mirror (unaffected)
+  guard('B', 4, 11, 'menagerie', 'nurserySign');
+  guard(',', 3, 2, 'menagerie', 'penPatch');
+  guard('X', 10, 12, 'menagerie', 'castleDoor');
+  guard('.', 1, 1, 'menagerie', 'grass');
+  guard('P', 10, 11, 'menagerie', 'grass');
+  // the collisions elsewhere are unaffected (menagerie block sits before shared cases)
+  guard('B', 3, 2, 'garden', 'seedBench');         // 'B' in the garden is the seed bench
+  guard('B', 1, 2, 'myroom', 'workbench');         // 'B' in myroom is the workbench
+  guard(',', 6, 2, 'garden', 'soil');              // ',' in the garden is tilled soil
+  // the maps really contain one of each menagerie glyph
+  {
+    const mg = MM.maps.parse(MM.maps.MENAGERIE, '#');
+    for (const g of ['B', 'P', 'X']) if (MM.maps.find(mg, g).length !== 1) fail(`W17: the MENAGERIE map needs exactly one '${g}'`);
+    const cg = MM.maps.parse(MM.maps.CASTLE, '#');
+    if (MM.maps.find(cg, 'M').length !== 1) fail("W17: the CASTLE map needs exactly one Menagerie door 'M'");
+    // every pen slot sits on a real pen patch (',') and is inside the field
+    for (const sl of MM.maps.MENAGERIE_SLOTS) {
+      if (!mg[sl.y] || mg[sl.y][sl.x] !== ',') fail(`W17: pen slot (${sl.x},${sl.y}) must sit on a ',' patch`);
+    }
+  }
+
+  // ---- build a pre-Wave-17 save (no menagerie field) and load it ----
+  const mkSave = (name, befriended) => JSON.stringify({
+    version: 4, name, hp: 24, maxhp: 24, stamina: 100, maxStamina: 100,
+    gold: 10, level: 1, xp: 0, potions: 1, difficulty: 'hero',
+    parent: { pin: null, topics: {} }, taskIndex: 14, haveItem: false,
+    tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    mastery: {}, badges: {}, bestiary: { seen: {}, kills: {}, gauntlet: {}, befriended: befriended || {} },
+    continent: 'west', isles: { lenses: { tidepool: true, frostbite: true, cinderforge: true }, keys: {}, egg: null, pet: null, lampLit: true, spireDone: true },
+    charmsOn: [], opened: {}, bossesDefeated: {}, defeatedAt: {}, streak: 0,
+    totals: { answered: 0, correct: 0 }, worldPos: null, seenBattleHelp: true, endingDone: true,
+    petHats: [],
+    gear: { weapon: ['stick'], body: ['clothes'], helmet: [], boots: [], ring: [], amulet: [] },
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null }, enchants: {},
+    items: { food: {}, treasures: [], charms: [], gems: [] },
+  });
+
+  // (b) migration: a pre-Wave-17 save defaults clean
+  localStorage.setItem('mathmaker2_save_w17', mkSave('w17', {}));
+  E.load('w17');
+  let s = E.state;
+  if (!s.menagerie) fail('W17: a pre-Wave-17 save should migrate to a clean menagerie');
+  if (Object.keys(s.menagerie.pets).length || s.menagerie.tends !== 0 || s.menagerie.kindsTended !== 0) fail('W17: menagerie counters should migrate to 0');
+  if (s.menagerie.paradeSeen !== false) fail('W17: paradeSeen should migrate to false');
+
+  // (c) the ZERO-befriended empty-pen state: an empty roster, NOT a crash
+  if (E.menagerieRoster().length !== 0) fail('W17: a no-friends save shows an empty roster (the "room for a friend" state)');
+
+  // (d) the befriended roster POPULATES the pens: a fixture with N befriended
+  // kinds shows N residents, each on its own slot, drawn from the catalog
+  localStorage.setItem('mathmaker2_save_w17b', mkSave('w17b', { Slime: 1, Bat: 1, Skeleton: 1, 'Wild Boar': 1 }));
+  E.load('w17b');
+  s = E.state;
+  const roster = E.menagerieRoster();
+  if (roster.length !== 4) fail(`W17: 4 befriended kinds should show 4 residents (got ${roster.length})`);
+  if (!roster.every(c => c.sprite && MM.sprites.DEFS[c.sprite])) fail('W17: every resident maps to a real catalog sprite');
+  if (new Set(roster.map(c => `${c.slot.x},${c.slot.y}`)).size !== 4) fail('W17: residents occupy distinct pen slots');
+  // roster order is STABLE (sorted) — a kind keeps its patch across visits
+  if (JSON.stringify(E.menagerieRoster().map(c => c.key)) !== JSON.stringify(roster.map(c => c.key))) fail('W17: the roster order is stable (a kind keeps its patch)');
+
+  // capture UI for the flow
+  const realDialog = MM.ui.dialog, realChoices = MM.ui.dialogChoices, realShow = MM.ui.showProblem, realBurst = MM.ui.worldBurst, realLog = MM.ui.log, realRefresh = MM.ui.refresh;
+  let prob = null;
+  MM.ui.dialog = () => {}; MM.ui.dialogChoices = () => {};
+  MM.ui.showProblem = (o) => { prob = o; };
+  MM.ui.worldBurst = () => {}; MM.ui.log = () => {}; MM.ui.refresh = () => {};
+
+  // (e) TENDING draws a weakest-first problem and RECORDS under its REAL skill
+  // (assert the key); a miss re-asks with NO loss (gentle failure)
+  const cr = roster[0];
+  E.tendCreature(cr);
+  if (!prob || !prob.problem || !prob.problem.skill) fail('W17: tending presents a real problem');
+  const tendSkill = prob.problem.skill;
+  if (!MM.mastery.cappedSkills(s).includes(tendSkill)) fail('W17: a tend draws from the capped skill set (weakest-first)');
+  const mBefore = (s.mastery[tendSkill] || { attempts: 0 }).attempts;
+  const wrong = prob.onAnswer(false, '99999');
+  if (wrong.end) fail('W17: a wrong tend must not end (it re-asks warmly)');
+  if (!MM.data.MENAGERIE.patient.includes(wrong.msg)) fail('W17: a wrong tend shows a warm re-ask line (never a scold)');
+  if (s.hp !== 24) fail('W17: a wrong tend never costs HP (no loss)');
+  if ((s.mastery[tendSkill] || {}).attempts !== mBefore + 1) fail('W17: a tend records under its real skill (the miss counted)');
+  if ((s.menagerie.pets[cr.key] || { tended: 0 }).tended !== 0) fail('W17: a wrong tend does NOT advance growth');
+  const right = prob.onAnswer(true, canonical(prob.problem));
+  if (right.end !== 'win') fail('W17: a correct tend makes the creature happy (a win)');
+  if ((s.mastery[tendSkill] || {}).attempts !== mBefore + 2) fail('W17: the correct tend records too, under the real skill');
+  if (s.menagerie.pets[cr.key].tended !== 1) fail('W17: a correct tend advances the creature (tended++)');
+  if (s.menagerie.tends !== 1 || s.menagerie.kindsTended !== 1) fail('W17: a correct tend bumps the up-only counters');
+
+  // (f) per-creature GROWTH advances like the pet (stage up at the thresholds)
+  // + hats attach and PERSIST
+  {
+    const key = cr.key, pet = s.menagerie.pets[key];
+    pet.tended = MM.data.MENAGERIE_STAGES[1].tended - 1; pet.stage = 0; pet.hat = null;
+    let news = E.checkMenagerieStage(cr);   // one short of the threshold
+    if (news.grew) fail('W17: a creature must NOT stage up before its threshold');
+    pet.tended = MM.data.MENAGERIE_STAGES[1].tended;
+    news = E.checkMenagerieStage(cr);
+    if (news.grew !== MM.data.MENAGERIE_STAGES[1].name) fail('W17: a creature stages up at the PET_STAGES-style threshold');
+    if (pet.stage !== 1) fail('W17: staging up increments the stage');
+    if (!news.hat || !pet.hat) fail('W17: settling in earns the creature a tiny hat');
+    if (!MM.data.petHatById(pet.hat)) fail('W17: the earned hat is a real cosmetic hat id');
+    // the hat is deterministic (a pure function of the key) and persists in state
+    if (E.menagerieHatFor(key) !== pet.hat) fail('W17: a creature\'s hat is a pure function of its name');
+    const saved = JSON.stringify(s.menagerie.pets[key]);
+    E.save(); E.load('w17b');
+    if (JSON.stringify(E.state.menagerie.pets[key]) !== saved) fail('W17: growth + hat persist across save/load');
+    s = E.state;
+  }
+
+  // (g) the Keeper Faculty post appends and E.checkFaculty claims it UNCHANGED
+  {
+    const kp = MM.data.FACULTY_POSTS.find(p => p.id === 'keeper');
+    if (!kp || typeof kp.earned !== 'function') fail('W17: a Keeper post with earned() must be appended to FACULTY_POSTS');
+    if (!kp.earned({ menagerie: { kindsTended: 2 } })) fail('W17: the Keeper earns at 2 kinds tended');
+    if (kp.earned({ menagerie: { kindsTended: 1 } })) fail('W17: the Keeper must NOT earn before its milestone');
+    const st = { faculty: [], menagerie: { kindsTended: 2 } };
+    E.state = st;
+    const claimed = E.checkFaculty();   // the SAME loop as the Court's — zero changes there
+    if (!st.faculty.includes('keeper') || !claimed.some(p => p.id === 'keeper')) fail('W17: checkFaculty must claim the Keeper at its milestone');
+    if (E.checkFaculty().length) fail('W17: checkFaculty must not re-claim an already-taken post');
+    E.state = s;
+  }
+
+  // (h) the Parade fires ONCE at its milestone (paradeSeen guards re-fire)
+  {
+    const st = E.state;
+    st.menagerie.paradeSeen = false;
+    // one present kind untended → no parade yet
+    st.menagerie.pets = {};
+    for (const c of E.menagerieRoster()) E.ensureMenageriePet(c.key);
+    const present = E.menagerieRoster();
+    present.slice(0, present.length - 1).forEach(c => { st.menagerie.pets[c.key].tended = 1; });
+    if (E.checkMenagerieParade()) fail('W17: the Parade must not fire until every present kind is tended');
+    present.forEach(c => { st.menagerie.pets[c.key].tended = 1; });   // now all tended
+    if (present.length < E.MENAGERIE_PARADE_MIN) fail('W17: test fixture needs >= PARADE_MIN present kinds');
+    if (!E.checkMenagerieParade()) fail('W17: the Parade fires once every present kind is tended');
+    if (!st.menagerie.paradeSeen) fail('W17: firing the Parade sets paradeSeen');
+    if (E.checkMenagerieParade()) fail('W17: the Parade never fires twice (paradeSeen guards it)');
+  }
+
+  // (i) NG+ carries s.menagerie + counters through startGolden AND return
+  {
+    s = E.state;
+    s.menagerie = { pets: { Slime: { tended: 5, stage: 2, hat: 'bow' } }, tends: 9, kindsTended: 3, paradeSeen: true, seen: true };
+    Object.assign(s, { opened: {}, bossesDefeated: {}, unsealed: {}, gearState: {}, repairSites: {}, freeSlabs: {} });
+    const mstash = JSON.stringify(s.menagerie);
+    E.startGolden();
+    if (JSON.stringify(s.menagerie) !== mstash) fail('W17: startGolden must carry the menagerie through untouched');
+    if (!s.endingDone) fail('W17: the crown survives NG+, so the Menagerie is still open');
+    // s.bestiary.befriended (the roster driver) survives NG+ too
+    if (!s.bestiary.befriended || !Object.keys(s.bestiary.befriended).length) fail('W17: the befriended roster survives NG+ (it drives the pens)');
+    E.returnToFinishedKingdom();
+    if (JSON.stringify(s.menagerie) !== mstash) fail('W17: returnToFinishedKingdom must carry the menagerie through untouched');
+  }
+
+  MM.ui.dialog = realDialog; MM.ui.dialogChoices = realChoices; MM.ui.showProblem = realShow; MM.ui.worldBurst = realBurst; MM.ui.log = realLog; MM.ui.refresh = realRefresh;
   E.state = null;
 }
 
