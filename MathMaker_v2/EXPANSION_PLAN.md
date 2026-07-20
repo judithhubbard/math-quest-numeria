@@ -3822,3 +3822,118 @@ alone are reward enough). May NOT cut: deterministic opponent (testability
 comedy, the Faculty dealer via the extension point, card determinism.
 Biggest risk is P2's engine — if it slips, SAY SO and stop; Waves C/D are
 independent and can go first.
+
+## Wave 16 order — "The Kitchen Garden" (Castle Expansion Wave C) (user directive 2026-07-20)
+
+Third wave of CASTLE_EXPANSION_PLAN.md (read it + the Wave 14 Court and
+Wave 15 Parlor orders first). TWO paired rooms as one supply chain — a
+plantable garden and a kitchen — that put math IN THE HANDS: plant crops
+in rows × columns and harvest the ARRAY (multiplication as area, the one
+representation the dungeons skip); carry the harvest to the kitchen and
+combine by MEASURED amounts (fractions / ratios / scaling). Both RECORD to
+mastery under their real skills (unlike the Parlor's casual play — this is
+curriculum wearing a verb). Medium cost, no risky new architecture; it
+reuses the mason-trail bump-to-place idiom, showProblem, the food economy,
+and the Faculty extension point.
+
+ALL standing rules apply and are review-blocking: combat-free castle
+(s.monsters = []); no timers; gentle failure (a wrong measure makes a FUNNY
+dish, never a scold, never a loss); jokes on monsters/items never the kid;
+comedy channels field/glyph/sound/modal, never the log; new glyphs get
+tileSprite context guards + unit checks; doors gate never decorate;
+every placeable space keeps a reset (the wedge-nudge law). Post-ending:
+gates on s.endingDone.
+
+### P1 — The Garden Plot (multiplication as an ARRAY you plant)
+A plantable grid, reached from the castle (a door like the Wing's 'H', or
+grown out of the existing garden-furnishing tile — pick per the map;
+combat-free overworld rules; own tileSprite alphabet, glyph-collision
+guarded).
+- The kid plants seedlings by the mason-trail idiom (bump/step-to-place,
+  fully removable — reuse the Your Own Room placement pattern) into a
+  RECTANGLE: choose rows, choose columns, SEE the array fill in.
+- The math, made honest: once an array is planted, the garden asks "how
+  many did you plant?" via MM.ui.showProblem — rows × columns — and RECORDS
+  under muldiv_facts (the array model IS times-table fluency; a parent
+  switch already governs it). A wrong count is gently re-asked (the plants
+  don't judge); the worked answer shows the array. Bigger plots as the
+  kid's tier rises (courtCaseTier-style, via MM.mastery.tierFor).
+- Harvest yields INGREDIENTS (a new item class or reuse FOODS-adjacent
+  tokens) that feed P2. Renewable, never mandatory, no timer — plants are
+  ready when you next visit, never on a clock.
+
+### P2 — The Castle Kitchen (fractions / ratios / scaling by measure)
+Beside the garden, sharing the supply chain.
+- Pick a recipe (dialogChoices); it calls for MEASURED amounts (e.g.
+  "¾ cup of glimmer-moss"). The twist that makes it math: SCALE it —
+  "doubled, because you have two friends to feed" / "half, it's just you."
+  The kid computes the scaled amount via showProblem, RECORDING under
+  fractions_as (measuring/adding parts) or fractions_m (scaling by a
+  factor) as fits the recipe. Parent switches govern both.
+- GENTLE FAILURE IS THE COMEDY: a wrong measure doesn't fail — it makes a
+  DISASTER DISH, gloriously named (author a pool: "Regret Soup", "The
+  Sandwich That Asks Questions", "Structurally Concerning Porridge"),
+  which you may still feed the pet (who has OPINIONS, field/glyph/sound).
+  A correct measure makes the real dish → feeds the food/stamina economy
+  via the existing grant path (MM.data.FOODS / E.yardGrantReward shape).
+  Either way the kid keeps the doing-over, never a loss.
+
+### P3 — Comedy & cast
+- Talking vegetables (Numberling cousins — squat, opinionated; a carrot
+  that believes it is in charge). Field/glyph/sound + bump-modal only.
+- A monster SOUS-CHEF in a tiny toque runs the kitchen (bump-to-talk,
+  authored). The pet reacts to dishes.
+- Keep the interaction-primitive budget tight (walk-to / bump-place /
+  answer / pick-recipe) — NO minigame sprawl (the sequel-scoping warning).
+
+### P4 — Faculty + rewards (reuse Wave 14's system)
+- Append a GARDENER post and a COOK post to MM.data.FACULTY_POSTS, each
+  with its own earned(state) predicate (e.g. harvests gathered >= N;
+  dishes cooked >= N) — the Wave 14 E.checkFaculty loop claims them with
+  ZERO changes (that extension point was built for exactly this). Reformed
+  monsters take the posts, visible in the castle.
+- Rewards are the DISHES themselves (food economy) + up-only counters
+  (harvests, dishes) — never gold-grind, never a power reward. A tiny hat
+  for a milestone via the cosmetic path is fine, at most once.
+
+### Records-to-mastery decision (confirm at build; recommend YES)
+Unlike the Parlor, the Kitchen Garden DOES record — array-multiplication
+and fraction-scaling are curriculum, and the report card should show them
+(garden → muldiv_facts, kitchen → fractions_as/fractions_m). This makes
+the room genuine hands-on practice, not just flavor.
+
+### Evidence & prose discipline (unchanged, mandatory)
+Unit: garden/kitchen glyph context guards; planting an r×c array asks r×c
+and RECORDS under muldiv_facts (assert the key); a recipe scaled by a
+factor asks the right product/parts and records under fractions_as/_m
+(assert the key); wrong measure yields a disaster-dish (no loss, no
+mastery penalty beyond the recorded miss); reset/removal of placed
+seedlings (wedge-nudge law); food grant on a correct dish; gardener+cook
+Faculty posts append and E.checkFaculty claims them unchanged; pre-Wave-16
+save migration; NG+ carries garden/kitchen state + counters through
+startGolden AND returnToFinishedKingdom. Drive drive-kitchen.js (~20
+checks): rooms gated on endingDone; plant an array → correct count records
+under muldiv_facts + yields ingredients; a wrong count re-asks gently;
+scale a recipe correct → dish + food grant + records under the fraction
+skill; a wrong measure → named disaster dish, no loss; the pet reacts;
+gardener/cook appear at their milestones. Full sweep (40 drives) +
+DETACHED marathon (nohup … & disown; POLL IN-TURN to MARATHON COMPLETE —
+do NOT end the turn to wait; logs in tests/logs/, paste final lines).
+SCREENSHOT AUDIT: a planted array (the rows×cols must READ as a grid of
+plants, and the count problem must not read as loose digits — numeral-
+hazard), a recipe/measure modal, a disaster dish, the sous-chef, a
+Faculty post. NO COMMIT — stop and report with ALL new prose verbatim
+(garden/kitchen signage, the sous-chef lines, the talking-vegetable pool,
+every disaster-dish name + its line, the pet's reactions, faculty
+bump-lines). Do NOT bump sw.js / tracker.js versions — the design session
+ships.
+
+### Deviation authority
+May cut freely if hairy: the talking-vegetable cast (a single opinionated
+carrot is fine for v1); the second recipe strand (fractions_m scaling) if
+fractions_as measuring alone covers it; the ingredient item-class (reuse
+FOODS directly if a new class is heavy). May NOT cut: array-multiplication
+recording under muldiv_facts (the pedagogical point), fraction-scaling
+recording, gentle disaster-dish failure (never a loss), the mason-trail
+placement + reset, the Gardener/Cook Faculty posts via the extension
+point, feeding the real food economy.
