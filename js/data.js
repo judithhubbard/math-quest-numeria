@@ -1444,6 +1444,140 @@ var MM = globalThis.MM = globalThis.MM || {};
     body: '"<b>ALL RIGHT,</b>" says the wardrobe, in a voice like a hinge that has spent years practicing not to creak. "I am not a wardrobe. I have never been a wardrobe. I have been pretending to be furniture for <b>forty years</b>, and I would like to say: it is <i>exhausting</i>. The standing still. The dust. A moth lived in me for a while. I let it. That is how committed I was."<br><br><i>It sighs, hugely, from somewhere behind its own doors.</i><br><br>"You knocked three times. Politely. Nobody has ever knocked. So — I resign. From furniture." A pause. "May I live in the Study? It looks warm, and the slime seems like good company."<br><br><i>It relocates before you can answer, at a pace no wardrobe should be capable of. It has, from somewhere, produced a tiny hat.</i>',
   };
   MM.data.WING_WARDROBE_HOME = 'The wardrobe stands in the Study\'s corner, wearing its tiny hat at what can only be called a jaunty angle. It is not pretending to be anything anymore.<br><br>Now and then its doors open a crack to watch the slates being marked. <i>The enrolled slime waves at it. It waves a door back.</i>';
+
+  // ===== Wave 14 (P1-P3): "The Court" — holding audiences in the throne room =====
+  // Post-ending, renewable, combat-free. The Herald ('Z' in the CASTLE map,
+  // an NPCS entry that dispatches to E.holdCourt) opens a day-keyed queue of
+  // three CASES. Each case = a petitioner + an absurd complaint (the comedy)
+  // wrapping ONE applied problem (the math, kept plain — see LEVEL2_SPEC tone
+  // guide). A correct ruling SETTLES the dispute and records the answer under
+  // its REAL skill; a wrong ruling leaves the court politely baffled and
+  // RE-ASKS — never a scold, never a loss (the gentle-failure rule).
+  //
+  // The four applied strands each record to their genuine mastery skill (the
+  // pedagogical point — distributed applied review the report card shows):
+  //   fair-division / sharing  -> fractions_as
+  //   scaling a recipe or wage -> multidigit_mult
+  //   miscounted market money  -> decimals_md
+  //   measuring field / banner -> word_problems (area)
+  // A case's complaint is written skill-AGNOSTIC on purpose (it bridges to
+  // "the clerk has set it down as this sum:" then the generated problem), so
+  // any of the four generators can sit under any frame without a mismatch.
+  MM.data.COURT = {
+    herald: {
+      name: '📯 Herald Pomfrey',
+      // Bump post-ending, court has petitioners waiting:
+      open: 'The Herald unrolls a scroll rather longer than the Herald. "The court is in session, MathMaker! Today\'s petitioners are waiting — each with a dispute that only good arithmetic can settle." <i>He beams. He loves this part.</i>',
+      // Bump pre-ending — a gentle "not yet", mirroring the throne's own line:
+      notYet: 'The Herald bows very low. "Forgive me — the court cannot sit until the crown is truly yours. <b>Not yet.</b> But come that day, I shall have petitioners lined clear to the door." <i>He appears to have a scroll ready already, just in case.</i>',
+      // Every case heard today — a full session done:
+      quiet: 'The Herald gestures at a pleasantly empty hall. "Every dispute settled, every petitioner sent home content. The court is quiet." He rolls his scroll back up. "Fresh grievances tend to arrive by morning. They always do."',
+    },
+    // A full 3/3 session — worldBurst + fanfare + this line (the "when it's
+    // earned, show it" rule from v1.7.8).
+    sessionCelebration: 'The last petitioner bows out, thoroughly satisfied. The hall empties warm and content, and somewhere a clerk brings down a very final-sounding stamp.<br><br><b>A full day\'s court, fairly judged. The kingdom sleeps easier for it.</b>',
+    // A wrong ruling — the comedy lands on the COURT (never the kid), which
+    // is baffled, re-explains, and re-asks. Never a scold, never a loss.
+    baffled: [
+      'The whole court frowns as one and quietly recounts on its fingers. The Herald clears his throat and reads the dispute out once more, slowly, in case the acoustics were to blame.',
+      'A confused murmur runs the length of the hall. Someone at the back says "surely not" with great feeling. The petitioner, entirely unbothered, lays the matter out again from the top.',
+      'The court blinks in unison. A clerk crosses something out, then un-crosses it. "Let us hear it once more," the Herald suggests warmly. "These things are worth getting right."',
+    ],
+    // Gratitude gifts: a grateful petitioner presses something small on you.
+    giftLine: 'The petitioner presses a small token of thanks into your hands',
+    // Authored petitioner frames, keyed by skill. complaint = the comedy;
+    // settle = the warm resolution on a correct ruling (deliberately never
+    // hard-codes a number, so it fits any generated answer).
+    cases: {
+      fractions_as: [
+        { petitioner: '🐺 Sir Aldric', complaint: 'Sir Aldric, Knight of the Unfinished Pie, demands to know EXACTLY how much pie remains after the feast — "a matter of honor, and also of second helpings." The clerk has set the dispute down as this sum:', settle: 'The court rules, and the fractions agree. Sir Aldric salutes you gravely, thanks the bench, and returns at once to the pie in question.' },
+        { petitioner: '🟢 Two Slimes', complaint: 'Two slimes have found one cake and cannot agree how to divide it without either slime feeling wronged. "We are FRIENDS," they insist, wetly, "which is precisely why it must be exactly fair." It comes to this:', settle: 'The court divides it true. Both slimes wobble with relief, share the cake, and — briefly, movingly — share a single hat.' },
+      ],
+      multidigit_mult: [
+        { petitioner: '👩‍🍳 Cook Bramble', complaint: 'Cook Bramble is scaling a recipe up for the whole garrison and is, in her words, "one wrong number away from a disaster with a NAME." She needs the total worked out before she starts cracking eggs:', settle: 'The court multiplies it out; the kitchen is saved. Cook Bramble exhales, and a dish that was very nearly called "Regret Soup" is called dinner instead.' },
+        { petitioner: '💀 the Payroll Skeleton', complaint: 'The castle\'s payroll skeleton must pay every guard the very same wage, and keeps arriving at a figure that "rattles it — and it is ALREADY mostly rattle." Settle the total:', settle: 'The court works the multiplication clean; the wages balance to the coin. The skeleton clacks in gratitude and files the scroll under D, for Done.' },
+      ],
+      decimals_md: [
+        { petitioner: '🧙 Wizard Fennemore', complaint: 'Wizard Fennemore bought supplies at market, paid with one enormous coin, and is CONVINCED the merchant shorted his change. "I am never wrong about money. I am occasionally wrong about everything else." The change should come to:', settle: 'The court counts the coins to the last penny. Fennemore is, this once, entirely correct — and delighted to be so, loudly, in front of witnesses.' },
+        { petitioner: '🐹 Merchant Pib', complaint: 'Merchant Pib swears his till came up short today and cannot find where, and has begun to suspect the till itself of wrongdoing. He lays out the day\'s takings and asks the court for the true change owed:', settle: 'The court tallies it exactly; the till balances after all. Pib apologizes to the till, very quietly, when he believes no one is watching.' },
+      ],
+      word_problems: [
+        { petitioner: '🚩 Banner-Master Ogg', complaint: 'Banner-Master Ogg must hang a banner the length of the great hall and needs its area settled before he cuts the cloth — "measure once, cut once, or explain yourself to the seamstress, and I would sooner measure." He offers his figures:', settle: 'The court measures true; Ogg marks his cloth with enormous satisfaction. The banner will fit. It always should have.' },
+        { petitioner: '🐐 Farmer Thorne', complaint: 'Farmer Thorne is fencing a field while two goats "supervise, unhelpfully." He needs the measurement settled before the goats invent a shortcut through it:', settle: 'The court works the measurement out; the fence goes up square and true. The goats look personally betrayed. Farmer Thorne has never been happier.' },
+      ],
+    },
+    // The running gag: a very small, very serious recurring petitioner who
+    // returns every session with an escalating, impeccably-polite grievance.
+    // Takes the WEAKEST of the four skills each day (so the court's rustiest
+    // topic always gets practiced, wrapped in the joke). Grievances escalate
+    // by s.magistrateVisits, then hold at the last one.
+    magistrate: {
+      name: '⚖️ Magistrate Tuppence',
+      // shown as the case's petitioner label; the intro flavor is folded into
+      // each grievance's complaint so a returning kid always gets the escalation
+      grievances: [
+        'A very small, very serious creature — a tortoise in a judicial wig two sizes too grand — approaches the bench. This is Magistrate Tuppence. It wishes it FORMALLY NOTED that a neighbor\'s hedge has crept onto its path, and requires the court settle the precise figure of the encroachment "before, and I quote, it gets ANY worse." The clerk\'s sum:',
+        'Magistrate Tuppence returns, wig freshly powdered, to report that a market stall sold it a wheel of cheese of "allegedly standard size." It demands the court verify the exact amount, on principle. "I trust no one. I find it restful." The figures await:',
+        'Magistrate Tuppence has escalated. It now wishes to sue the SUN, for "rising eleven minutes early and disrupting a scheduled nap," and requires the court to settle the total figure of the claim. It is entirely serious, and has brought its own tiny gavel. The clerk\'s sum:',
+        'Magistrate Tuppence, having lost narrowly to the sun on a technicality, brings a fresh grievance concerning the garden committee\'s shared radish budget — of which committee it has quietly appointed itself all seven members. It requires the exact figure settled, on behalf of all seven of itself. The clerk\'s sum:',
+      ],
+      // settle escalation matches grievance index (holds at the last). Kept
+      // quantity-AGNOSTIC (v1.10.0 review fix): the Magistrate carries the
+      // WEAKEST skill each day, so a settle must fit any generated answer —
+      // no "to the fraction"/"to the decimal" that presumes a skill.
+      settles: [
+        'The court settles the figure exactly, down to the last unit. Magistrate Tuppence bows a slow, satisfied bow. "Justice," it declares, "is merely arithmetic in a good robe." <i>It will be back.</i>',
+        'The court settles it precisely — not a unit over, not a unit under. The Magistrate produces a tiny stamp, stamps its own hand entirely by accident, and departs with its dignity fully intact. <i>It will be back.</i>',
+        'The court works the total with a perfectly straight face. Magistrate Tuppence nods, vindicated, and immediately files a fresh suit against the moon, on general principle. <i>It will, inevitably, be back.</i>',
+        'The court settles the figure, fair and final. The Magistrate accepts the ruling personally, thanks the bench on behalf of all seven of itself, and withdraws in good order. <i>It will be back. It is always back.</i>',
+      ],
+    },
+  };
+
+  // ===== Wave 14 (P2): the Faculty — the connective thread =====
+  // As the kid teaches, the castle visibly fills with reformed monsters who
+  // take up posts. Records nothing, gates nothing — a pure cumulative reward
+  // (Suikoden's beloved filling-castle, "teachers multiply" made literal).
+  // Drawn as OVERLAY sprites in the castle (ui.js), not grid glyphs, so no
+  // new tile alphabet is needed; each stands on plain throne-room floor and
+  // is bump-blocked for its one line (E.facultyAt / the castle tryMove).
+  //
+  // ── THE EXTENSION POINT (later castle waves depend on this) ──
+  // The Parlor / Kitchen-Garden / Menagerie waves ADD their own posts by
+  // APPENDING an entry to this list — nothing else changes. Each post is:
+  //   { id, title, sprite, pal, badge, x, y, earned(state), line, spawnLine }
+  // • id        unique string, stored in s.faculty once claimed
+  // • sprite    any MM.sprites monster sprite; pal optional palette swap
+  // • badge     an emoji drawn over the sprite (the post's insignia)
+  // • x,y       a free floor tile in the CASTLE map to stand on
+  // • earned    (state) => bool — the milestone. Wave A checks court sessions;
+  //             later waves check THEIR OWN counters (games played, dishes
+  //             cooked, kinds tended). E.checkFaculty iterates every post and
+  //             claims any whose earned() is true — so a new wave's post just
+  //             needs its own counter and predicate, no rework here.
+  // • line      the bump-line (authored); spawnLine announces the claim.
+  MM.data.FACULTY_POSTS = [
+    {
+      id: 'clerk', title: 'Court Clerk', sprite: 'slime',
+      pal: { A: '#6a8ac4', a: '#4a6aa0', F: '#dfe8ff' }, badge: '📋', x: 21, y: 3,
+      earned: s => (s.courtSessions || 0) >= 1,
+      spawnLine: 'Word of your fair rulings travels. A reformed <b>Slime</b> has taken up the post of <b>Court Clerk</b> — and looks thrilled to finally have a desk.',
+      line: 'The Court Clerk — once a Slime of no fixed address — sits behind a desk it plainly adores. "I FILE things now," it says, patting a tidy stack of scrolls. "Do you know how good it feels to be organized, after a whole life of just... oozing about?" <i>Its tiny hat sits perfectly level.</i>',
+    },
+    {
+      id: 'bailiff', title: 'Court Bailiff', sprite: 'golem',
+      pal: null, badge: '🛡', x: 18, y: 5, earned: s => (s.courtSessions || 0) >= 3,
+      spawnLine: 'A reformed <b>Homework Golem</b> has taken up the post of <b>Court Bailiff</b> — it has been practicing standing very straight, and it shows.',
+      line: 'The Court Bailiff stands rigidly by the wall, a reformed Homework Golem in a sash. "I keep ORDER," it announces, keeping order over a hall that is already perfectly orderly. "There has not been a single disturbance in this court. I take full credit for that."',
+    },
+    {
+      id: 'recorder', title: 'Court Recorder', sprite: 'ghost',
+      pal: null, badge: '📜', x: 22, y: 5, earned: s => (s.courtSessions || 0) >= 6,
+      spawnLine: 'A reformed <b>Ghost</b> has drifted in to take up the post of <b>Court Recorder</b> — it says it has "always been good at remembering things," a touch wistfully.',
+      line: 'The Court Recorder drifts above its ledger, writing down absolutely everything, including this. "Don\'t mind me," it murmurs, minding all of it. "Someone has to remember how fairly it all went. It went very fairly. I\'m writing THAT down too."',
+    },
+    // ── later castle waves APPEND their posts below this line ──
+  ];
   // The castle door ('H' by the Study) and the hall's-end teaser doorway.
   MM.data.WING_DOOR_LOCKED = name =>
     `A sturdy door with a brass plate, polished bright and freshly engraved. The plate reads: <b>${name}</b>.<br><br>Under it, in smaller letters: <i>Not yet.</i>`;
@@ -1558,6 +1692,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     { id: 'anchor', name: 'Anchor Topper', emoji: '🎩', earned: true, react: 'Your pet stands very tall — quite the distinguished scholar.' },
     { id: 'climber', name: "Climber's Hat", emoji: '🤠', earned: true, react: 'Your pet swaggers a little. Yeehaw, apparently.' },
     { id: 'graduate', name: 'Graduate Cap', emoji: '🎓', earned: true, react: 'Your pet sits up perfectly straight — as if it, too, has mastered its tables.' },
+    // Wave 14: an occasional gratitude gift from a settled court case (the
+    // pet-hat cosmetic path — never sold, never a grind, granted at most once).
+    { id: 'courtier', name: "Courtier's Hat", emoji: '👒', earned: true, react: 'Your pet holds court from atop its cushion, graciously accepting imaginary petitions.' },
   ];
   MM.data.petHatById = id => MM.data.PET_HATS.find(h => h.id === id);
 
@@ -1983,5 +2120,12 @@ var MM = globalThis.MM = globalThis.MM || {};
         return '"Gullwrack took a beating in the last storm — half the town\'s still broken floor and loose slabs." Maren wipes her hands on her apron. "Find a blueprint plaque, solve what it asks, then push the stone onto the crack. One tile at a time — no rushing masonry. Made a mess? There\'s a lever by every site. Pulls the stones right back to where they started."';
       },
     },
+    // Wave 14: the Court Herald — 'N' near the throne in the CASTLE map. NOT a
+    // talker: the `court` flag routes E.talkNpc straight to E.holdCourt (same
+    // idiom as u's `arena` / the study's `study` flags). 'N' is the one glyph
+    // genuinely FREE across every map (overworld AND dungeon) and every NPCS
+    // key — no collision surface at all (deliberately NOT reusing 'Z', which
+    // is the Clockwork Spire's clock-door glyph — the v1.7.9 'Y' lesson).
+    N: { name: MM.data.COURT.herald.name, sprite: 'herald', pal: null, court: true },
   };
 })();

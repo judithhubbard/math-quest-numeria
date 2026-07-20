@@ -1193,6 +1193,34 @@ var MM = globalThis.MM = globalThis.MM || {};
     return p;
   }
 
+  // Wave 14 (the Court): wrap an applied generator with a petitioner + an
+  // absurd complaint (the comedy) around ONE plain problem (the math). The
+  // returned CASE is fully serializable — the same generated problem persists
+  // in s.court all day, so the day-keyed queue is stable within a day.
+  //   skill : one of fractions_as / multidigit_mult / decimals_md /
+  //           word_problems — recorded UNDER ITSELF (the pedagogical point).
+  //   tier  : caller-supplied (engine adapts it to the kid).
+  //   opts.magistrate : when >= 0, this is the recurring Magistrate's case;
+  //           its complaint/settle come from the escalating grievance pool at
+  //           that visit index (frame is skill-agnostic, so any skill fits).
+  function courtCase(skill, tier, opts) {
+    opts = opts || {};
+    const C = MM.data.COURT;
+    const problem = generate(skill, tier);
+    let petitioner, complaint, settle, magistrate = false;
+    if (opts.magistrate != null && opts.magistrate >= 0) {
+      const m = C.magistrate;
+      const i = Math.min(opts.magistrate, m.grievances.length - 1);
+      petitioner = m.name; complaint = m.grievances[i]; settle = m.settles[i];
+      magistrate = true;
+    } else {
+      const pool = C.cases[skill];
+      const frame = pool[Math.floor(Math.random() * pool.length)];
+      petitioner = frame.petitioner; complaint = frame.complaint; settle = frame.settle;
+    }
+    return { skill, petitioner, complaint, settle, problem, heard: false, magistrate };
+  }
+
   // Clock doors (Wave 3, the Clockwork Spire) always want an actual clock
   // FACE to read — not the plain-number "how many minutes" half of
   // time_reading(t), which never renders an svg. Exposed separately so
@@ -1718,5 +1746,5 @@ var MM = globalThis.MM = globalThis.MM || {};
     return num('2 + 2 = ?', 4, '2 + 2 = 4.'); // unknown card: a safe fallback
   }
 
-  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError, braveStep, tailStep, yardDrill };
+  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError, braveStep, tailStep, yardDrill, courtCase };
 })();

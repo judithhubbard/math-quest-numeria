@@ -1156,11 +1156,16 @@ var MM = globalThis.MM = globalThis.MM || {};
   // settles once it relocates from the Wing (plain floor until
   // s.wing.wardrobeMoved, then a wardrobe in a tiny hat — the same live-
   // state trick as the furnishing tiles). Neither is an MM.data.NPCS key.
+  // Wave 14: 'N' (row 3, beside the throne) is the Court Herald — an
+  // MM.data.NPCS entry that dispatches to E.holdCourt. 'N' is the one glyph
+  // free across every map + NPCS key (never a dungeon mechanic). The three
+  // Faculty posts stand on the plain throne-room floor at (21,3)/(18,5)/(22,5)
+  // and are drawn as live overlays (ui.js), never grid glyphs — see FACULTY_POSTS.
   MM.maps.CASTLE = [
     '##########################',
     '##########################',
     '##........##..##.F...F..##',
-    '##.EEEEE..##..##...O....##',
+    '##.EEEEE..##..##.N.O....##',
     '##......................##',
     '##.EEEEE..#F..F#........##',
     '##........#....#.F...F..##',

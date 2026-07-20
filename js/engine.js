@@ -119,6 +119,12 @@ var MM = globalThis.MM = globalThis.MM || {};
       freeSlabs: {},          // Wave 12 (P2): free-standing slab positions per mapId
       // ---------- Wave 13: "The Understudy & Your Own Room" ----------
       seenUnderstudy: false,  // once-EVER: the Understudy's introduction modal
+      // ---------- Wave 14: "The Court" (post-ending, renewable) ----------
+      court: null,          // {date, cases:[...], celebrated} — day-keyed like s.tangles
+      faculty: [],          // ids of claimed Faculty posts (counts up, never resets)
+      courtSessions: 0,     // full 3/3 sessions heard — counts UP only (the milestone counter)
+      casesHeard: 0,        // total cases settled — counts UP only (a teacher-flavored tally)
+      magistrateVisits: 0,  // how many times the recurring Magistrate has appeared (escalation index)
     };
     E.enterWorld();
     E.save();
@@ -267,6 +273,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     // "never happened yet" (myRoom migrates lazily inside E.ensureWing).
     if (s.seenUnderstudy == null) s.seenUnderstudy = false;
     if (!s.spiral.staircase) s.spiral.staircase = 'lost';
+    // Wave 14: the Court — missing means "never held court yet." A pre-Wave-14
+    // save migrates clean (no cases, no faculty, all counters at zero).
+    if (s.court === undefined) s.court = null;
+    if (!s.faculty) s.faculty = [];
+    if (s.courtSessions == null) s.courtSessions = 0;
+    if (s.casesHeard == null) s.casesHeard = 0;
+    if (s.magistrateVisits == null) s.magistrateVisits = 0;
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     // Session-shape pass (2026-07-13): resuming has ALWAYS pulled you to the
@@ -1337,6 +1350,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     // gems, treasures), charmsOn, mastery, badges, bestiary, totals, the pet,
     // parent settings, difficulty, calmMode, spellsCelebrated, metMiscount,
     // sparWins, titles, and endingDone (you are still the MathMaker).
+    // Also KEPT untouched (like s.wing): the Court — s.court, s.faculty,
+    // s.courtSessions, s.casesHeard, s.magistrateVisits. The castle you built
+    // as teacher survives NG+; the crown does too, so the court still sits.
     s.hp = s.maxhp;
     s.stamina = s.maxStamina;
     E.enterWorld();
@@ -1699,6 +1715,12 @@ var MM = globalThis.MM = globalThis.MM || {};
           return MM.ui.dialog('🚪 The wardrobe, at home', MM.data.WING_WARDROBE_HOME);
         }
         if (MM.data.NPCS[ch]) return E.talkNpc(ch);
+        // Wave 14: a claimed Faculty post stands on plain floor — bump it to
+        // hear its line (blocks the tile, like an NPC).
+        {
+          const fac = E.facultyAt(nx, ny);
+          if (fac) return MM.ui.dialog(`${fac.badge} ${fac.title}`, fac.line);
+        }
         if (ch === '.' || ch === 'P' || ch === 'o') {
           // no stamina cost indoors — there's nothing to fight and nothing to
           // flee, and a kid should never be able to strand themselves at home
@@ -3913,6 +3935,170 @@ var MM = globalThis.MM = globalThis.MM || {};
     return best || 'the castle';
   };
 
+  // ---------- Wave 14: "The Court" (post-ending, renewable) ----------
+  // The throne room opens for audiences. Combat-free (it's the castle), no
+  // timers, gentle failure. A day-keyed queue of three CASES, each a
+  // petitioner + an absurd complaint wrapping ONE applied problem that
+  // RECORDS under its real skill. The Faculty thread (below) is the connective
+  // system the later castle waves reuse.
+  const COURT_SKILLS = ['fractions_as', 'multidigit_mult', 'decimals_md', 'word_problems'];
+
+  // Applied problems read wordy already — keep the tier accessible (adaptive,
+  // capped) so a case is a puzzle to settle, not a gauntlet.
+  E.courtCaseTier = function (skill) {
+    return Math.max(1, Math.min(3, MM.mastery.tierFor(E.state, skill)));
+  };
+
+  // Day-keyed like s.tangles / refreshBounties (E.todayStr, a {date, cases}
+  // object, migrated in load()). ONE deliberate difference from
+  // refreshBounties: the court does NOT eager-refill the same day once all
+  // three are heard — a full 3/3 is the day's session, so the queue stays
+  // stable until the DATE turns (the "re-rolls on date turn, not before"
+  // contract). Heard or partial, same day = the same three cases.
+  E.refreshCourt = function () {
+    const s = E.state;
+    if (!s.endingDone) { s.court = null; return; }
+    const today = E.todayStr();
+    if (s.court && s.court.date === today) return;
+    // Weakest-first across the four applied strands (respecting parent
+    // switches) so the court auto-targets the rustiest topic — the same way
+    // the notice board steers practice. Fall back to all four if a parent
+    // switched every one off (the court's applied review is the whole point).
+    const allowed = MM.mastery.cappedSkills(s);
+    let pool = COURT_SKILLS.filter(sk => allowed.includes(sk));
+    if (!pool.length) pool = COURT_SKILLS.slice();
+    const ranked = MM.mastery.weakestFirst(s, pool);
+    const pick = i => ranked[i % ranked.length];
+    // The recurring Magistrate always takes case 0 with the WEAKEST skill (the
+    // running gag carries the rustiest topic); the other two petitioners take
+    // the next-weakest skills from the authored pools.
+    s.magistrateVisits = (s.magistrateVisits || 0) + 1;
+    const sk0 = pick(0), sk1 = pick(1), sk2 = pick(2);
+    s.court = {
+      date: today, celebrated: false,
+      cases: [
+        MM.problems.courtCase(sk0, E.courtCaseTier(sk0), { magistrate: s.magistrateVisits - 1 }),
+        MM.problems.courtCase(sk1, E.courtCaseTier(sk1)),
+        MM.problems.courtCase(sk2, E.courtCaseTier(sk2)),
+      ],
+    };
+    E.save();
+  };
+
+  // Bump the Herald (talkNpc → court flag). Pre-ending: a gentle "not yet".
+  // Otherwise: the day's docket, or the session celebration / quiet hall.
+  E.holdCourt = function () {
+    const s = E.state;
+    MM.track('holdCourt');
+    const H = MM.data.COURT.herald;
+    if (!s.endingDone) return MM.ui.dialog(H.name, H.notYet);
+    E.refreshCourt();
+    const court = s.court;
+    const unheard = court.cases.filter(c => !c.heard);
+    if (!unheard.length) {
+      if (!court.celebrated) return E.courtSessionCelebration();
+      return MM.ui.dialog(H.name, H.quiet);
+    }
+    const heard = court.cases.length - unheard.length;
+    const buttons = unheard.map(c => ({
+      label: `${c.petitioner} — hear the case`,
+      onClick: () => E.hearCase(c),
+    }));
+    buttons.push({ label: 'Not just now', onClick: () => {} });
+    const intro = `${H.open}<br><br><span class="dim">Cases heard today: ${heard} / ${court.cases.length}.</span>`;
+    MM.ui.dialogChoices(H.name, intro, buttons);
+  };
+
+  // Present one case. A correct ruling SETTLES it (records + a gratitude gift);
+  // a wrong ruling leaves the court baffled and RE-ASKS the same dispute
+  // (no penalty, no scold, no loss — onNext re-presents this very case).
+  E.hearCase = function (c) {
+    const s = E.state;
+    const p = c.problem;
+    MM.ui.showProblem({
+      header: `⚖️ ${c.petitioner}<br><span class="dim">${c.complaint}</span>`,
+      problem: p,
+      leaveLabel: 'Adjourn for now',
+      onAnswer(correct, kidAnswer) {
+        recordAnswer(p.skill, correct, { text: p.text, kidAnswer });
+        if (!correct) {
+          // gentle failure: no `end`, so the button reads "Next ➜" and
+          // onNext re-asks the SAME case. The worked solution shows above.
+          return { msg: MM.data.pick(MM.data.COURT.baffled) };
+        }
+        c.heard = true;
+        s.casesHeard = (s.casesHeard || 0) + 1;
+        const gift = E.courtGratitudeGift();
+        E.save();
+        MM.sound.coin();
+        let msg = `<b>Settled.</b> ${c.settle}`;
+        if (gift.parts.length) msg += `<br><br>🎁 ${MM.data.COURT.giftLine}: ${gift.parts.join(', ')}.`;
+        return { msg, end: 'win' };
+      },
+      onNext: () => E.hearCase(c),   // the baffled re-ask
+      onEnd(how) {
+        if (how === 'win') return E.holdCourt();   // back to the docket / celebration
+        MM.ui.refresh();
+      },
+    });
+  };
+
+  // Small, teacher-flavored thanks — never gold-grind, never a power reward.
+  // OCCASIONALLY (and at most once ever) a tiny hat via the cosmetic path.
+  E.courtGratitudeGift = function () {
+    const s = E.state;
+    let reward;
+    if (!s.petHats.includes('courtier') && Math.random() < 0.18) reward = { hat: 'courtier' };
+    else reward = Math.random() < 0.5 ? { food: 1 } : { potions: 1 };
+    const g = E.yardGrantReward(reward);
+    if (g.gotHat) MM.sound.fanfare();
+    return g;
+  };
+
+  // A full 3/3 session: worldBurst + fanfare + one authored line (the "when
+  // it's earned, show it" rule). Bumps the session counter (counts UP only)
+  // and claims any Faculty post that just came due.
+  E.courtSessionCelebration = function () {
+    const s = E.state;
+    s.court.celebrated = true;
+    s.courtSessions = (s.courtSessions || 0) + 1;
+    const claimed = E.checkFaculty();
+    E.save();
+    MM.sound.fanfare();
+    if (MM.ui.worldBurst && !s.calmMode) {
+      for (const col of ['#ffd94a', '#7ee0e8', '#e88ac4']) MM.ui.worldBurst(s.px, s.py, col, 16);
+    }
+    let body = MM.data.COURT.sessionCelebration;
+    for (const post of claimed) body += `<br><br>${post.spawnLine}`;
+    MM.ui.dialog('⚖️ Court adjourned', body);
+  };
+
+  // ---------- Wave 14 (P2): the Faculty — the connective thread ----------
+  // The castle visibly fills as the kid teaches. Claim any post whose
+  // milestone predicate is now satisfied. THE EXTENSION POINT: later castle
+  // waves append posts to MM.data.FACULTY_POSTS with their OWN earned(state)
+  // predicate (games played, dishes cooked, kinds tended) — this loop claims
+  // them with zero changes here. Records nothing, gates nothing.
+  E.checkFaculty = function () {
+    const s = E.state;
+    s.faculty = s.faculty || [];
+    const claimed = [];
+    for (const post of MM.data.FACULTY_POSTS) {
+      if (s.faculty.includes(post.id)) continue;
+      if (post.earned(s)) { s.faculty.push(post.id); claimed.push(post); }
+    }
+    return claimed;
+  };
+
+  // A claimed Faculty post standing on (x,y) in the castle — used by the
+  // castle tryMove (bump-to-hear, blocks the tile like an NPC) and by the
+  // ui.js overlay that draws them.
+  E.facultyAt = function (x, y) {
+    const s = E.state;
+    if (!s || s.mapId !== 'castle' || !s.faculty || !s.faculty.length) return null;
+    return MM.data.FACULTY_POSTS.find(p => s.faculty.includes(p.id) && p.x === x && p.y === y) || null;
+  };
+
   // Untangling one = a short battle drawing the same weakest-first mixed
   // pool as a Homework Golem — adaptive review wearing a story costume.
   E.startTangleBattle = function (tangle) {
@@ -5228,6 +5414,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     const npc = MM.data.NPCS[ch];
     if (npc.arena) return E.miscountArena();
     if (npc.enchant) return MM.ui.enchanterDialog();
+    if (npc.court) return E.holdCourt();      // Wave 14: the Court Herald
     if (npc.study) return E.studyReveal();   // Wave 7: the MathMaker & Miscount
     // Wave 7 epilogue: Pip has stopped collecting riddles and started
     // GIVING them. The kid taught somebody, without ever meaning to.
