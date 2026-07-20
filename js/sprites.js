@@ -2186,6 +2186,226 @@ var MM = globalThis.MM = globalThis.MM || {};
       ],
     },
 
+    // ===== Wave 18: pickable HERO avatars (s.avatar) =====
+    // Each is a NEW, purpose-built HERO — 2 walk frames (frame2 differs only in
+    // the leg/scoot rows, exactly like hero/hero2), holds a tool on the right
+    // (mirrors for facing), reads as a hero at 3× scale, and is drawn distinct
+    // from every bestiary enemy AND the trailing pet. woman/man are palette-
+    // customizable (F skin, P hair, A outfit — the s.greenHair swap, generalized
+    // in S.avatarPalette). dragon/fox/slug are bespoke, dignified, and NOT reused
+    // enemy art — the slug hero in particular is its OWN sprite, never the green
+    // enemy slime reskinned.
+    heroWoman: {
+      colors: { k: '#1a1626', P: '#6b4a2c', F: '#f2c9a0', A: '#c65a7a', a: '#9c3f5c', L: '#4a4668', B: '#3a2f2a', S: '#b98a48', o: '#8fd0e0' },
+      map: [
+        '................',
+        '....PPPPP.......',
+        '...PPPPPPP......',
+        '..PPPFFFFPPP....',
+        '..PPFkFFkFPP....',
+        '..PPFFFFFFPP.o..',
+        '..PPPFFFFPPP.S..',
+        '...PkAAAAkP..S..',
+        '..PkAAAAAAkPS...',
+        '...kAAAAAAk.....',
+        '...kaAAAAak.....',
+        '...kAAAAAAk.....',
+        '...kLLLLLLk.....',
+        '...kLLkkLLk.....',
+        '...kBBk.kBBk....',
+        '..kkkk..kkkk....',
+      ],
+    },
+    heroWoman2: {
+      colors: { k: '#1a1626', P: '#6b4a2c', F: '#f2c9a0', A: '#c65a7a', a: '#9c3f5c', L: '#4a4668', B: '#3a2f2a', S: '#b98a48', o: '#8fd0e0' },
+      map: [
+        '................',
+        '....PPPPP.......',
+        '...PPPPPPP......',
+        '..PPPFFFFPPP....',
+        '..PPFkFFkFPP....',
+        '..PPFFFFFFPP.o..',
+        '..PPPFFFFPPP.S..',
+        '...PkAAAAkP..S..',
+        '..PkAAAAAAkPS...',
+        '...kAAAAAAk.....',
+        '...kaAAAAak.....',
+        '...kAAAAAAk.....',
+        '...kLLLLLLk.....',
+        '....kLLLLk......',
+        '....kBBBBk......',
+        '....kkkkkk......',
+      ],
+    },
+    heroMan: {
+      colors: { k: '#1a1626', P: '#3a2a1a', F: '#e0a878', A: '#3a5aa8', a: '#2a4180', L: '#4a4232', B: '#2a221c', S: '#b98a48', o: '#8fd0e0' },
+      map: [
+        '................',
+        '.....kkkk.......',
+        '....kPPPPk......',
+        '....kPPPPk......',
+        '...kFFFFFFk.....',
+        '...kFkFFkFk.....',
+        '...kFFFFFFk..o..',
+        '....kFFFFk...S..',
+        '...kAAAAAAk..S..',
+        '..kAAAAAAAAkS...',
+        '..kaAAAAAAak....',
+        '...kAAAAAAk.....',
+        '...kLLLLLLk.....',
+        '...kLLkkLLk.....',
+        '...kBBk.kBBk....',
+        '..kkkk..kkkk....',
+      ],
+    },
+    heroMan2: {
+      colors: { k: '#1a1626', P: '#3a2a1a', F: '#e0a878', A: '#3a5aa8', a: '#2a4180', L: '#4a4232', B: '#2a221c', S: '#b98a48', o: '#8fd0e0' },
+      map: [
+        '................',
+        '.....kkkk.......',
+        '....kPPPPk......',
+        '....kPPPPk......',
+        '...kFFFFFFk.....',
+        '...kFkFFkFk.....',
+        '...kFFFFFFk..o..',
+        '....kFFFFk...S..',
+        '...kAAAAAAk..S..',
+        '..kAAAAAAAAkS...',
+        '..kaAAAAAAak....',
+        '...kAAAAAAk.....',
+        '...kLLLLLLk.....',
+        '....kLLLLk......',
+        '....kBBBBk......',
+        '....kkkkkk......',
+      ],
+    },
+    heroDragon: {
+      colors: { k: '#1a1626', A: '#4a9e5c', a: '#357044', W: '#cfead4', P: '#e0b84a', E: '#141221', g: '#6bbf7a', S: '#b98a48', o: '#8fd0e0', B: '#2c5a38' },
+      map: [
+        '..P......P......',
+        '..PP....PP......',
+        '...kAAAAAk......',
+        '..kAAAAAAAk.....',
+        '..kAEAAAEAk.....',
+        '..kAAAAAAAk.....',
+        '...kAAWAAk...o..',
+        '..gkAAAAkg...S..',
+        '.gAkAWWAkAg..S..',
+        '.gAkAWWAkAgS....',
+        '..kAAWWAAk......',
+        '..kaAWWAak......',
+        '..kAAAAAAk......',
+        '..kAAkkAAk......',
+        '..kBBk.kBBk.....',
+        '.kkk....kkk.....',
+      ],
+    },
+    heroDragon2: {
+      colors: { k: '#1a1626', A: '#4a9e5c', a: '#357044', W: '#cfead4', P: '#e0b84a', E: '#141221', g: '#6bbf7a', S: '#b98a48', o: '#8fd0e0', B: '#2c5a38' },
+      map: [
+        '..P......P......',
+        '..PP....PP......',
+        '...kAAAAAk......',
+        '..kAAAAAAAk.....',
+        '..kAEAAAEAk.....',
+        '..kAAAAAAAk.....',
+        '...kAAWAAk...o..',
+        '..gkAAAAkg...S..',
+        '.gAkAWWAkAg..S..',
+        '.gAkAWWAkAgS....',
+        '..kAAWWAAk......',
+        '..kaAWWAak......',
+        '..kAAAAAAk......',
+        '...kAAAAk.......',
+        '...kBBBBk.......',
+        '...kkkkkk.......',
+      ],
+    },
+    heroFox: {
+      colors: { k: '#1a1626', A: '#e07a3c', a: '#b85a28', W: '#f4ead8', E: '#141221', T: '#f0a060', S: '#b98a48', o: '#8fd0e0', B: '#2a221c' },
+      map: [
+        '..A......A......',
+        '.kAAk...kAAk....',
+        '.kAAAk.kAAAk....',
+        '..kAAAAAAAk.....',
+        '..kAEAAAEAk.....',
+        '..kAWWkWWAk.....',
+        '...kWWWWWk...o..',
+        '...kAAAAk....S..',
+        '..kAAWWAAk...S..',
+        'TTkAAWWAAkS.....',
+        'TTkaAWWAak......',
+        '.TkAAAAAAk......',
+        '..kAAAAAAk......',
+        '..kWWkkWWk......',
+        '..kBBk.kBBk.....',
+        '.kkk....kkk.....',
+      ],
+    },
+    heroFox2: {
+      colors: { k: '#1a1626', A: '#e07a3c', a: '#b85a28', W: '#f4ead8', E: '#141221', T: '#f0a060', S: '#b98a48', o: '#8fd0e0', B: '#2a221c' },
+      map: [
+        '..A......A......',
+        '.kAAk...kAAk....',
+        '.kAAAk.kAAAk....',
+        '..kAAAAAAAk.....',
+        '..kAEAAAEAk.....',
+        '..kAWWkWWAk.....',
+        '...kWWWWWk...o..',
+        '...kAAAAk....S..',
+        '..kAAWWAAk...S..',
+        'TTkAAWWAAkS.....',
+        'TTkaAWWAak......',
+        '.TkAAAAAAk......',
+        '..kAAAAAAk......',
+        '...kWWWWk.......',
+        '...kBBBBk.......',
+        '...kkkkkk.......',
+      ],
+    },
+    heroSlug: {
+      colors: { k: '#1a1626', A: '#7a6cc0', a: '#5a4e99', W: '#b7aee8', E: '#f4f0ff', c: '#e0c24a', o: '#8fd0e0', S: '#b98a48' },
+      map: [
+        '....E..E........',
+        '...EEk.EEk......',
+        '...kAk.kAk......',
+        '....kAAAAk......',
+        '...kAAAAAAk.....',
+        '..kAAAAAAAAk....',
+        '..kAWWWWWWAk.o..',
+        '..kAWWWWWWAk.S..',
+        '..kcccccccck.S..',
+        '..kAWWWWWWAkS...',
+        '..kAWWWWWWAk....',
+        '..kaWWWWWWak....',
+        '..kAAWWWWAAk....',
+        '..kaAAAAAAak....',
+        '...kAAAAAAk.....',
+        '..kkkkkkkkkk....',
+      ],
+    },
+    heroSlug2: {
+      colors: { k: '#1a1626', A: '#7a6cc0', a: '#5a4e99', W: '#b7aee8', E: '#f4f0ff', c: '#e0c24a', o: '#8fd0e0', S: '#b98a48' },
+      map: [
+        '................',
+        '....E..E........',
+        '...EEk.EEk......',
+        '...kAk.kAk......',
+        '....kAAAAk......',
+        '...kAAAAAAk.....',
+        '..kAAWWWWAAk.o..',
+        '..kAWWWWWWAk.S..',
+        '..kcccccccck.S..',
+        '..kAWWWWWWAkS...',
+        '..kAWWWWWWAk....',
+        '..kaWWWWWWak....',
+        '..kAAWWWWAAk....',
+        '..kaAAAAAAak....',
+        '..kAAAAAAAAk....',
+        '.kkkkkkkkkkkk...',
+      ],
+    },
+
     // ===== monsters (palette-swapped per dungeon) =====
     slime: {
       colors: { k: '#143318', A: '#52c45a', B: '#3a9642', W: '#a5e8a9', E: '#ffffff', e: '#1a1626', M: '#2c7534' },
@@ -2891,5 +3111,54 @@ var MM = globalThis.MM = globalThis.MM || {};
       });
     }
     return problems;
+  };
+
+  // ---------- Wave 18: the avatar roster (s.avatar) ----------
+  // ONE state (s.avatar + s.avatarPalette), rendered at ONE site (ui.js) and the
+  // battle portrait. Purely cosmetic — no stats, ever. DEFAULT is 'knight', so a
+  // save with no s.avatar renders EXACTLY today's hero (backward-compat is
+  // sacred). human:true forms accept the skin/hair/outfit palette; the non-human
+  // heroes are drawn as-is. Every form holds a tool and wears a hat overlay.
+  S.AVATARS = {
+    woman:  { frames: ['heroWoman', 'heroWoman2'], human: true,  emoji: '🧑‍🦱', label: 'Adventurer' },
+    man:    { frames: ['heroMan', 'heroMan2'],     human: true,  emoji: '🧑',         label: 'Adventurer' },
+    dragon: { frames: ['heroDragon', 'heroDragon2'], human: false, emoji: '🐉',       label: 'Dragon' },
+    fox:    { frames: ['heroFox', 'heroFox2'],     human: false, emoji: '🦊',         label: 'Fox' },
+    slug:   { frames: ['heroSlug', 'heroSlug2'],   human: false, emoji: '🐌',         label: 'Slug' },
+    knight: { frames: ['hero', 'hero2'],           human: false, emoji: '⚔️',        label: 'Knight' },
+  };
+  // Order shown in every picker. The knight rides last — the classic option,
+  // always present so no one who has it can ever lose it (ROSTER LOCKED).
+  S.AVATAR_ORDER = ['woman', 'man', 'dragon', 'fox', 'slug', 'knight'];
+
+  // The palette a human avatar can dial (skin / hair / outfit). Any kid of any
+  // background can make the woman OR man look like them — not two fixed skins.
+  S.AVATAR_PALETTE_OPTIONS = {
+    F: ['#f8d8b8', '#f2c9a0', '#e0a878', '#c68642', '#8d5524', '#5a3418'], // skin
+    P: ['#2a1a10', '#6b4a2c', '#a86a3a', '#d8a03c', '#b03a3a', '#4a4668', '#7a6cc0', '#4ec449'], // hair
+    A: ['#c65a7a', '#3a5aa8', '#4a9e5c', '#e0b84a', '#7a6cc0', '#c0603c', '#2b8a8a', '#40384f'], // outfit
+  };
+
+  S.avatarDef = id => S.AVATARS[id] || S.AVATARS.knight;
+
+  // The two walk-frame sprite names for the chosen avatar (defaults to knight).
+  S.avatarFrames = id => S.avatarDef(id).frames;
+
+  // The materialized palette override for the current save's avatar. Human
+  // forms map s.avatarPalette {F,P,A} onto the sprite; the seaweed-green-hair
+  // easter egg (s.greenHair) still wins on the hair/plume channel P, for EVERY
+  // form (it always has — keep the gag). Returns {} when nothing overrides,
+  // so the sprite renders its own default colors (its own cache key, for free).
+  S.avatarPalette = function (s) {
+    const pal = {};
+    if (!s) return pal;
+    const def = S.avatarDef(s.avatar || 'knight');
+    if (def.human && s.avatarPalette) {
+      if (s.avatarPalette.F) pal.F = s.avatarPalette.F;
+      if (s.avatarPalette.P) pal.P = s.avatarPalette.P;
+      if (s.avatarPalette.A) pal.A = s.avatarPalette.A;
+    }
+    if (s.greenHair) pal.P = '#4ec449';
+    return pal;
   };
 })();

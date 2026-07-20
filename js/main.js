@@ -39,11 +39,24 @@ var MM = globalThis.MM = globalThis.MM || {};
       };
     });
 
+    // Wave 18: choose your hero at the start, too (name + form together, light).
+    // A DRAFT model — there's no save yet — mutated by the shared picker, read
+    // when Start is pressed. Default 'knight' keeps hitting Start unblocked and
+    // preserves the classic look for anyone who ignores the picker.
+    const head = document.getElementById('avatarChooseHead');
+    if (head) head.textContent = MM.data.AVATAR.pickerHeading;
+    const draft = { avatar: 'knight', avatarPalette: null, heroHat: null };
+    MM.ui.renderAvatarPicker(document.getElementById('avatarPickProfile'), {
+      get: () => ({ avatar: draft.avatar, palette: draft.avatarPalette, heroHat: draft.heroHat }),
+      apply: (avatar, palette) => { draft.avatar = avatar; draft.avatarPalette = palette; },
+      showHats: false, ownedHats: [],
+    });
+
     const input = document.getElementById('newName');
     const create = () => {
       const name = input.value.trim().slice(0, 20);
       if (!name) { input.focus(); return; }
-      MM.engine.newGame(name);
+      MM.engine.newGame(name, draft.avatar, draft.avatarPalette);
       start();
     };
     document.getElementById('btnNew').onclick = create;

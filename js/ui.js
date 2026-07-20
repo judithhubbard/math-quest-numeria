@@ -1411,7 +1411,10 @@ var MM = globalThis.MM = globalThis.MM || {};
 
     // hero (walk frames while moving, idle bob otherwise)
     const moving = performance.now() - lastMoveAt < 160;
-    const frame = moving && UI.stepCount % 2 ? 'hero2' : 'hero';
+    // Wave 18: the two walk frames come from the chosen avatar (defaults to
+    // the knight for a save with no s.avatar — backward-compat is sacred).
+    const avFrames = MM.sprites.avatarFrames(s.avatar);
+    const frame = moving && UI.stepCount % 2 ? avFrames[1] : avFrames[0];
     // the pet trails one tile behind (drawn under the hero)
     const pet = s.isles && s.isles.pet;
     const pp = MM.engine.petPos;
@@ -1461,8 +1464,18 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
 
     const bob = moving ? 0 : Math.sin(now / 500) * 1.5;
-    const heroSpr = MM.sprites.get(frame, { scale: 3, mirror: UI.facing < 0, palette: s.greenHair ? { P: '#4ec449' } : {} });
+    const heroSpr = MM.sprites.get(frame, { scale: 3, mirror: UI.facing < 0, palette: MM.sprites.avatarPalette(s) });
     ctx.drawImage(heroSpr, (s.px - camX) * TILE, (s.py - camY) * TILE + bob);
+    // Wave 18: an earned tiny hat sits on ANY form (an emoji overlay, exactly
+    // like the pet's hat — a dragon in a mortarboard). Off is simply no hat.
+    if (s.heroHat) {
+      const hat = MM.data.petHatById(s.heroHat);
+      if (hat) {
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(hat.emoji, (s.px - camX) * TILE + TILE / 2, (s.py - camY) * TILE + bob - 2);
+      }
+    }
 
     drawWorldParticles(camX, camY);
     UI.renderSidebar();
@@ -2064,9 +2077,15 @@ var MM = globalThis.MM = globalThis.MM || {};
         <h3>Treasures — sell them at the shop</h3>${treasureRows}
         <h3>Magical charms — wear up to ${MM.engine.CHARM_SLOTS} (${(s.charmsOn || []).length}/${MM.engine.CHARM_SLOTS} worn)</h3>${charmRows}
         <h3>Badge shelf — earn 🥉🥈🥇 in every topic</h3>${badgeRows}
+        <h3>Your look</h3>
+        <div class="shop-row">
+          <span class="shop-item">🔍 The Looking Glass<span class="quip">Change your hero's form any time — it never costs a thing.</span></span>
+          <button class="shop-buy" id="bagLookingGlass">Open</button>
+        </div>
       </div>
       <div class="btnrow"><button id="bagClose" class="secondary">Close</button></div>`);
     document.getElementById('bagClose').onclick = () => { closeModal(); UI.refresh(); };
+    document.getElementById('bagLookingGlass').onclick = () => { closeModal(); UI.lookingGlass(); };
     document.querySelectorAll('[data-eat]').forEach(b => {
       b.onclick = () => { closeModal(); MM.engine.eat(b.dataset.eat); UI.openBag(); };
     });
@@ -3577,6 +3596,140 @@ var MM = globalThis.MM = globalThis.MM || {};
         UI.petWardrobe();
       };
     });
+  };
+
+  // ---------- Wave 18: "Choose Your Hero" (the avatar picker) ----------
+  // ONE reusable picker, mounted into any container. Purely cosmetic. Works in
+  // two modes via the cfg.get/apply pair: LIVE (Looking Glass / Study wardrobe,
+  // writes s.avatar immediately) and DRAFT (the profile / new-game screen,
+  // mutates a plain object before the save exists). cfg.onChange fires after any
+  // pick so a host can react (the Looking Glass updates its deadpan reflection).
+  function defaultHumanPalette(id) {
+    const c = MM.sprites.DEFS[MM.sprites.avatarDef(id).frames[0]].colors;
+    return { F: c.F, P: c.P, A: c.A };
+  }
+  UI.renderAvatarPicker = function (mount, cfg) {
+    if (!mount) return;
+    const AV = MM.sprites;
+    const cur = cfg.get();
+    const grid = AV.AVATAR_ORDER.map(id => {
+      const def = AV.avatarDef(id);
+      const pal = (id === cur.avatar && def.human) ? (cur.palette || {}) : {};
+      const img = AV.get(def.frames[0], { scale: 3, palette: pal }).toDataURL();
+      const sel = id === cur.avatar;
+      return `<button type="button" class="avatar-opt${sel ? ' sel' : ''}" data-av="${id}" title="${def.label}" aria-pressed="${sel}">
+        <img src="${img}" alt="${def.label}"></button>`;
+    }).join('');
+    let html = `<div class="avatar-grid">${grid}</div>`;
+    const def = AV.avatarDef(cur.avatar);
+    if (def.human) {
+      const pal = cur.palette || {};
+      const swRow = ch => {
+        const opts = AV.AVATAR_PALETTE_OPTIONS[ch].map(hex =>
+          `<button type="button" class="avatar-sw${pal[ch] === hex ? ' sel' : ''}" data-sw="${ch}" data-hex="${hex}" style="background:${hex}" title="${MM.data.AVATAR.swatchLabels[ch]}"></button>`).join('');
+        return `<div class="avatar-swrow"><span class="avatar-swlabel">${MM.data.AVATAR.swatchLabels[ch]}</span>${opts}</div>`;
+      };
+      html += `<div class="avatar-swatches">${swRow('F')}${swRow('P')}${swRow('A')}</div>`;
+    }
+    if (cfg.showHats && cfg.ownedHats && cfg.ownedHats.length) {
+      const hatBtns = [`<button type="button" class="avatar-hat${cur.heroHat ? '' : ' sel'}" data-hat="" title="No hat">🚫</button>`]
+        .concat(cfg.ownedHats.map(id => {
+          const h = MM.data.petHatById(id);
+          return h ? `<button type="button" class="avatar-hat${cur.heroHat === id ? ' sel' : ''}" data-hat="${id}" title="${h.name}">${h.emoji}</button>` : '';
+        })).join('');
+      html += `<div class="avatar-swrow"><span class="avatar-swlabel">Hat</span>${hatBtns}</div>`;
+    }
+    mount.innerHTML = html;
+    const rerender = () => { UI.renderAvatarPicker(mount, cfg); if (cfg.onChange) cfg.onChange(); };
+    mount.querySelectorAll('[data-av]').forEach(b => b.onclick = () => {
+      const id = b.dataset.av;
+      const humanNow = AV.avatarDef(id).human;
+      const nextPal = humanNow ? (cur.palette || defaultHumanPalette(id)) : null;
+      cfg.apply(id, nextPal, cur.heroHat);
+      rerender();
+    });
+    mount.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => {
+      const pal = Object.assign({}, cur.palette || defaultHumanPalette(cur.avatar));
+      pal[b.dataset.sw] = b.dataset.hex;
+      cfg.apply(cur.avatar, pal, cur.heroHat);
+      rerender();
+    });
+    mount.querySelectorAll('[data-hat]').forEach(b => b.onclick = () => {
+      cfg.apply(cur.avatar, cur.palette, b.dataset.hat || null);
+      rerender();
+    });
+  };
+
+  // The shared modal front-end (both the Looking Glass and the Study wardrobe
+  // route here — one state, two doors). mode 'glass' shows the deadpan mirror
+  // reflection; both show the world's deadpan reaction the moment you become a
+  // novel (non-human) hero, plus the pet's double-take. The humans stay neutral
+  // — they ARE the kid, so no world line and no joke ever lands on them.
+  UI.avatarPickerModal = function (opts) {
+    const s = MM.engine.state;
+    if (!s || UI.modalOpen() || MM.battle.active()) return;
+    let justBecame = null;   // a non-human form freshly picked THIS visit
+    openModal(`
+      <h2>${opts.title}</h2>
+      <div class="dialog-body">
+        <p style="font-size:14px">${opts.intro}</p>
+        <div style="text-align:center"><small class="dim">${MM.data.AVATAR.pickerHint}</small></div>
+        <div id="avatarPickMount" class="avatar-pick"></div>
+        <p id="avatarReflect" class="dim" style="font-size:13px;min-height:2.6em;font-style:italic;text-align:center"></p>
+      </div>
+      <div class="btnrow"><button id="avatarDone" class="primary">Done</button></div>`);
+    const updateReflect = () => {
+      const el = document.getElementById('avatarReflect');
+      if (!el) return;
+      const form = s.avatar;
+      let parts = [];
+      if (justBecame === form && MM.data.AVATAR.worldReaction[form]) {
+        parts.push(MM.data.pick(MM.data.AVATAR.worldReaction[form]));
+        if (s.isles && s.isles.pet) parts.push(MM.data.AVATAR.petDoubleTake);
+      }
+      if (opts.mode === 'glass' && MM.data.AVATAR.lookingGlass.reflect[form]) {
+        parts.push(MM.data.AVATAR.lookingGlass.reflect[form]);
+      }
+      el.innerHTML = parts.join('<br><br>');
+    };
+    UI.renderAvatarPicker(document.getElementById('avatarPickMount'), {
+      get: () => ({ avatar: s.avatar, palette: s.avatarPalette, heroHat: s.heroHat }),
+      apply: (avatar, palette, heroHat) => {
+        const prev = MM.engine.setAvatar(avatar, palette);
+        s.heroHat = heroHat || null;
+        MM.engine.save();
+        const def = MM.sprites.avatarDef(avatar);
+        if (avatar !== prev && !def.human && avatar !== 'knight') {
+          MM.engine.petDoubleTake();
+          justBecame = avatar;
+        } else if (avatar !== prev) {
+          justBecame = null;
+        }
+        MM.sound.chirp();
+      },
+      onChange: updateReflect,
+      showHats: true,
+      ownedHats: s.petHats || [],
+    });
+    updateReflect();
+    document.getElementById('avatarDone').onclick = () => {
+      closeModal();
+      if (opts.done) UI.log(opts.done);
+      UI.refresh();
+    };
+  };
+
+  // Door one: the plain Looking Glass, reachable from the Bag on day one — the
+  // safety valve so no kid is ever stuck with a regretted form. Deadpan.
+  UI.lookingGlass = function () {
+    const lg = MM.data.AVATAR.lookingGlass;
+    UI.avatarPickerModal({ title: lg.title, intro: lg.intro, mode: 'glass' });
+  };
+  // Door two: the Study wardrobe — the DELUXE post-ending version, same picker
+  // wrapped in the confessed wardrobe's personality.
+  UI.studyWardrobe = function () {
+    const wd = MM.data.AVATAR.wardrobe;
+    UI.avatarPickerModal({ title: wd.title, intro: wd.intro, mode: 'wardrobe', done: wd.done });
   };
 
   // ---------- Wave 9 (P3): boss statues — three independent plinths ----------

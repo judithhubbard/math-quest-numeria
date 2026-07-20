@@ -525,3 +525,28 @@ body.big-text #modalBox h2 { font-size: 23px; }
 /* Wave 7.1: spells look dimmed when not castable but stay CLICKABLE —
    every click gets a log answer instead of silent nothing */
 button.spell-dim { opacity: 0.5; }
+
+/* Wave 18: the avatar picker (Looking Glass, Study wardrobe, profile screen) */
+.avatar-choose { margin-top: 18px; }
+.avatar-choose-head { font-size: 15px; font-weight: 700; margin-bottom: 8px; color: #cfc6ff; }
+.avatar-pick { margin: 6px 0; }
+.avatar-grid { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.avatar-opt {
+  padding: 4px; border-radius: 10px; border: 2px solid #4a3f7a;
+  background: #221c44; cursor: pointer; line-height: 0;
+}
+.avatar-opt img { width: 48px; height: 48px; image-rendering: pixelated; }
+.avatar-opt.sel { border-color: #ffd94a; background: #33285c; box-shadow: 0 0 0 2px #ffd94a55; }
+.avatar-swatches { margin-top: 12px; }
+.avatar-swrow { display: flex; align-items: center; gap: 6px; margin: 6px 0; flex-wrap: wrap; }
+.avatar-swlabel { width: 56px; font-size: 13px; color: #a99fd6; }
+.avatar-sw {
+  width: 26px; height: 26px; border-radius: 50%; padding: 0;
+  border: 2px solid #4a3f7a; cursor: pointer;
+}
+.avatar-sw.sel { border-color: #fff; box-shadow: 0 0 0 2px #ffd94a; }
+.avatar-hat {
+  min-width: 32px; height: 30px; border-radius: 8px; padding: 2px 4px;
+  border: 2px solid #4a3f7a; background: #221c44; cursor: pointer; font-size: 16px;
+}
+.avatar-hat.sel { border-color: #ffd94a; background: #33285c; }
