@@ -1186,6 +1186,19 @@ var MM = globalThis.MM = globalThis.MM || {};
             ctx.drawImage(MM.sprites.get('tangle', { scale: 3 }), vx * TILE, vy * TILE + tbob);
           }
         }
+        // Wave 14: the Faculty — reformed monsters who took up court posts,
+        // drawn as live overlays on plain throne-room floor (never grid
+        // glyphs), each wearing its post's insignia badge (field channel).
+        if (s.mapId === 'castle' && s.faculty && s.faculty.length) {
+          const post = MM.data.FACULTY_POSTS.find(p => s.faculty.includes(p.id) && p.x === x && p.y === y);
+          if (post) {
+            const fbob = Math.sin(now / 450 + x * 3) * 1.5;
+            ctx.drawImage(MM.sprites.get(post.sprite, { palette: post.pal || {}, scale: 3 }), vx * TILE, vy * TILE + fbob);
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(post.badge, vx * TILE + TILE / 2 + 5, vy * TILE + 8 + fbob);
+          }
+        }
       }
     }
 

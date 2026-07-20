@@ -715,6 +715,31 @@ Three new things wait for a finished hero:
   Spiral Stair tower for a permanent thank-you: **⤴ Start from floor 10**.
   It knows a shortcut. Of course it does — it is one.
 
+### ⚖️ The Court
+
+Once the crown is truly yours, the throne room opens for audiences. Bump the
+**Herald** beside the throne and hold court: each day brings **three
+petitioners**, and each has a dispute only good arithmetic can settle —
+
+- a knight who must know **exactly how much pie** is left after the feast
+  (fractions), a cook **scaling a recipe** before disaster (multiplication),
+  a wizard **certain** the market shorted his change (decimals/money), a
+  banner-master **measuring cloth** before he cuts it (area). The complaint
+  is the comedy; the maths is plain. Every ruling is real practice — it
+  records to the same report card the rest of the game does, filling the
+  applied-word-problem corner the dungeons serve least.
+- **A wrong ruling is never a loss.** The whole court just blinks, frowns,
+  recounts on its fingers, and asks again — no scold, no penalty, ever. You
+  rule when you're ready.
+- A very small, very serious **Magistrate** returns every session with a
+  fresh, impeccably-polite grievance (a neighbour's hedge; and, eventually,
+  a lawsuit against the sun). Settling all three is a full day's court.
+- **The castle fills as you teach.** Hold court often enough and reformed
+  monsters take up posts — a **Court Clerk**, a **Bailiff**, a **Recorder** —
+  each turning up in the throne room to stay, with a line of their own. Grateful
+  petitioners press small thank-yous on you, too: a bite of food, a potion,
+  and — once in a while — a tiny hat for your pet.
+
 ### A few playtest fixes
 
 A real play session turned up some friction, since fixed: every locked door

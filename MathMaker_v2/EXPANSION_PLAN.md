@@ -3480,7 +3480,53 @@ May NOT cut: the polite-stuck flow (it is the feature), budget caps,
 the always-present reset cord, once-ever celebrations, wedge-nudge
 coverage inside the kid's room, the doorway prose swap.
 
-## Wave 14 order — "The Court" (Castle Expansion Wave A) (user directive 2026-07-20)
+## Wave 14 order — "The Court" (Castle Expansion Wave A) (user directive 2026-07-20) — ✅ SHIPPED v1.10.0 2026-07-20 (design-reviewed; prose approved + Magistrate quantity-agnostic fix)
+
+**Implementation status (implementer session, 2026-07-20):** all three
+P-items + the recurring bit shipped; unit suite green (exit 0, incl. every
+ordered Wave 14 block); `tests/drive-court.js` = 23 checks, zero JS errors;
+full 38-drive sweep + detached marathon per the evidence discipline (logs
+in `tests/logs/*-wave14.log` + `sweep-wave14-summary.txt` +
+`marathon-wave14.log`). Four screenshots audited by eye (herald, petitioner
+mid-case, 3/3 celebration, spawned Clerk) — all clean; the herald sprite is
+a plumed trumpet-bearer (a person shape, never a numeral at scale).
+Deviations from this order, and why:
+- **Day-keyed renewal has ONE deliberate divergence from refreshBounties:**
+  the court does NOT eager-refill the same day once all three are heard. A
+  full 3/3 is the day's SESSION (P1's own word), so the queue stays stable
+  until the DATE turns — which is exactly the unit contract ("re-rolls on
+  date turn, NOT before") and the drive's "stable within a day." Everything
+  else mirrors refreshBounties (E.todayStr, {date,cases}, load() migration,
+  weakest-first targeting).
+- **The Magistrate always leads the docket (case 0), taking the WEAKEST of
+  the four skills.** The recurring gag therefore carries the rustiest topic
+  every session — reinforcing the auto-targeting — while cases 1-2 take the
+  next-weakest from the authored petitioner pools. Escalation KEPT (not cut):
+  four grievances by `s.magistrateVisits`, then holds at the last.
+- **The Magistrate's grievance frame is skill-agnostic on purpose** (it
+  bridges "…the clerk's sum:" to whatever's rustiest), so a fraction-flavored
+  complaint can sit over a multiplication problem. This is the intended
+  bureaucratic joke (everything reduces to the clerk's arithmetic) and honors
+  "the complaint is the comedy; the math is plain."
+- **Court furnishing (P3 optional) was CUT** under deviation authority — the
+  visible cumulative reward is the Faculty filling the throne room, which is
+  richer than a rug and is the load-bearing thread anyway.
+- **Gratitude "tiny hat" = ONE new earned pet-hat** ("Courtier's Hat" 👒),
+  granted at most once via the existing `E.yardGrantReward` cosmetic path
+  (occasional roll; otherwise a food/potion). Never gold, never power.
+- **Faculty are drawn as live OVERLAYS on plain throne-room floor** (like the
+  daily tangles), not new grid glyphs — so no new tile alphabet, and the
+  documented EXTENSION POINT is `MM.data.FACULTY_POSTS`: later waves append a
+  post with its own `{id,title,sprite,pal,badge,x,y,earned(state),line,
+  spawnLine}` and `E.checkFaculty` claims it with zero rework (Wave A checks
+  `s.courtSessions`; later waves supply their own counter+predicate).
+- **Glyph:** the herald is `'Z'` in the CASTLE map — an `MM.data.NPCS` entry
+  with a `court:true` dispatch flag (same idiom as `u`'s `arena`), free on
+  every overworld and unused by any dungeon mechanic; it draws `hallFloor`
+  under the NPC pass and never overloads the throne `'O'`. Unit-guarded.
+- **NG+:** `s.court/s.faculty/s.courtSessions/s.casesHeard/s.magistrateVisits`
+  survive `startGolden` AND `returnToFinishedKingdom` by being left untouched
+  (like `s.wing`); `endingDone` survives too, so the crowned court still sits.
 
 First wave of CASTLE_EXPANSION_PLAN.md (read it for the full rationale and
 where this sits among the Parlor/Kitchen-Garden/Menagerie that follow).

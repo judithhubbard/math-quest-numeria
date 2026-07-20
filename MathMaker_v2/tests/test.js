@@ -3774,5 +3774,158 @@ for (const skill of skills) {
   E.state = null;
 }
 
+// ---------- Wave 14: "The Court" ----------
+{
+  require(path.join(ROOT, 'js/sprites.js'));
+  const E = MM.engine;
+
+  // (a) herald tileSprite context guard + sprite + dispatch flag. 'N' is the
+  // herald glyph — chosen because it is FREE across every map + NPCS key (the
+  // v1.7.9 'Y' collision is the cautionary tale; 'Z' is the Spire's clock
+  // door and is deliberately NOT reused).
+  if (!MM.data.NPCS.N || !MM.data.NPCS.N.court) fail("court: 'N' must be an NPCS entry flagged court:true (the herald)");
+  if (MM.data.NPCS.N.sprite !== 'herald') fail("court: the herald must use the 'herald' sprite");
+  if (!MM.sprites.DEFS.herald) fail('court: the herald sprite has no DEFS entry');
+  // the herald stands on a FLOOR inside the castle (NPC pass draws the person
+  // on top) — never bare grass; and the castle owns the 'N' context.
+  if (MM.maps.tileSprite('N', 17, 3, 'castle', 0) !== 'hallFloor') fail("court: 'N' under the herald must draw hallFloor, not grass");
+  // and 'N' collides with nothing: neutral in a dungeon, neutral on the world
+  if (MM.maps.tileSprite('N', 0, 0, 'd19f1', 0) !== 'floor') fail("court: 'N' must stay neutral (floor) in a dungeon — no glyph collision");
+  // the Spire's own clock-door glyph is untouched by the new herald
+  if (MM.maps.tileSprite('Z', 0, 0, 'd19f1', 0) !== 'clockDoor') fail("court: the Spire's 'Z' clock door must be unaffected");
+  // 'N' really is in the CASTLE map, beside (not on) the throne 'O'
+  {
+    const g = MM.maps.parse(MM.maps.CASTLE, '#');
+    const z = MM.maps.find(g, 'N');
+    if (z.length !== 1) fail("court: the CASTLE map must contain exactly one herald 'N'");
+    const o = MM.maps.find(g, 'O')[0];
+    if (z[0] && o && z[0].x === o.x && z[0].y === o.y) fail("court: the herald must NOT overload the throne 'O'");
+  }
+
+  // (b) courtCase generates a valid problem per skill AND stamps the real skill
+  const COURT_SKILLS = ['fractions_as', 'multidigit_mult', 'decimals_md', 'word_problems'];
+  for (const sk of COURT_SKILLS) {
+    for (let i = 0; i < 40; i++) {
+      const c = MM.problems.courtCase(sk, 2);
+      if (c.problem.skill !== sk) { fail(`court: courtCase(${sk}) must record under its own skill (got ${c.problem.skill})`); break; }
+      if (!c.problem.text || !c.problem.answer) { fail(`court: courtCase(${sk}) produced an invalid problem`); break; }
+      if (!c.petitioner || !c.complaint || !c.settle) { fail(`court: courtCase(${sk}) missing petitioner/complaint/settle`); break; }
+      if (JSON.stringify(c).length < 10) { fail('court: a case must be serializable'); break; }
+    }
+  }
+  // the magistrate frame is skill-agnostic and escalates by visit index
+  {
+    const m0 = MM.problems.courtCase('decimals_md', 2, { magistrate: 0 });
+    const m1 = MM.problems.courtCase('fractions_as', 2, { magistrate: 1 });
+    if (!m0.magistrate || m0.petitioner !== MM.data.COURT.magistrate.name) fail('court: magistrate case must carry the magistrate petitioner');
+    if (m0.complaint === m1.complaint) fail('court: magistrate grievance must escalate by visit index');
+  }
+
+  // ---- build a pre-Wave-14 save (no court fields) and load it ----
+  localStorage.setItem('mathmaker2_save_w14', JSON.stringify({
+    version: 4, name: 'w14', hp: 24, maxhp: 24, stamina: 100, maxStamina: 100,
+    gold: 10, level: 1, xp: 0, potions: 1, difficulty: 'hero',
+    parent: { pin: null, topics: {} }, taskIndex: 14, haveItem: false,
+    tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    mastery: {}, badges: {}, bestiary: { seen: {}, kills: {}, gauntlet: {} },
+    continent: 'west', isles: { lenses: { tidepool: true, frostbite: true, cinderforge: true }, keys: {}, egg: null, pet: null, lampLit: true, spireDone: true },
+    charmsOn: [], opened: {}, bossesDefeated: {}, defeatedAt: {}, streak: 0,
+    totals: { answered: 0, correct: 0 }, worldPos: null, seenBattleHelp: true, endingDone: true,
+    petHats: [],
+    gear: { weapon: ['stick'], body: ['clothes'], helmet: [], boots: [], ring: [], amulet: [] },
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null }, enchants: {},
+    items: { food: {}, treasures: [], charms: [], gems: [] },
+  }));
+  E.load('w14');
+  const s = E.state;
+  // (e) migration: a pre-Wave-14 save defaults clean
+  if (s.court !== null) fail('court: a pre-Wave-14 save should migrate to court=null');
+  if (!Array.isArray(s.faculty) || s.faculty.length) fail('court: faculty should migrate to []');
+  if (s.courtSessions !== 0 || s.casesHeard !== 0 || s.magistrateVisits !== 0) fail('court: session/case/magistrate counters should migrate to 0');
+
+  // capture UI for the flow
+  const realDialog = MM.ui.dialog, realChoices = MM.ui.dialogChoices, realShow = MM.ui.showProblem, realBurst = MM.ui.worldBurst;
+  let dialog = null, choices = null, prob = null;
+  MM.ui.dialog = (t, b) => { dialog = { t, b }; };
+  MM.ui.dialogChoices = (t, b, btns) => { choices = { t, b, btns }; };
+  MM.ui.showProblem = (o) => { prob = o; };
+  MM.ui.worldBurst = () => {};
+
+  s.mapId = 'castle';
+  // (c) day-keyed roll — three cases, weakest-first, magistrate leads
+  E.refreshCourt();
+  if (!s.court || s.court.cases.length !== 3) fail('court: refreshCourt should produce a 3-case queue');
+  if (!s.court.cases[0].magistrate) fail('court: case 0 should be the recurring magistrate');
+  const day = s.court.date, roll0 = JSON.stringify(s.court.cases.map(c => c.problem.text));
+  // re-rolls on date turn, NOT before (stable same-day, heard or partial)
+  E.refreshCourt();
+  if (JSON.stringify(s.court.cases.map(c => c.problem.text)) !== roll0) fail('court: same-day refresh must NOT re-roll');
+  s.court.date = '2000-01-01';
+  E.refreshCourt();
+  if (s.court.date === '2000-01-01') fail('court: a date turn must re-roll the queue');
+
+  // hearing a case wrong = baffled re-ask (no scold, no loss, not heard)
+  E.refreshCourt();
+  const c0 = s.court.cases[0], skill0 = c0.problem.skill;
+  const attemptsBefore = (s.mastery[skill0] || { attempts: 0 }).attempts;
+  const hpBefore = s.hp, casesBefore = s.casesHeard;
+  E.hearCase(c0);
+  const wrong = prob.onAnswer(false, '999999');
+  if (wrong.end) fail('court: a wrong ruling must not end the case (it re-asks)');
+  if (!MM.data.COURT.baffled.includes(wrong.msg)) fail('court: a wrong ruling shows a baffled re-ask line');
+  if (c0.heard) fail('court: a wrong ruling must NOT settle the case');
+  if (s.hp !== hpBefore) fail('court: a wrong ruling must never cost HP (gentle failure)');
+  // (d, part 1) recording under the REAL skill happens on every ruling
+  if ((s.mastery[skill0] || { attempts: 0 }).attempts !== attemptsBefore + 1) fail('court: a ruling must record under the case\'s real skill');
+
+  // hearing correct = settles + records + a gratitude gift
+  const a0 = c0.problem.answer, canon0 = a0.d === 1 ? String(a0.n) : `${a0.n}/${a0.d}`;
+  const right = prob.onAnswer(true, canon0);
+  if (right.end !== 'win' || !/Settled/.test(right.msg)) fail('court: a correct ruling settles the dispute');
+  if (!c0.heard || s.casesHeard !== casesBefore + 1) fail('court: settling bumps the cases-heard counter (counts up)');
+  if ((s.mastery[skill0] || {}).attempts !== attemptsBefore + 2) fail('court: the correct ruling records too, under the real skill');
+
+  // settle the rest → full session → celebration + faculty spawn at cadence
+  for (const c of s.court.cases.filter(x => !x.heard)) {
+    E.hearCase(c);
+    const a = c.problem.answer;
+    prob.onAnswer(true, a.d === 1 ? String(a.n) : `${a.n}/${a.d}`);
+  }
+  dialog = null;
+  E.holdCourt();
+  if (!dialog || !/adjourned/i.test(dialog.t)) fail('court: a full 3/3 session triggers the celebration');
+  if (s.courtSessions !== 1) fail('court: a full session bumps courtSessions (counts up)');
+  // (d, part 2) the milestone fired: the Clerk spawns at 1 session
+  if (!s.faculty.includes('clerk')) fail('court: the first Faculty post (Clerk) should spawn at its milestone');
+  if (!E.facultyAt(21, 3) || E.facultyAt(21, 3).id !== 'clerk') fail('court: the spawned Clerk should stand at its castle slot');
+  // re-opening after all-heard shows the quiet hall (celebration once)
+  dialog = null;
+  E.holdCourt();
+  if (!dialog || !/quiet/i.test(dialog.b)) fail('court: re-opening after a full session shows the quiet hall');
+
+  // faculty milestone cadence: 3 → bailiff, 6 → recorder
+  s.courtSessions = 3;
+  let claimed = E.checkFaculty();
+  if (!s.faculty.includes('bailiff') || !claimed.some(p => p.id === 'bailiff')) fail('court: the Bailiff should spawn at 3 sessions');
+  s.courtSessions = 6;
+  claimed = E.checkFaculty();
+  if (!s.faculty.includes('recorder')) fail('court: the Recorder should spawn at 6 sessions');
+  if (E.checkFaculty().length) fail('court: checkFaculty must not re-claim an already-taken post');
+
+  // (f) NG+ carries s.court + s.faculty + cases-heard through both directions
+  s.casesHeard = 12; s.magistrateVisits = 5;
+  const stash = JSON.stringify({ court: s.court, faculty: s.faculty, sessions: s.courtSessions, cases: s.casesHeard, mag: s.magistrateVisits });
+  E.startGolden();
+  const afterGolden = JSON.stringify({ court: s.court, faculty: s.faculty, sessions: s.courtSessions, cases: s.casesHeard, mag: s.magistrateVisits });
+  if (stash !== afterGolden) fail('court: startGolden must carry court/faculty/cases-heard through untouched');
+  if (!s.endingDone) fail('court: the crown (endingDone) survives NG+, so the court can still sit');
+  E.returnToFinishedKingdom();
+  const afterReturn = JSON.stringify({ court: s.court, faculty: s.faculty, sessions: s.courtSessions, cases: s.casesHeard, mag: s.magistrateVisits });
+  if (stash !== afterReturn) fail('court: returnToFinishedKingdom must carry court/faculty/cases-heard through untouched');
+
+  MM.ui.dialog = realDialog; MM.ui.dialogChoices = realChoices; MM.ui.showProblem = realShow; MM.ui.worldBurst = realBurst;
+  E.state = null;
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');
 process.exit(fails ? 1 : 0);

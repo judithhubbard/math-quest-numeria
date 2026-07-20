@@ -2116,6 +2116,29 @@ var MM = globalThis.MM = globalThis.MM || {};
         '...kkkk..kkkk...',
       ],
     },
+    herald: { // Wave 14: the Court Herald — a plumed cap, a blue tabard with a
+              // gold trim, and a raised brass trumpet. A person shape, so it
+              // never reads as a numeral at scale (the sprite-hazard class).
+      colors: { k: '#1a1626', p: '#e0c24a', H: '#b03a3a', F: '#f2c9a0', T: '#3a5aa8', t: '#d4b23a', G: '#e8c24a', L: '#5a4a3a' },
+      map: [
+        '........pp......',
+        '.......kppk.....',
+        '......kHHHHk....',
+        '......kHHHHk....',
+        '......kFFFFk....',
+        '......kFkFk...G.',
+        '......kFFFk..GG.',
+        '.....kTTTTTkGk..',
+        '....kTttttTGk...',
+        '....kTTTTTGk....',
+        '....kTttttTk....',
+        '....kTTTTTTk....',
+        '.....kTTTTk.....',
+        '.....kTTTTk.....',
+        '.....kLLLLk.....',
+        '....kkk..kkk....',
+      ],
+    },
     sage: {
       colors: { k: '#1a1626', G: '#8d88b8', F: '#e8c9a0', W: '#e8e4d8', R: '#6b5490', r: '#523c74', S: '#c49658' },
       map: [
