@@ -4012,3 +4012,113 @@ recording under muldiv_facts (the pedagogical point), fraction-scaling
 recording, gentle disaster-dish failure (never a loss), the mason-trail
 placement + reset, the Gardener/Cook Faculty posts via the extension
 point, feeding the real food economy.
+
+## Wave 17 order — "The Menagerie" (Castle Expansion Wave D) (user directive 2026-07-20)
+
+Fourth and final wave of CASTLE_EXPANSION_PLAN.md (read it + the Court /
+Parlor / Kitchen-Garden orders first). A nursery in the castle grounds for
+the BEFRIENDED KINDS — a whole collection the game has tracked since Wave
+8b (s.bestiary.befriended) but never gave a home. The kid TENDS the
+creatures they soothed; tending is weakest-first review that RECORDS to
+mastery; the creatures grow, collect tiny hats, and have a social life.
+This is the GENTLEST, most additive castle wave — tend-don't-fight, no
+failure state, a gift to the anxious kid — and the natural long-tail layer
+that keeps players returning after the sharper hooks. It reuses the pet
+growth model wholesale, so it is medium-cost with no risky new engine.
+
+ALL standing rules apply and are review-blocking: combat-free castle
+(s.monsters = []); no timers; gentle failure (a missed tending problem
+re-asks warmly, never a scold, never a loss — nothing here can be lost or
+harmed); jokes on monsters/items never the kid; comedy channels
+field/glyph/sound/modal, never the log; new glyphs get tileSprite context
+guards + unit checks; doors gate never decorate. Post-ending: gates on
+s.endingDone.
+
+### P1 — The nursery (a home for the befriended)
+A castle-grounds area reached from the castle (a door like the Wing's 'H';
+combat-free overworld rules; own tileSprite alphabet, glyph-collision
+guarded). The creatures present ARE the kinds in s.bestiary.befriended —
+so a kid who soothed many finds a full menagerie, and it grows as they
+soothe more (never sparse-as-failure; an empty pen just says "room for a
+friend, when you find one"). Each befriended kind roams its own patch and
+can be approached and TENDED.
+
+### P2 — Tending = the gentlest spaced review (RECORDS to mastery)
+- Bump a creature to TEND it: one weakest-first review problem via
+  MM.ui.showProblem, drawn across ALL topics (MM.mastery.weakestFirst over
+  the full capped skill set — respecting parent switches), RECORDED via
+  recordAnswer under its real skill. This makes the Menagerie the game's
+  gentlest spaced-review surface: low-stakes, self-chosen, no combat.
+- A correct tend makes the creature happy AND advances its GROWTH; a miss
+  re-asks warmly (worked answer shows; the creature waits, patient — never
+  a loss, never a scold). No timer; tend when you like.
+- GROWTH reuses the pet model wholesale: per-creature {correct, fed, stage}
+  like MM.data.PET_STAGES / E.checkPetStage — creatures advance stages as
+  they're tended, exactly as the pet grows. Persist per befriended key in
+  s.menagerie (keyed like s.bestiary.befriended).
+
+### P3 — Hats, social life, and the capstone
+- Creatures collect TINY HATS as they grow (reuse the PET_HATS cosmetic
+  path / wardrobe idiom) and REACT to their hats and to each other:
+  field/glyph/sound flavor + bump-modal — the social life of becalmed
+  monsters (a Bonepile and a slime inexplicably best friends; the pet
+  supervising with authority it does not have). Author the reaction pools.
+- THE CAPSTONE — the Parade (this is the cut Festival, EARNED here, the
+  one place it belongs): once a milestone is reached (e.g. N kinds tended
+  to a stage, or all present kinds content), a once-ever PARADE — the
+  befriended kinds march, worldBurst + fanfare + one authored line. Purely
+  a celebration beat, no mechanic, day-agnostic (no timer). s.menagerie
+  .paradeSeen guards the once-ever.
+
+### P4 — Faculty + rewards (reuse Wave 14's system)
+- Append a MENAGERIE-KEEPER post to MM.data.FACULTY_POSTS with its own
+  earned(state) predicate (e.g. kinds tended >= N) — the Wave 14
+  E.checkFaculty loop claims it with ZERO changes. A reformed monster
+  becomes the keeper, visible in the castle.
+- Rewards are the CREATURES themselves (growth, hats, the social life) +
+  up-only counters (kinds tended, tends given) — never gold-grind, never
+  a power reward. The collection is the trophy, like Your Own Room.
+
+### Records-to-mastery decision (confirm at build; recommend YES)
+The Menagerie DOES record — tending draws weakest-first review across the
+WHOLE curriculum, so it is genuine spaced practice (the gentlest surface
+in the game), and the report card should see it. This is the wave's
+pedagogical value: a no-stakes place the anxious kid will revisit, quietly
+keeping every topic warm.
+
+### Evidence & prose discipline (unchanged, mandatory)
+Unit: nursery glyph context guards; the befriended roster populates the
+pens (a fixture with N befriended kinds shows N creatures; zero = the
+"room for a friend" empty state, not a crash); tending draws a
+weakest-first problem and RECORDS under its real skill (assert the key + a
+miss re-asks with no loss); per-creature growth advances like the pet
+(stage up at the PET_STAGES-style thresholds); hats attach + persist;
+the parade fires once at its milestone (paradeSeen guards re-fire);
+keeper Faculty post appends and E.checkFaculty claims it unchanged;
+pre-Wave-17 save migration (s.menagerie defaults clean); NG+ carries
+s.menagerie + counters through startGolden AND returnToFinishedKingdom.
+Drive drive-menagerie.js (~18 checks): nursery gated on endingDone;
+befriended kinds appear; tend a creature correct (records under real skill
++ growth advances + happy), tend wrong (warm re-ask, no loss); a creature
+gains a hat + reacts; the parade fires once at its milestone and not
+again; the keeper appears at its milestone; the empty-pen state on a
+no-friends save. Full sweep (41 drives) + DETACHED marathon (nohup … &
+disown; POLL IN-TURN to MARATHON COMPLETE — do NOT end the turn to wait;
+logs in tests/logs/, paste final lines). SCREENSHOT AUDIT: the nursery
+with creatures, a tending problem, a creature in a tiny hat (legible at
+scale — numeral-hazard on any new sprite), the parade, the keeper. NO
+COMMIT — stop and report with ALL new prose verbatim (nursery signage,
+keeper lines, the creature social-life / hat-reaction pools, the parade
+line, the empty-pen line, faculty bump-line). Do NOT bump sw.js /
+tracker.js versions — the design session ships.
+
+### Deviation authority
+May cut freely if hairy: the per-creature hat set (reuse the pet's hats
+if a new set is heavy); the richest social-life reaction pools (a handful
+of lines is fine for v1); distinct growth sprites per stage (a size/pal
+bump like the pet is fine). May NOT cut: tending RECORDING weakest-first
+under real skills (the pedagogical point), gentle no-loss re-ask, the
+befriended roster driving the pens, the empty-pen non-failure state, the
+once-ever Parade capstone, the Keeper Faculty post via the extension
+point. This is the last castle wave — after it, the Faculty is full and
+the castle is a living place; note that in the ship report.
