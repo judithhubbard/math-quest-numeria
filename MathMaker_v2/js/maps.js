@@ -23,6 +23,15 @@
 //            & plate-gate (open only while some plate on this floor is held;
 //              visibly distinct from the lever-gate G)
 //            ! cracked floor (crosses once, then crumbles to a drop chute)
+// Wave 13 ("The Understudy & Your Own Room") adds ONE universal tile:
+//            ? echo plate — stepping on it summons the Understudy, which
+//              replays the player's last 12 steps from the plate as real
+//              movement (E.summonUnderstudy, engine.js). Wherever its route
+//              ends it stays; on a '+' it HOLDS the plate. Non-letter glyph,
+//              zero collision with the NPC alphabet; context guards in
+//              tests/test.js. Also: MM.maps.MYROOM (the buildable room
+//              behind the Wing's named doorway, mapId 'myroom') and the
+//              homesick staircase's authored spot in the Cavern of Echoes.
 // The Workshop Wing (mapId 'wing', castle-adjacent, combat-free) owns its
 // own alphabet — see MM.maps.WING below.
 // The mainland overworld adds  d  skip-count stepping stones (P4) and a
@@ -330,6 +339,17 @@ var MM = globalThis.MM = globalThis.MM || {};
   ];
 
   // --- Expansion dungeon 11: Cavern of Echoes (mixed review of everything)
+  // Wave 13 (P1 leak-back): the SW room is now the cavern's ECHO PLATE room
+  // — the name finally pays. '?' at (3,11), pressure plate '+' at (7,11)
+  // dead-ended against the east wall (the wall-stop catches an overshooting
+  // Understudy ON the plate), and a plate-gate '&' (6,13) sealing a chest
+  // pocket (7,13) with no interior floor (bumped from the gate tile — the
+  // v1.8.2 rule: a closing gate can never trap anyone). There are no slabs
+  // in this dungeon, so the Understudy is the only thing that can hold the
+  // plate while the kid walks to the gate. The displaced monster marker
+  // moved (3,12) -> (13,11) — same floor, same count.
+  // Wave 13 (P3): the homesick staircase stands at MM.maps.STAIRCASE_SPOT
+  // (plain floor, drawn as an entity — never a grid glyph).
   const D11 = [
     '##########################',
     '#..m....#....m...#....m..#',
@@ -342,10 +362,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     '#.......#........D.......#',
     '#.......D...m....#..b....#',
     '###D#####........#########',
-    '#.......#........#....m..#',
-    '#..m....#........D.......#',
-    '#.......#...m....#.......#',
-    '#..X....#....*...#....m..#',
+    '#..?...+#....m...#....m..#',
+    '#......##........D.......#',
+    '#.....&*#...m....#.......#',
+    '#..X...##....*...#....m..#',
     '##########################',
   ];
 
@@ -1195,10 +1215,21 @@ var MM = globalThis.MM = globalThis.MM || {};
     // v1.8.2: the plate room gets its OWN reset lever at (31,20) — a kid
     // wedged the slab in a corner and the only lever was a room away.
     '#..........#............l#.....l.#.....#',
-    '########################################',
-    '#........###############################',
-    '#.<...*..###############################',
-    '#........###############################',
+    // Wave 13 (P1): the ECHO ANNEX — a long gallery under the far room,
+    // entered down the shaft at (34,21)-(34,22). The echo plate '?' (12,23)
+    // sits one step short of a pressure plate '+' (11,23) dead-ended against
+    // the west wall: walk the corridor west, step on the plate, and the
+    // Understudy replays your steps — the wall-stop catches it ON the '+'.
+    // No chest here on purpose: with the Wing's slabs resting on plates for
+    // good, every '&' on this floor may already stand open — the annex is
+    // the TEACHING room (the once-ever summon is the payoff); the paying
+    // echo-plate puzzles live in the Cavern of Echoes and the Spiral pool,
+    // where nothing but the Understudy can hold a plate. Closed-gate safety
+    // holds by construction: the annex region contains its own '+'.
+    '##################################.#####',
+    '#........#########################.#####',
+    '#.<...*..#+?.......................#####',
+    '#........#######################i#######',
     '########################################',
   ];
 
@@ -1265,6 +1296,44 @@ var MM = globalThis.MM = globalThis.MM || {};
   MM.maps.FREE_SLABS = {
     d18: [{ x: 20, y: 10 }],
   };
+
+  // ===== Wave 13 (P2): Your Own Room — behind the Wing's named doorway =====
+  // A separate tiny map (mapId 'myroom', an OVERWORLD like the castle:
+  // combat-free, no stamina). The TEMPLATE below is the fixed shell; the
+  // kid's placed pieces (s.wing.myRoom.pieces) overlay it at build time
+  // (E.buildMyRoomGrid). Alphabet (own tileSprite block; none of these are
+  // MM.data.NPCS keys): X the entrance arch (back to the Wing hall)
+  //   B the workbench   O the goal pedestal (chest slot on top)
+  //   V the invite pull-cord   R the reset pull-cord (in the arch wall,
+  //   bumpable from inside — the wedge law from day one)
+  // Placed-piece chars: W wall block, U slab, + plate, & plate-gate,
+  //   ! cracked tile, * chest. 'v' = a crumbled crack (per-visit).
+  MM.maps.MYROOM = [
+    '#############',
+    '#...........#',
+    '#B..........#',
+    'V...........#',
+    'X..........O#',
+    'R...........#',
+    '#...........#',
+    '#...........#',
+    '#...........#',
+    '#############',
+  ];
+  MM.maps.MYROOM_ENTRY = { x: 1, y: 4 };       // the tile just inside the arch
+  MM.maps.MYROOM_ARCH = { x: 0, y: 4 };
+  MM.maps.MYROOM_BENCH = { x: 1, y: 2 };
+  MM.maps.MYROOM_PEDESTAL = { x: 11, y: 4 };
+  MM.maps.MYROOM_CORD_INVITE = { x: 0, y: 3 };
+  MM.maps.MYROOM_CORD_RESET = { x: 0, y: 5 };
+  // Palette v1 — tight ON PURPOSE: a budget makes it design, not sprawl.
+  MM.maps.MYROOM_BUDGET = { wall: 10, slab: 2, plate: 1, gate: 1, crack: 1, chest: 1 };
+  MM.maps.MYROOM_PIECE_CHARS = { wall: 'W', slab: 'U', plate: '+', gate: '&', crack: '!', chest: '*' };
+
+  // Wave 13 (P3): where the homesick staircase stands lost (Cavern of
+  // Echoes = dungeon 11, floor 1), and where it waits if you sail away.
+  MM.maps.STAIRCASE_SPOT = { x: 11, y: 7 };
+  MM.maps.STAIRCASE_PIER_WAIT = { x: 3, y: 7 };   // beside the Old Pier 'W' (2,7)
 
   // Wave 12 (P4): the skip-count stepping stones near Old Fisher Finn.
   // seq 0..3 is the crossing order (the ×2 skip-count: 2, 4, 6, 8);
@@ -1452,6 +1521,28 @@ var MM = globalThis.MM = globalThis.MM || {};
       '#.........>#',
       '############',
     ],
+    // ---------- Wave 13 (P1): the echo-plate chunk ----------
+    // [12] APPENDED (floors 1-12 keep their historical chunks; floors 13+
+    // re-template once — stale s.opened keys can only open cells, the same
+    // migration class as Wave 12/v1.8.1). The Understudy's choreography:
+    // walk the row-6 corridor east, step on '?', and the replay carries it
+    // onto the '+' (the wall at (10,6) catches an overshoot ON the plate).
+    // The plate-gate '&' (10,2) seals a walled chest pocket (10,1) with no
+    // interior floor. There are no slabs on the Spiral, so only the
+    // Understudy can hold the plate while you climb to the gate. Optional
+    // route only: the plain-floor walk X -> '>' runs down col 1 / row 8.
+    [
+      '############',
+      '#X.......#*#',
+      '#........#&#',
+      '#..m.....#.#',
+      '#..........#',
+      '#..#####...#',
+      '#....?...+##',
+      '#..m.......#',
+      '#.........>#',
+      '############',
+    ],
   ];
   MM.maps.SPIRAL_LANDING = [
     [
@@ -1558,7 +1649,9 @@ var MM = globalThis.MM = globalThis.MM || {};
   // NPC pass must run so the MathMaker and Miscount are actually drawn.
   // 'wing' (Wave 12) is an overworld like the castle: no monsters ever, the
   // NPC pass may run (its alphabet avoids every NPCS key), castle movement.
-  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing'];
+  // 'myroom' (Wave 13) is an overworld like the castle and the Wing: no
+  // monsters ever, no stamina, its own alphabet block below.
+  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom'];
   MM.maps.isOverworld = mapId => MM.maps.OVERWORLD_IDS.includes(mapId);
 
   // Gear gates (Clockwork Spire): exactly one of A/B/C is open at a time, and
@@ -1731,7 +1824,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ch === 'T') return 'portrait';
       if (ch === 'i') return 'board';
       if (ch === 'w') return 'wardrobe';
-      if (ch === 'H') return 'teaseDoor';
+      // Wave 13: once the Wing title is earned, the named doorway stands
+      // OPEN (the v1.8.2 "masons" holding-note is gone — the door delivers).
+      if (ch === 'H') return (st && st.wing && st.wing.titleGiven) ? 'openDoorway' : 'teaseDoor';
+      if (ch === '?') return 'echoPlate';
       if (ch === '*') return 'chest';
       if (ch === 'U') return 'slab';
       if (ch === 'l') return 'resetLever';
@@ -1749,6 +1845,28 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ch === 'v') return 'chute';
       if (ch === '<') return 'stairsUp';
       if (ch === '_') return 'slick';
+      return 'hallFloor';
+    }
+    // Wave 13 (P2): Your Own Room owns its whole alphabet, castle-style.
+    // Several letters mean OTHER things elsewhere ('B'/'R' gear tiles in the
+    // Spire, 'O' throne/fountain, 'V' the castle crest board, 'W' a pier,
+    // 'X' varies) — this block sits before every shared case, and each
+    // collision has a unit guard in tests/test.js (the v1.7.9 'Y' lesson).
+    if (mapId === 'myroom') {
+      const eng = MM.engine;
+      if (ch === '#') return 'wall';
+      if (ch === 'W') return 'wallWorked';   // a placed wall block reads as BUILT
+      if (ch === 'X') return 'openDoorway';
+      if (ch === 'B') return 'workbench';
+      if (ch === 'O') return 'pedestal';
+      if (ch === 'V') return 'pullCord';
+      if (ch === 'R') return 'resetLever';
+      if (ch === 'U') return 'slab';
+      if (ch === '*') return 'chest';
+      if (ch === '&') return MM.maps.plateOpenNow(mapId) ? 'plateGateOpen' : 'plateGateShut';
+      if (ch === '+') return (eng && eng.plateOccupied && eng.state && eng.plateOccupied(x, y)) ? 'platePressed' : 'plate';
+      if (ch === '!') return 'crackedFloor';
+      if (ch === 'v') return 'chute';
       return 'hallFloor';
     }
     if (mapId === 'isles' && (ch === 'u' || ch === 'v' || ch === 'w')) return 'murk';
@@ -1797,6 +1915,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       return (eng && eng.plateOccupied && eng.state && eng.plateOccupied(x, y)) ? 'platePressed' : 'plate';
     }
     if (inDungeon && ch === '!') return 'crackedFloor';
+    // Wave 13 (P1): the echo plate — dungeon-only outside the Wing (which
+    // intercepts its own '?' above). Never appears on any overworld.
+    if (inDungeon && ch === '?') return 'echoPlate';
     switch (ch) {
       case '~': return waterFrame ? 'water2' : 'water';
       case 'T': return 'tree';

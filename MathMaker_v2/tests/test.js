@@ -14,7 +14,7 @@ function fail(msg) { fails++; console.log('FAIL: ' + msg); }
 // This suite runs headless (no DOM) — stub the browser-only bits any engine
 // function might touch (sound effects, UI logging/refresh) so a call like
 // MM.engine.resetSite doesn't crash just because there's no <audio> tag here.
-MM.sound = { fanfare() {}, thud() {}, coin() {}, correct() {}, wrong() {}, levelup() {}, tone() {}, whoosh() {}, dodge() {}, splash() {}, sigh() {}, chirp() {}, creak() {}, toot() {}, soothe() {}, fret() {}, purr() {} };
+MM.sound = { fanfare() {}, thud() {}, coin() {}, correct() {}, wrong() {}, levelup() {}, tone() {}, whoosh() {}, dodge() {}, splash() {}, sigh() {}, chirp() {}, creak() {}, toot() {}, soothe() {}, fret() {}, purr() {}, tada() {} };
 MM.ui = { log() {}, refresh() {}, modalOpen: () => false, dialog() {}, dialogChoices() {}, showProblem() {}, playerMoved() {} };
 MM.battle = MM.battle || { active: () => false, start() {} };   // Wave 12: tryMove is exercised headlessly now
 MM.track = MM.track || function () {};   // tracker.js isn't loaded headlessly
@@ -398,11 +398,12 @@ const DUNGEON_GLYPHS = {
                              // per-rotation reachability has its own test
                              // (the Spire block) — Wave 7 kept them in the
                              // live grid but did not change what they gate.
-  open: '.mgtbk*%<>Xv^,_osRL+! ', // floor, spawn markers, pickups, stairs,
+  open: '.mgtbk*%<>Xv^,_osRL+!? ', // floor, spawn markers, pickups, stairs,
                              // chutes, terrain effects, singing stones,
                              // gear plates (walk-on), one-shot levers
                              // (post-pull = open route), pressure plates
-                             // (+, walk-on) and cracked floor (!, Wave 12)
+                             // (+, walk-on), cracked floor (!, Wave 12)
+                             // and echo plates (?, walk-on — Wave 13)
 };
 function auditDoors(rawGrid, label) {
   const grid = MM.maps.parse(rawGrid, '#');
@@ -1335,6 +1336,14 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   checkMap(MM.maps.GULLWRACK, 'gullwrack', 'gullwrack');
   checkMap(MM.maps.CASTLE, 'castle', 'castle');   // Wave 7
   checkMap(MM.maps.WING, 'wing', 'wing');         // Wave 12
+  // Wave 13: Your Own Room's grid is BUILT (template + placed pieces), so
+  // audit a sample carrying every placeable piece char.
+  {
+    const sample = MM.maps.MYROOM.map(r => r.split(''));
+    const chars = Object.values(MM.maps.MYROOM_PIECE_CHARS).concat(['v']);
+    chars.forEach((ch, i) => { sample[1][2 + i] = ch; });
+    checkMap(sample.map(r => r.join('')), 'myroom', 'myroom');
+  }
   for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
     MM.maps.dungeonFloors(idx).forEach((raw, fi) => checkMap(raw, `d${idx}f${fi}`, `render d${idx} f${fi}`));
   }
@@ -2895,7 +2904,7 @@ for (const skill of skills) {
   }));
   if (!MM.maps.WING_RESET_LEVERS['31,20']) fail('wing: the plate room lost its own reset lever');
   // reachability from P: gates modeled OPEN; every bumpable adjacent-reachable
-  const WALK = '.PX+0!_v<&G';
+  const WALK = '.PX+0!_v<&G?';   // '?' = the Echo Annex's plate (Wave 13)
   const bfs = (sx, sy, walk) => {
     const seen = new Set([sx + ',' + sy]);
     const q = [[sx, sy]];
@@ -2920,7 +2929,7 @@ for (const skill of skills) {
       if (!adjSeen(p)) fail(`wing: bumpable '${ch}' at ${p.x},${p.y} can never be reached`);
     }
   }
-  for (const ch of ['+', '0', '!', '_', 'v', '<']) {
+  for (const ch of ['+', '0', '!', '_', 'v', '<', '?']) {
     for (const p of MM.maps.find(g, ch)) {
       if (inCellar(p.x, p.y)) continue;
       if (!seen.has(p.x + ',' + p.y)) fail(`wing: walk-on '${ch}' at ${p.x},${p.y} unreachable`);
@@ -3233,7 +3242,7 @@ for (const skill of skills) {
   // tile — every chunk keeps a PLAIN-FLOOR walk from X to '>' with every
   // special tile treated as a wall (D doors are core practice stations and
   // stay passable; markers sit on plain floor).
-  const SPECIALS = '_o,LGRABC+&!v^%';
+  const SPECIALS = '_o,LGRABC+&!v^%?';   // '?' = echo plates (Wave 13)
   const plainPath = (rows, label) => {
     const g = MM.maps.parse(rows, '#');
     const X = MM.maps.find(g, 'X')[0];
@@ -3383,6 +3392,386 @@ for (const skill of skills) {
   MM.engine.ensureWing();
   if (!s.wing || !s.wing.slabs || s.wing.slabs.length !== MM.maps.WING_SLABS.length) fail('migration: ensureWing did not build a full wing state');
   MM.engine.state = null;
+}
+
+// ========================================================================
+// ---------- Wave 13: "The Understudy & Your Own Room" ----------
+// ========================================================================
+
+// ---------- new-glyph context guards (the v1.7.9 'Y' lesson) ----------
+{
+  MM.engine.state = null;
+  const cases = [
+    ['?', 'wing', 'echoPlate'], ['?', 'd11', 'echoPlate'], ['?', 'd22f12', 'echoPlate'],
+    ['B', 'myroom', 'workbench'], ['B', 'd19f1', 'gateShut'],
+    ['R', 'myroom', 'resetLever'], ['R', 'd19f1', 'gearPlate'],
+    ['O', 'myroom', 'pedestal'], ['O', 'castle', 'throne'], ['O', 'wing', 'fountain'],
+    ['V', 'myroom', 'pullCord'], ['V', 'castle', 'crestBoard'],
+    ['W', 'myroom', 'wallWorked'], ['W', 'world', 'pier'],
+    ['X', 'myroom', 'openDoorway'], ['X', 'wing', 'castleDoor'],
+    ['U', 'myroom', 'slab'], ['+', 'myroom', 'plate'], ['&', 'myroom', 'plateGateShut'],
+    ['!', 'myroom', 'crackedFloor'], ['*', 'myroom', 'chest'], ['v', 'myroom', 'chute'],
+    ['#', 'myroom', 'wall'], ['H', 'wing', 'teaseDoor'],
+  ];
+  for (const [ch, mapId, want] of cases) {
+    const got = MM.maps.tileSprite(ch, 0, 0, mapId, 0);
+    if (got !== want) fail(`W13 tileSprite('${ch}', ${mapId}) = '${got}', want '${want}'`);
+    if (!MM.sprites.DEFS[got]) fail(`W13 tileSprite('${ch}', ${mapId}) -> '${got}' has no sprite def`);
+  }
+  // the named doorway OPENS once the title is given (the masons note is gone)
+  MM.engine.state = { wing: { titleGiven: true } };
+  if (MM.maps.tileSprite('H', 0, 0, 'wing', 0) !== 'openDoorway') fail("W13: the wing doorway should draw OPEN once titleGiven");
+  MM.engine.state = null;
+  // '?' must never leak onto an overworld alphabet
+  const owSpr = MM.maps.tileSprite('?', 0, 0, 'world', 0);
+  if (owSpr !== 'grass' && owSpr !== 'grass2') fail("W13: '?' has no overworld meaning and should fall through to ground");
+}
+
+// ---------- Wing annex + Cavern + Spiral geometry ----------
+{
+  const g = MM.maps.parse(MM.maps.WING, '#');
+  if (g[23][11] !== '?') fail('annex: echo plate should sit at (11,23)');
+  if (g[23][10] !== '+') fail('annex: pressure plate should sit at (10,23)');
+  if (g[23][9] !== '#') fail('annex: the wall-stop west of the plate is missing (an overshooting Understudy must be caught ON the plate)');
+  for (const y of [21, 22, 23]) if (g[y][34] !== '.') fail(`annex: the entry shaft is blocked at (34,${y})`);
+  if (g[24][32] !== 'i') fail('annex: the Tallis plaque is missing at (32,24)');
+  if (!MM.data.WING_PLAQUES['32,24']) fail('annex: the Tallis plaque has no prose entry');
+  // exactly one echo plate in the Wing; NO chest in the annex (with slabs
+  // resting on plates for good, every '&' on the floor may already stand
+  // open — the annex teaches, the Cavern and the Spiral pay)
+  if (MM.maps.find(g, '?').length !== 1) fail('annex: want exactly one echo plate in the Wing');
+
+  const d11 = MM.maps.parse(MM.maps.DUNGEONS[10], '#');
+  if (d11[11][3] !== '?') fail('cavern: echo plate should sit at (3,11)');
+  if (d11[11][7] !== '+') fail('cavern: pressure plate should sit at (7,11)');
+  if (d11[11][8] !== '#') fail('cavern: the wall-stop east of the plate is missing');
+  if (d11[13][6] !== '&') fail('cavern: plate-gate should sit at (6,13)');
+  if (d11[13][7] !== '*') fail('cavern: the gated chest should sit at (7,13)');
+  // the chest pocket has NO other way in (bumped from the gate tile itself)
+  if (d11[12][7] !== '#' || d11[14][7] !== '#' || d11[13][8] !== '#') fail('cavern: the chest pocket must be walled on every non-gate side');
+  // no slabs in the cavern — only the Understudy can hold the plate
+  if (MM.maps.find(d11, 'U').length) fail('cavern: a slab here would trivialize the echo-plate puzzle');
+  // the staircase's authored spot is plain floor
+  const sp = MM.maps.STAIRCASE_SPOT;
+  if (d11[sp.y][sp.x] !== '.') fail(`cavern: STAIRCASE_SPOT (${sp.x},${sp.y}) is '${d11[sp.y][sp.x]}', want '.'`);
+
+  // the echo-plate chunk: appended (historical floors keep their chunks),
+  // materializing at floor 13; gate guards a chest, never the stairs
+  const floors = MM.maps.dungeonFloors(MM.maps.SPIRAL_INDEX);
+  if (!floors[12].some(r => r.includes('?'))) fail('spiral: floor 13 should be the echo-plate chunk');
+  const ch12 = MM.maps.parse(floors[12], '#');
+  if (MM.maps.find(ch12, '?').length !== 1 || MM.maps.find(ch12, '+').length !== 1) fail('spiral echo chunk: want one ? and one +');
+  if (MM.maps.find(ch12, '&').length !== 1 || MM.maps.find(ch12, '*').length !== 1) fail('spiral echo chunk: want one & and one *');
+  if (MM.maps.find(ch12, 'U').length) fail('spiral echo chunk: no slabs on the Spiral');
+  // floors 1-12 unchanged by the append (an old save\'s opened keys line up)
+  if (floors[7].some(r => r.includes('?')) || floors[0].some(r => r.includes('?'))) fail('spiral: the echo chunk must be APPENDED, not inserted');
+}
+
+// ---------- step-buffer record/replay determinism ----------
+{
+  const E = MM.engine;
+  const mkWing = () => {
+    E.state = {
+      mapId: 'wing', grid: MM.maps.parse(MM.maps.WING, '#'), wing: null, opened: {}, monsters: [],
+      name: 'w13unit', gold: 0, calmMode: true, isles: { lenses: {}, pet: null }, px: 2, py: 11,
+      items: { food: {}, charms: [] }, charmsOn: [], seenUnderstudy: true,
+      equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null },
+    };
+    E.ensureWing();
+    E.applyWingState();
+    E.resetTransientEntities();
+    return E.state;
+  };
+  mkWing();
+  // rolling buffer keeps exactly the last 12 steps
+  for (let i = 0; i < 15; i++) E.recordStep(1, 0);
+  E.recordStep(0, 1);
+  if (E.stepBuffer.length !== 12) fail(`buffer: want 12 entries, got ${E.stepBuffer.length}`);
+  if (E.stepBuffer[11].dy !== 1) fail('buffer: newest step should be at the tail');
+  if (E.stepBuffer[0].dy !== 0) fail('buffer: oldest surplus steps should have rolled off');
+  // deterministic replay: run the annex choreography twice, identical traces
+  const runReplay = () => {
+    const s = mkWing();
+    s.px = 24; s.py = 23;   // mid-corridor in the annex
+    for (let i = 0; i < 12; i++) E.recordStep(-1, 0);
+    E.summonUnderstudy(12, 23);
+    const trace = [];
+    let guard = 0;
+    while (E.understudy && E.understudy.active && guard++ < 40) {
+      E.understudyTick();
+      trace.push(E.understudy.x + ',' + E.understudy.y);
+    }
+    return { trace: trace.join(' '), end: { x: E.understudy.x, y: E.understudy.y }, stopped: E.understudy.stopped };
+  };
+  const r1 = runReplay(), r2 = runReplay();
+  if (r1.trace !== r2.trace) fail('understudy: replay is not deterministic');
+  // 12 W steps from the plate: one onto '+', then the wall-stop catches it ON the plate
+  if (!(r1.end.x === 10 && r1.end.y === 23)) fail(`understudy: wall-stop should catch it ON the annex plate (ended ${r1.end.x},${r1.end.y})`);
+  if (!r1.stopped) fail('understudy: the overshoot should have been stopped by the wall (politely)');
+  // the half-beat: with a 2-step path, the tick before the final step is a pause
+  {
+    const s = mkWing();
+    s.px = 14; s.py = 23;
+    E.recordStep(-1, 0); E.recordStep(-1, 0);
+    E.summonUnderstudy(12, 23);
+    E.understudyTick();   // step 1
+    const afterOne = { x: E.understudy.x, y: E.understudy.y };
+    E.understudyTick();   // the theatrical half-beat: NO movement
+    if (E.understudy.x !== afterOne.x || E.understudy.y !== afterOne.y) fail('understudy: expected a half-beat pause before the final step');
+    E.understudyTick();   // the final step lands
+    if (E.understudy.x !== 10 || E.understudy.y !== 23) fail('understudy: final step after the half-beat should land on the plate');
+    if (E.understudy.active) fail('understudy: route complete should end the replay');
+  }
+  E.resetTransientEntities();
+  E.state = null;
+}
+
+// ---------- the Understudy holds a plate (the plate-occupancy clause) ----------
+{
+  const E = MM.engine;
+  E.state = {
+    mapId: 'wing', grid: MM.maps.parse(MM.maps.WING, '#'), wing: null, opened: {}, monsters: [],
+    gold: 0, calmMode: true, isles: { lenses: {}, pet: null }, px: 2, py: 11,
+    items: { food: {}, charms: [] }, charmsOn: [],
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null },
+  };
+  E.ensureWing();
+  E.applyWingState();
+  E.resetTransientEntities();
+  E.petPos = null;
+  if (E.platePowered('wing')) fail('understudy-hold: nothing should power the plates yet');
+  E.understudy = { mapId: 'wing', x: 10, y: 23, path: [], i: 0, active: false };
+  if (!E.platePowered('wing')) fail('understudy-hold: an Understudy standing on a plate must HOLD it');
+  if (!E.plateOccupied(10, 23)) fail('understudy-hold: the held plate should draw pressed');
+  E.understudy.x = 12;
+  if (E.platePowered('wing')) fail('understudy-hold: off the plate, the gates must fall shut');
+  // and the walk-into swap never leaves it blocking
+  E.understudy = { mapId: 'wing', x: 3, y: 11, path: [], i: 0, active: false };
+  E.state.px = 2; E.state.py = 11;
+  if (!E.tryUnderstudySwap(3, 11)) fail('understudy-swap: walking into it should swap');
+  if (!(E.state.px === 3 && E.state.py === 11 && E.understudy.x === 2 && E.understudy.y === 11)) fail('understudy-swap: positions should exchange');
+  E.resetTransientEntities();
+  E.state = null;
+}
+
+// ---------- Your Own Room: budget, illegal placement, serialization ----------
+{
+  const E = MM.engine;
+  const mkRoom = pieces => {
+    E.state = {
+      mapId: 'myroom', wing: null, opened: {}, monsters: [], name: 'w13room',
+      gold: 0, calmMode: true, isles: { lenses: {}, pet: null }, px: 1, py: 4,
+      items: { food: {}, charms: [] }, charmsOn: [],
+      equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null },
+    };
+    const w = E.ensureWing();
+    w.titleGiven = true;
+    if (pieces) w.myRoom.pieces = pieces.map(p => ({ ...p }));
+    E.buildMyRoomGrid();
+    E.resetTransientEntities.name; // (transients were reset by grid build path)
+    return w.myRoom;
+  };
+  const mr = mkRoom([]);
+  // budget: 10 walls place, the 11th is rejected
+  let placed = 0;
+  for (let i = 0; i < 11; i++) if (E.myRoomPlace('wall', 3 + (i % 8), 1 + Math.floor(i / 8) * 5)) placed++;
+  if (placed !== 10) fail(`myroom: wall budget should cap at 10 (placed ${placed})`);
+  // illegal placements: the entry tile, solid template tiles, occupied cells, OOB
+  if (E.myRoomPlace('plate', MM.maps.MYROOM_ENTRY.x, MM.maps.MYROOM_ENTRY.y)) fail('myroom: the entry tile must stay clear');
+  if (E.myRoomPlace('plate', MM.maps.MYROOM_PEDESTAL.x, MM.maps.MYROOM_PEDESTAL.y)) fail('myroom: cannot place on the pedestal');
+  if (E.myRoomPlace('plate', MM.maps.MYROOM_BENCH.x, MM.maps.MYROOM_BENCH.y)) fail('myroom: cannot place on the workbench');
+  if (E.myRoomPlace('plate', 3, 1)) fail('myroom: cannot place on an occupied cell');
+  if (E.myRoomPlace('plate', 0, 0)) fail('myroom: cannot place on the border wall');
+  if (E.myRoomPlace('plate', 40, 40)) fail('myroom: cannot place out of bounds');
+  if (!E.myRoomPlace('plate', 6, 6)) fail('myroom: a legal plate placement was rejected');
+  if (E.myRoomPlace('plate', 7, 7)) fail('myroom: plate budget is 1');
+  // serialization round-trip: pieces survive save/load byte-for-byte
+  E.state.taskIndex = 1; E.state.tasksDone = []; E.state.mastery = {}; E.state.badges = {};
+  E.state.totals = { answered: 0, correct: 0 }; E.state.parent = { pin: null, topics: {} };
+  E.state.bestiary = { seen: {}, kills: {}, gauntlet: {} }; E.state.hp = 24; E.state.maxhp = 24;
+  E.state.stamina = 100; E.state.maxStamina = 100; E.state.level = 1; E.state.xp = 0;
+  E.state.gear = { weapon: ['stick'], body: ['clothes'], helmet: [], boots: [], ring: [], amulet: [] };
+  E.state.continent = 'west'; E.state.worldPos = null; E.state.streak = 0;
+  const savedPieces = JSON.stringify(E.state.wing.myRoom.pieces);
+  E.save();
+  E.load('w13room');
+  const loaded = JSON.stringify(E.state.wing.myRoom.pieces);
+  if (savedPieces !== loaded) fail('myroom: pieces did not survive a save/load round-trip');
+  if (E.state.wing.myRoom.solveCount !== 0) fail('myroom: solveCount should round-trip');
+  E.state = null;
+}
+
+// ---------- the pupil's solver: fixtures + determinism ----------
+{
+  const E = MM.engine;
+  const realRandom = Math.random;
+  Math.random = () => { throw new Error('THE SOLVER MUST NOT USE Math.random'); };
+  let empty, walled, gated, gated2;
+  try {
+    // solvable: an empty room — a straight walk to the pedestal
+    empty = E.myRoomSolve([]);
+    // unsolvable: a full wall line across the room (within the 10-wall budget)
+    const wallLine = [];
+    for (let y = 1; y <= 8; y++) wallLine.push({ t: 'wall', x: 6, y });
+    walled = E.myRoomSolve(wallLine);
+    // solvable: wall line pierced by a plate-gate, with a plate + slab to hold it
+    const fix = [];
+    for (let y = 1; y <= 8; y++) if (y !== 4) fix.push({ t: 'wall', x: 6, y });
+    fix.push({ t: 'gate', x: 6, y: 4 });
+    fix.push({ t: 'plate', x: 3, y: 2 });
+    fix.push({ t: 'slab', x: 3, y: 4 });
+    gated = E.myRoomSolve(fix);
+    gated2 = E.myRoomSolve(fix);
+  } finally {
+    Math.random = realRandom;
+  }
+  if (!empty.solvable || !empty.steps.length) fail('solver: an empty room must be solvable');
+  if (walled.solvable) fail('solver: a fully walled-off pedestal must be unsolvable');
+  if (!gated.solvable) fail('solver: the slab-on-plate room must be solvable');
+  if (JSON.stringify(gated) !== JSON.stringify(gated2)) fail('solver: two runs on the same room must return the SAME plan');
+  // simulate the plan against the same rules: it must genuinely reach the goal
+  const simulate = (pieces, steps) => {
+    const base = MM.maps.parse(MM.maps.MYROOM, '#');
+    const slabs = [];
+    for (const p of pieces) {
+      if (p.t === 'slab') { slabs.push({ x: p.x, y: p.y }); continue; }
+      base[p.y][p.x] = MM.maps.MYROOM_PIECE_CHARS[p.t];
+    }
+    let { x, y } = MM.maps.MYROOM_ENTRY;
+    for (const [dx, dy] of steps) {
+      const nx = x + dx, ny = y + dy;
+      const si = slabs.findIndex(sl => sl.x === nx && sl.y === ny);
+      if (si >= 0) { slabs[si] = { x: nx + dx, y: ny + dy }; }
+      x = nx; y = ny;
+    }
+    const ped = MM.maps.MYROOM_PEDESTAL;
+    return Math.abs(x - ped.x) + Math.abs(y - ped.y) === 1;
+  };
+  if (!simulate([], empty.steps)) fail('solver: the empty-room plan does not reach the pedestal');
+  // the cap defends against a state-space blowup: force it tiny and confirm
+  // cap-hit reads as unsolvable, never a hang or a throw
+  const realCap = E.MYROOM_SOLVER_CAP;
+  E.MYROOM_SOLVER_CAP = 3;
+  const capped = E.myRoomSolve([]);
+  E.MYROOM_SOLVER_CAP = realCap;
+  if (capped.solvable || !capped.capped) fail('solver: hitting the state cap must read as unsolvable (capped)');
+}
+
+// ---------- wedge-nudge coverage inside Your Own Room ----------
+{
+  const E = MM.engine;
+  E.state = {
+    mapId: 'myroom', wing: null, opened: {}, monsters: [], name: 'w13wedge',
+    gold: 0, calmMode: true, isles: { lenses: {}, pet: null }, px: 2, py: 6,
+    items: { food: {}, charms: [] }, charmsOn: [],
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null },
+  };
+  const w = E.ensureWing();
+  w.myRoom.pieces = [{ t: 'slab', x: 1, y: 6 }];
+  E.buildMyRoomGrid();
+  E.pupil = null;
+  E._futileSlab = 0;
+  E._wedgeNoted = false;
+  let dialogTitle = null;
+  const realDialog = MM.ui.dialog;
+  MM.ui.dialog = t => { dialogTitle = t; };
+  // the slab is against the west border: three futile pushes raise the nudge
+  for (let i = 0; i < 3; i++) E.myRoomSlabBump(-1, 0, 1, 6);
+  MM.ui.dialog = realDialog;
+  if (!dialogTitle || !/Wedged/.test(dialogTitle)) fail('myroom: three futile pushes must raise the wedge nudge in the kid\'s own room');
+  // and the reset cord shuffles a pushed slab home
+  E._myRoomSlabs[0].x = 4; E._myRoomSlabs[0].y = 6;
+  E.state.grid[6][1] = '.'; E.state.grid[6][4] = 'U';
+  E.state.px = 8; E.state.py = 8;
+  E.myRoomReset();
+  if (!(E._myRoomSlabs[0].x === 1 && E._myRoomSlabs[0].y === 6)) fail('myroom: the reset cord must shuffle slabs back to their placed spots');
+  if (E.state.grid[6][1] !== 'U' || E.state.grid[6][4] !== '.') fail('myroom: the reset cord must redraw the grid');
+  E.resetTransientEntities();
+  E.state = null;
+  E._futileSlab = 0;
+  E._wedgeNoted = false;
+}
+
+// ---------- the homesick staircase: state machine + save/load + NG+ ----------
+{
+  const E = MM.engine;
+  // build a full valid save to exercise load/startGolden/return
+  localStorage.setItem('mathmaker2_save_w13stair', JSON.stringify({
+    version: 4, name: 'w13stair', hp: 24, maxhp: 24, stamina: 100, maxStamina: 100,
+    gold: 10, level: 1, xp: 0, potions: 1, difficulty: 'hero',
+    parent: { pin: null, topics: {} }, taskIndex: 14, haveItem: false,
+    tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    mastery: {}, badges: {}, bestiary: { seen: {}, kills: {}, gauntlet: {} },
+    continent: 'west', isles: { lenses: { tidepool: true, frostbite: true, cinderforge: true }, keys: {}, egg: null, pet: null, lampLit: true, spireDone: true },
+    charmsOn: [], opened: {}, bossesDefeated: {}, defeatedAt: {}, streak: 0,
+    totals: { answered: 0, correct: 0 }, worldPos: null, seenBattleHelp: true, endingDone: true,
+    gear: { weapon: ['stick'], body: ['clothes'], helmet: [], boots: [], ring: [], amulet: [] },
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null }, enchants: {},
+    items: { food: {}, treasures: [], charms: [], gems: [] },
+  }));
+  E.load('w13stair');
+  const s = E.state;
+  if (s.spiral.staircase !== 'lost') fail('staircase: a pre-Wave-13 save should migrate to lost');
+  if (s.seenUnderstudy !== false) fail('migration: seenUnderstudy should default to false');
+  // lost -> following (bump at the authored spot, post-ending, in d11)
+  E.enterDungeon(11);
+  s.monsters = [{ name: 'Bonepile', x: 20, y: 2, hp: 5, maxhp: 5, atk: 1, stun: 0, behavior: 'wander' }];
+  const spot = MM.maps.STAIRCASE_SPOT;
+  if (!E.staircaseDrawPos() || E.staircaseDrawPos().x !== spot.x) fail('staircase: lost should draw at the authored spot in d11');
+  if (!E.stairBumpAt(spot.x, spot.y)) fail('staircase: bumping the spot should start the escort');
+  if (s.spiral.staircase !== 'following') fail('staircase: bump should set following');
+  // following: lags two moves behind
+  E.stairStep(5, 5);
+  if (!(E.stairPos.x === 5 && E.stairPos.y === 5)) fail('staircase: first step seeds the trail');
+  E.stairStep(6, 5);
+  if (!(E.stairPos.x === 5 && E.stairPos.y === 5)) fail('staircase: should lag TWO moves behind (still at the older tile)');
+  E.stairStep(7, 5);
+  if (!(E.stairPos.x === 6 && E.stairPos.y === 5)) fail('staircase: the trail should advance one behind the pet');
+  // save/load MID-ESCORT: following survives
+  E.save();
+  E.load('w13stair');
+  if (E.state.spiral.staircase !== 'following') fail('staircase: following must survive a save/load mid-escort');
+  // following -> waiting when you go somewhere stairs cannot
+  E.state.mapId = 'world';
+  E.state.px = 12; E.state.py = 9;
+  E.stairParkHere();
+  const st2 = E.state.spiral.staircase;
+  if (!st2.waiting || st2.waiting.x !== 12 || st2.waiting.y !== 9) fail('staircase: parking should record the waiting spot');
+  E.save();
+  E.load('w13stair');
+  const st3 = E.state.spiral.staircase;
+  if (!st3.waiting || st3.waiting.x !== 12) fail('staircase: waiting must survive a save/load');
+  // waiting -> following on a bump
+  E.state.mapId = 'world';
+  if (!E.stairBumpAt(12, 9)) fail('staircase: bumping the waiting spot should resume the escort');
+  if (E.state.spiral.staircase !== 'following') fail('staircase: resume should set following');
+  // following -> home at the tower (via the homecoming), and the menu option
+  {
+    let choiceLabels = null, dialogSeen = null;
+    const realDialog = MM.ui.dialog, realChoices = MM.ui.dialogChoices;
+    MM.ui.dialog = (t, b, cb) => { dialogSeen = t; if (cb) cb(); };
+    MM.ui.dialogChoices = (t, b, buttons) => { choiceLabels = buttons.map(x => x.label).join(' | '); };
+    E.spiralMenu();   // following + world = the homecoming, then the menu
+    MM.ui.dialog = realDialog; MM.ui.dialogChoices = realChoices;
+    if (!/staircase comes home/.test(dialogSeen || '')) fail('staircase: bumping the tower mid-escort should play the homecoming');
+    if (E.state.spiral.staircase !== 'home') fail('staircase: the homecoming should set home');
+    if (!/floor 10/.test(choiceLabels || '')) fail('staircase: home should add the ⤴ Start from floor 10 option');
+  }
+  // NG+ snapshot: myRoom + staircase state survive startGolden AND the return
+  {
+    const w = E.ensureWing();
+    w.myRoom.pieces = [{ t: 'wall', x: 5, y: 5 }, { t: 'plate', x: 6, y: 6 }];
+    w.myRoom.solveCount = 3;
+    const stash = JSON.stringify({ p: w.myRoom.pieces, c: w.myRoom.solveCount, st: E.state.spiral.staircase });
+    E.startGolden();
+    const after = JSON.stringify({ p: E.state.wing.myRoom.pieces, c: E.state.wing.myRoom.solveCount, st: E.state.spiral.staircase });
+    if (stash !== after) fail('NG+: startGolden must carry myRoom + staircase state through');
+    if (!E.returnToFinishedKingdom()) fail('NG+: returnToFinishedKingdom should succeed');
+    const back = JSON.stringify({ p: E.state.wing.myRoom.pieces, c: E.state.wing.myRoom.solveCount, st: E.state.spiral.staircase });
+    if (stash !== back) fail('NG+: the return must carry myRoom + staircase state through');
+  }
+  E.resetTransientEntities();
+  E.state = null;
 }
 
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');

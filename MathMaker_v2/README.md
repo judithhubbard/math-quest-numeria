@@ -679,6 +679,42 @@ chest, and a rotating gear-vault landing every 15 floors); and a little pond
 of **stepping stones** turns up near Old Fisher Finn — cross the carved
 numbers in ×2 order to reach the chest. A wrong stone is only ever a splash.
 
+### 🎭 The Understudy & Your Own Room
+
+Three new things wait for a finished hero:
+
+- **Echo plates.** A violet plate with a little carved face remembers your
+  **last twelve steps**. Stand on one and **the Understudy** appears — a
+  small slime in a paper crown, carrying a stick the way heroes carry
+  swords — and performs your steps, from the plate, to the letter (with one
+  dramatic pause before the final step). Wherever its route ends, it stays
+  — and if that's a **pressure plate**, it *holds* it while you go be
+  somewhere else. Walk the route you want copied, take a bow, step on. It
+  debuts in the Wing's **Echo Annex** (down the shaft off the far room),
+  and then the **Cavern of Echoes** finally earns its name — and keep an
+  eye out around floor 13 of the Spiral. If its route hits a wall, it just
+  stops and stands there, committed. It never blocks you; walk into it and
+  you swap places, politely.
+- **Your own room.** Once you're **Keeper of the Proving Rooms**, the
+  named doorway at the Wing's end opens — onto a bare room, a workbench,
+  and a pedestal. Build a proving room of your own: carry pieces from the
+  bench (walls, slabs, a plate, a gate, a cracked tile, a chest) and lay
+  them behind you as you walk, like a mason. Then pull the cord by the
+  arch to **invite a pupil** — the enrolled slime slides in and *actually
+  attempts your room*, one step at a time, while you watch. If it can't
+  find a way, it comes back and asks — kindly — for *"a hint, or a
+  hallway"*: revising the room until it tests fairly **is** the game. The
+  first time it solves your room, someone drops by the doorway who knows
+  exactly how hard a fair room is to build. The room pays no gold. The
+  room is the trophy. (A reset pull-cord is always by the arch — a wedged
+  slab is never a failed proof, even in a room you built yourself.)
+- **The homesick staircase.** A small staircase with two stone feet stands
+  lost in the Cavern of Echoes. Bump it and it follows you — two steps
+  behind, stiffly, radiating patience whenever it has to wait (stairs do
+  not fight, sail, or fit through dungeon doors). Walk it home to the
+  Spiral Stair tower for a permanent thank-you: **⤴ Start from floor 10**.
+  It knows a shortcut. Of course it does — it is one.
+
 ### A few playtest fixes
 
 A real play session turned up some friction, since fixed: every locked door

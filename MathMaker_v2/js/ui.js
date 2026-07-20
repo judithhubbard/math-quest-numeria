@@ -111,6 +111,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     // emit a small rude noise. Nobody in the castle will discuss it.
     // Descending contour (comedic deflation), soft, brief.
     toot() { beep(110, 0.08, 'sawtooth', 0, 0.07); beep(88, 0.09, 'sawtooth', 0.06, 0.08); beep(62, 0.18, 'sawtooth', 0.13, 0.07); noise(0.14, 300, 0.03, 0.08); },
+    // Wave 13 — the Understudy's tiny ta-da: two bright notes, curtain-up.
+    // (New sounds also go in the fixed stub list at tests/test.js ~line 17.)
+    tada() { beep(659, 0.1, 'triangle', 0, 0.09); beep(988, 0.22, 'triangle', 0.1, 0.09); },
   };
   const TONE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00]; // C4 D4 E4 F4 G4
   const TONE_COLORS = ['#e05252', '#e0a952', '#ffd94a', '#68c470', '#52a8e0'];
@@ -837,6 +840,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (sailAnim) { drawSail(now); return; }  // mid-voyage
     const s = MM.engine.state;
     if (!s || !s.grid) return;
+    // Wave 13: timed entity movement is PULSED from the draw loop, never
+    // from its own setInterval — so the headless unit suite can step both
+    // deterministically by calling the tick functions directly.
+    if (MM.engine.understudyPulse) MM.engine.understudyPulse(now);
+    if (MM.engine.pupilPulse) MM.engine.pupilPulse(now);
     drawWorld(s, now);
   }
 
@@ -1113,7 +1121,10 @@ var MM = globalThis.MM = globalThis.MM || {};
           ctx.fillRect(vx * TILE, vy * TILE, TILE, TILE);
           ctx.globalAlpha = 1;
         }
-        const expLabel = !inDungeon && { A: '11', B: '12', K: '13' }[ch];
+        // Wave 13 screenshot audit: 'B' is Your Own Room's workbench — the
+        // expansion-entrance labels belong to the MAINLAND map only (this
+        // pass used to hole-punch a "12" over the workbench).
+        const expLabel = s.mapId === 'world' && { A: '11', B: '12', K: '13' }[ch];
         if (expLabel) {
           ctx.drawImage(MM.sprites.get('hole', { scale: 3 }), vx * TILE, vy * TILE);
           ctx.font = '9px "Press Start 2P", monospace';
@@ -1306,6 +1317,57 @@ var MM = globalThis.MM = globalThis.MM || {};
         ctx.globalAlpha = Math.min(1, left * 1.6);
         ctx.drawImage(bspr, bvx * TILE, bvy * TILE + bhop);
         ctx.globalAlpha = 1;
+      }
+    }
+
+    // ---------- Wave 13 entities: the Understudy, the pupil, the staircase ----------
+    // Drawn like the pet: transient positions, never grid glyphs. Comedy
+    // rides the field/glyph channels (🎭 💭 🏠 pops, a happy-bob) — never the log.
+    {
+      const u = MM.engine.understudy;
+      if (u && u.mapId === s.mapId) {
+        const uvx = u.x - camX, uvy = u.y - camY;
+        if (uvx >= 0 && uvy >= 0 && uvx < VIEW_W && uvy < VIEW_H) {
+          // a small continuous happy-bob while it HOLDS a plate; still otherwise
+          const holding = !u.active && grid[u.y] && grid[u.y][u.x] === '+';
+          const ubob = (holding && !s.calmMode) ? -Math.abs(Math.sin(now / 260)) * 3 : 0;
+          ctx.drawImage(MM.sprites.get('understudy', { scale: 3 }), uvx * TILE, uvy * TILE + ubob);
+          const upop = MM.engine._understudyPop;
+          if (upop && Date.now() < upop.until && !s.calmMode) {
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('🎭', uvx * TILE + TILE / 2, uvy * TILE + ubob - 4);
+          }
+        }
+      }
+      const pu = MM.engine.pupil;
+      if (pu && s.mapId === 'myroom') {
+        const pvx = pu.x - camX, pvy = pu.y - camY;
+        if (pvx >= 0 && pvy >= 0 && pvx < VIEW_W && pvy < VIEW_H) {
+          const joy = pu.state === 'joy' && !s.calmMode ? -Math.abs(Math.sin(now / 140)) * 8 : 0;
+          const pbob = s.calmMode ? 0 : Math.sin(now / 500) * 1.5;
+          ctx.drawImage(MM.sprites.get('slime', { scale: 3 }), pvx * TILE, pvy * TILE + pbob + joy);
+          if (pu.state === 'joy' && !s.calmMode && Math.random() < 0.06) worldSparkle(pu.x, pu.y - 0.6);
+          if (pu.thoughtUntil && Date.now() < pu.thoughtUntil) {
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('💭', pvx * TILE + TILE / 2 + 8, pvy * TILE + pbob - 4);
+          }
+        }
+      }
+      const sp = MM.engine.staircaseDrawPos && MM.engine.staircaseDrawPos();
+      if (sp) {
+        const svx = sp.x - camX, svy = sp.y - camY;
+        if (svx >= 0 && svy >= 0 && svx < VIEW_W && svy < VIEW_H) {
+          // stiff on purpose: no bob. It is a staircase.
+          ctx.drawImage(MM.sprites.get('staircase', { scale: 3 }), svx * TILE, svy * TILE);
+          const hpop = MM.engine._stairPop;
+          if (hpop && Date.now() < hpop.until && !s.calmMode) {
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('🏠', svx * TILE + TILE / 2, svy * TILE - 4);
+          }
+        }
       }
     }
 

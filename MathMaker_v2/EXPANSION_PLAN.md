@@ -3304,7 +3304,57 @@ the log, so the log-only lever explanation was invisible; (3) the TOOT:
 the thud, never control flow. Unit: every Wing 'l' must be registered in
 WING_RESET_LEVERS (an unregistered lever is false hope). drive-wedge.js.
 
-## Wave 13 order — "The Understudy & Your Own Room" (user directive 2026-07-19, design session)
+## Wave 13 order — "The Understudy & Your Own Room" (user directive 2026-07-19, design session) — ✅ SHIPPED v1.9.0 2026-07-19 (design-reviewed, prose approved)
+
+**Implementation status (implementer session, 2026-07-19):** all three
+P-items shipped; unit suite green (exit 0, incl. every ordered Wave 13
+block), three new drives green with zero JS errors (drive-understudy 19
+checks, drive-myroom 22, drive-staircase 15), full 37-drive sweep +
+detached marathon run per the evidence discipline (logs in tests/logs/,
+`*-wave13.log` + `sweep-wave13-summary.txt`). Screenshots audited by eye;
+two things were FIXED because of the audit: (1) drawWorld's
+expansion-entrance label pass hole-punched a "12" over Your Own Room's
+workbench ('B') — it now runs on the mainland map only; (2) the echo
+plate's first swirl carving read as a numeral "2" at scale (a hazard in a
+math game) — it wears a little watching mask instead.
+Deviations from this order, and why:
+- **The building interaction is a "mason's trail", not literal
+  bump-to-place.** The order's "bumping an empty floor tile places it"
+  freezes the builder: with a piece in hand, EVERY walk step is a bump on
+  empty floor, so you could never carry a piece anywhere. Instead: pick a
+  piece at the workbench, and each tile you step OFF gets one (never the
+  entry tile); bump a placed wall/chest to take it back; the bench takes
+  back plates, cracked tiles, slabs and gates (walk-on/pushable pieces
+  can't be bump-collected — pushing a slab must stay a push). Placement,
+  budgets, and full removability are exactly as ordered.
+- **The Echo Annex pays no chest.** With the Wing's slabs resting on
+  plates for good (canonical Wave 12 solutions), every '&' on that floor
+  may already stand open — a gated annex chest would usually be a
+  non-puzzle. The annex TEACHES (the once-ever summon is the payoff, plus
+  the Tallis plaque); the paying echo-plate puzzles live where nothing but
+  the Understudy can hold a plate: the Cavern of Echoes (SW room: '?' +
+  wall-stopped '+' + '&'-gated pocket chest) and the new Spiral chunk.
+- **The Spiral echo chunk is APPENDED** (pool index [12], first appears
+  floor 13). Floors 1-12 keep their historical chunks; floors 13+
+  re-template once — stale s.opened keys can only open cells, the same
+  accepted migration class as Wave 12 / v1.8.1.
+- **Cut under deviation authority:** day-keyed pupil revisits, and pupil
+  kind rotation (slime-only v1 — the enrolled slime is the pupil). The
+  pier-waiting staircase nuance was KEPT (sailing parks it beside the Old
+  Pier); entering a dungeon/castle mid-escort parks it at the door
+  ({waiting:{x,y}}), and a staircase waiting exactly where you re-emerge
+  falls in behind you again on its own.
+- **The kid-helps-pupil loophole is allowed as a delight:** the kid
+  standing on a plate powers gates for the pupil mid-attempt (the plate
+  rule is the plate rule); the SOLVER never assumes it, so invitations
+  judge the room's own design.
+- D11's displaced monster marker moved (3,12) → (13,11) — same floor,
+  same count; the SW room became the echo-plate room.
+NOT cut (order requirements honored): polite-stuck flow, budget caps, the
+always-present reset cord, once-ever celebrations (intro / first-solve +
+Miscount cameo / homecoming), wedge-nudge coverage inside the kid's room,
+and the doorway prose swap (the "masons" holding-note is gone from
+data.js; the named plate opens the door, pre-title keeps the blank tease).
 
 Context: Wave 12 shipped this wave's hooks on purpose — pressure plates
 built plain (the Understudy's switch), and the named doorway at the
