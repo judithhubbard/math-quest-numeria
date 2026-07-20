@@ -5,6 +5,7 @@ require(path.join(ROOT, 'js/problems.js'));
 require(path.join(ROOT, 'js/data.js'));
 require(path.join(ROOT, 'js/mastery.js'));
 require(path.join(ROOT, 'js/maps.js'));
+require(path.join(ROOT, 'js/parlor.js'));   // Wave 15: the card engine (DOM-free)
 require(path.join(ROOT, 'js/engine.js'));
 
 const MM = globalThis.MM;
@@ -1336,6 +1337,7 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   checkMap(MM.maps.GULLWRACK, 'gullwrack', 'gullwrack');
   checkMap(MM.maps.CASTLE, 'castle', 'castle');   // Wave 7
   checkMap(MM.maps.WING, 'wing', 'wing');         // Wave 12
+  checkMap(MM.maps.PARLOR, 'parlor', 'parlor');   // Wave 15
   // Wave 13: Your Own Room's grid is BUILT (template + placed pieces), so
   // audit a sample carrying every placeable piece char.
   {
@@ -3925,6 +3927,193 @@ for (const skill of skills) {
 
   MM.ui.dialog = realDialog; MM.ui.dialogChoices = realChoices; MM.ui.showProblem = realShow; MM.ui.worldBurst = realBurst;
   E.state = null;
+}
+
+// ---------- Wave 15: "The Parlor" — the card game "Tiny Hats" ----------
+{
+  const E = MM.engine, P = MM.parlor;
+
+  // (1) card-edge DETERMINISM — a pure function of the kind; NO Math.random.
+  {
+    const realRandom = Math.random;
+    Math.random = () => { throw new Error('CARD DATA MUST NOT USE Math.random'); };
+    let a, b, big;
+    try { a = P.edgesFor('Slime', false); b = P.edgesFor('Slime', false); big = P.edgesFor('Slime', true); }
+    finally { Math.random = realRandom; }
+    if (JSON.stringify(a) !== JSON.stringify(b)) fail('parlor: same kind must give the SAME edges (determinism)');
+    for (const k of P.EDGE_KEYS) {
+      if (!(a[k] >= 1 && a[k] <= 9)) fail('parlor: single-digit edges must be 1..9');
+      if (!(big[k] >= 10 && big[k] <= 99)) fail('parlor: two-digit edges must be 10..99');
+    }
+    // a FOIL (befriended) card is deterministic too — same kind → same hat
+    if (P.hatFor('Slime') !== P.hatFor('Slime')) fail('parlor: a kind\'s tiny hat must be deterministic');
+  }
+
+  // (4) the two-digit parent dial changes the RANGE — for EVERY known kind.
+  {
+    for (const n of Object.keys(P.catalog())) {
+      const one = P.edgesFor(n, false), two = P.edgesFor(n, true);
+      for (const k of P.EDGE_KEYS) {
+        if (!(one[k] >= 1 && one[k] <= 9)) { fail(`parlor: ${n} single-digit edge out of 1..9`); break; }
+        if (!(two[k] >= 10 && two[k] <= 99)) { fail(`parlor: ${n} two-digit edge out of 10..99`); break; }
+      }
+    }
+    if (P.twoDigit({ parent: { parlorTwoDigit: true } }) !== true) fail('parlor: twoDigit must read the parent dial');
+    if (P.twoDigit({ parent: {} }) !== false) fail('parlor: twoDigit defaults false (single-digit)');
+  }
+
+  // (2) the capture rule on KNOWN boards — no-capture, single, multi-capture.
+  {
+    const card = (t, r, b, l) => ({ kind: 'x', edges: { t: t, r: r, b: b, l: l } });
+    const board = new Array(9).fill(null);
+    board[1] = { card: card(0, 0, 5, 0), side: 'opp' };   // its bottom edge = 5, faces my top
+    if (P.capturesAt(board, 4, card(4, 0, 0, 0), 'you').length !== 0) fail('parlor: 4 vs 5 must NOT capture (strictly greater only)');
+    const one = P.capturesAt(board, 4, card(6, 0, 0, 0), 'you');
+    if (one.length !== 1 || one[0] !== 1) fail('parlor: 6 vs 5 must capture the top neighbour');
+    board[3] = { card: card(0, 3, 0, 0), side: 'opp' };   // its right edge = 3, faces my left
+    if (P.capturesAt(board, 4, card(6, 0, 0, 4), 'you').length !== 2) fail('parlor: one placement can capture MULTIPLE neighbours');
+    board[3].side = 'you';
+    if (P.capturesAt(board, 4, card(6, 0, 0, 9), 'you').includes(3)) fail('parlor: never captures your OWN card');
+  }
+
+  // (3) the DETERMINISTIC opponent plays a full game to a TERMINAL board.
+  {
+    const realRandom = Math.random;
+    Math.random = () => { throw new Error('THE OPPONENT MUST NOT USE Math.random'); };
+    let winner, w2, mv;
+    try {
+      const you = ['Slime', 'Bat', 'Skeleton', 'Cave Spider', 'River Snake'].map(n => P.cardFor(n, false, false));
+      const opp = ['Field Mouse', 'Cellar Rat', 'Ghost Miner', 'Wild Boar', 'Ice Sprite'].map(n => P.cardFor(n, false, false));
+      const kid = mm => ({ cardIndex: 0, cell: P.emptyCells(mm)[0] });
+      const m = P.newMatch({ youHand: you.slice(), oppHand: opp.slice() });
+      winner = P.autoplay(m, kid);
+      if (!P.isOver(m)) fail('parlor: the opponent must drive the game to a terminal board');
+      if (P.emptyCells(m).length !== 0) fail('parlor: a full match fills all nine cells');
+      const m2 = P.newMatch({ youHand: you.slice(), oppHand: opp.slice() });
+      w2 = P.autoplay(m2, kid);
+      const empty = P.newMatch({ youHand: [], oppHand: [P.cardFor('Slime', false, false), P.cardFor('Bat', false, false)] });
+      mv = P.oppMove(empty);
+    } finally { Math.random = realRandom; }
+    if (winner !== w2) fail('parlor: the opponent must be reproducible (same game → same result)');
+    if (!['you', 'opp', 'tie'].includes(winner)) fail('parlor: a finished match has a defined result');
+    if (mv.cardIndex !== 0 || mv.cell !== 0) fail('parlor: opponent tiebreak must be lowest-card, lowest-cell');
+  }
+
+  // the dice side-table totals correctly; a bust pays zero, exactly-20 jackpots
+  if (P.diceTotal([3, 4, 6, 2]) !== 15) fail('parlor: diceTotal must sum the rolls');
+  if (P.diceReward(21) !== 0) fail('parlor: a bust (>20) pays zero');
+  if (P.diceReward(20) !== 3) fail('parlor: exactly 20 is the jackpot');
+  if (P.diceReward(5) !== 0) fail('parlor: stopping far under 20 pays zero (never negative)');
+
+  // (7) parlor glyph context guards — D/T/C mean OTHER things in dungeons.
+  require(path.join(ROOT, 'js/sprites.js'));
+  if (MM.maps.tileSprite('Z', 16, 9, 'castle', 0) !== 'parlorDoor') fail("parlor: 'Z' in the castle is the parlor door");
+  if (MM.maps.tileSprite('Z', 0, 0, 'd19f1', 0) !== 'clockDoor') fail("parlor: 'Z' in a dungeon stays the clock door (no collision)");
+  if (MM.maps.tileSprite('D', 6, 4, 'parlor', 0) !== 'dealer') fail("parlor: 'D' in the parlor is the dealer");
+  if (MM.maps.tileSprite('T', 9, 2, 'parlor', 0) !== 'diceTable') fail("parlor: 'T' in the parlor is the dice table");
+  if (MM.maps.tileSprite('C', 3, 2, 'parlor', 0) !== 'cardTable') fail("parlor: 'C' in the parlor is the card table");
+  if (MM.maps.tileSprite('T', 5, 5, 'wing', 0) !== 'portrait') fail("parlor: 'T' in the wing is unaffected (a portrait)");
+  for (const spr of ['parlorDoor', 'dealer', 'diceTable', 'cardTable']) if (!MM.sprites.DEFS[spr]) fail(`parlor: sprite '${spr}' has no DEFS entry`);
+  {
+    const cg = MM.maps.parse(MM.maps.CASTLE, '#');
+    if (MM.maps.find(cg, 'Z').length !== 1) fail("parlor: the CASTLE map needs exactly one parlor door 'Z'");
+    const pg = MM.maps.parse(MM.maps.PARLOR, '#');
+    for (const g of ['D', 'T', 'C', 'P', 'X']) if (MM.maps.find(pg, g).length !== 1) fail(`parlor: the PARLOR map needs a '${g}'`);
+  }
+
+  // (6) the dealer Faculty post appends and E.checkFaculty claims it UNCHANGED.
+  {
+    const post = MM.data.FACULTY_POSTS.find(p => p.id === 'dealer');
+    if (!post || typeof post.earned !== 'function') fail('parlor: a House Dealer post with earned() must be appended to FACULTY_POSTS');
+    if (post && !post.earned({ parlor: { games: 3 } })) fail('parlor: the dealer post earns at 3 games');
+    if (post && post.earned({ parlor: { games: 2 } })) fail('parlor: the dealer post must NOT earn before its milestone');
+    const s = { faculty: [], parlor: { games: 3 } };
+    E.state = s;
+    const claimed = E.checkFaculty();   // same loop as the Court's — zero changes there
+    if (!s.faculty.includes('dealer') || !claimed.some(p => p.id === 'dealer')) fail('parlor: checkFaculty must claim the dealer at its milestone');
+    if (E.checkFaculty().length) fail('parlor: checkFaculty must not re-claim the dealer');
+    E.state = null;
+  }
+
+  // (5) tokens never negative + a loss costs zero; (8) migration; (9) NG+.
+  {
+    localStorage.setItem('mathmaker2_save_w15', JSON.stringify({
+      version: 4, name: 'w15', hp: 24, maxhp: 24, stamina: 100, maxStamina: 100,
+      gold: 10, level: 1, xp: 0, potions: 1, difficulty: 'hero',
+      parent: { pin: null, topics: {} }, taskIndex: 14, haveItem: false,
+      tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+      mastery: {}, badges: {}, bestiary: { seen: { Slime: true, Bat: true }, kills: {}, gauntlet: {}, befriended: {} },
+      continent: 'west', isles: { lenses: {}, keys: {}, egg: null, pet: null },
+      charmsOn: [], opened: {}, bossesDefeated: {}, defeatedAt: {}, streak: 0,
+      totals: { answered: 0, correct: 0 }, worldPos: null, seenBattleHelp: true, endingDone: true,
+      petHats: [],
+      gear: { weapon: ['stick'], body: ['clothes'], helmet: [], boots: [], ring: [], amulet: [] },
+      equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null }, enchants: {},
+      items: { food: {}, treasures: [], charms: [], gems: [] },
+    }));
+    E.load('w15');
+    const s = E.state;
+    // (8) migration: a pre-Wave-15 save defaults clean
+    if (!s.parlor || s.parlor.tokens !== 0 || s.parlor.games !== 0) fail('parlor: a pre-Wave-15 save migrates to a clean parlor');
+    if (Object.keys(s.parlor.album).length) fail('parlor: a migrated album must be empty');
+    if (s.parent.parlorTwoDigit !== false) fail('parlor: the two-digit dial migrates OFF (single-digit default)');
+    // the kid's deck comes from who they've MET
+    if (P.deckFromState(s).length !== 2) fail('parlor: the deck is sourced from bestiary.seen');
+
+    // a LOSS costs zero tokens (and never goes negative)
+    const lost = P.newMatch({ youHand: [], oppHand: [] });
+    lost.board[0] = { card: P.cardFor('Bat', false, false), side: 'you' };
+    lost.board[1] = { card: P.cardFor('Bat', false, false), side: 'opp' };
+    lost.board[2] = { card: P.cardFor('Bat', false, false), side: 'opp' };
+    if (P.winner(lost) !== 'opp') fail('parlor: fixture — the loss board must read as an opp win');
+    const beforeLoss = s.parlor.tokens;
+    const lossRes = E.parlorFinishMatch(lost);
+    if (lossRes.result !== 'opp') fail('parlor: the loss must settle as a loss');
+    if (s.parlor.tokens < beforeLoss) fail('parlor: a loss must NEVER reduce tokens (costs zero)');
+    if (lossRes.wonCard) fail('parlor: a loss never yields a card');
+    if (s.parlor.tokens < 0) fail('parlor: tokens must never go negative');
+
+    // a WIN banks tokens and (forced) yields the opponent's card into the album
+    const won = P.newMatch({ youHand: [], oppHand: [P.cardFor('Ice Sprite', false, false)] });
+    won.board[0] = { card: P.cardFor('Bat', false, false), side: 'you' };
+    won.board[1] = { card: P.cardFor('Bat', false, false), side: 'you' };
+    won.board[2] = { card: P.cardFor('River Snake', false, false), side: 'opp' };
+    if (P.winner(won) !== 'you') fail('parlor: fixture — the win board must read as a win');
+    const beforeWin = s.parlor.tokens;
+    const realRandom = Math.random; Math.random = () => 0.01;   // force the card award
+    const winRes = E.parlorFinishMatch(won);
+    Math.random = realRandom;
+    if (winRes.result !== 'you') fail('parlor: the win must settle as a win');
+    if (s.parlor.tokens <= beforeWin) fail('parlor: a win banks tokens');
+    if (!winRes.wonCard || !s.parlor.album[winRes.wonCard]) fail('parlor: a win (forced) yields the opponent card into the album');
+
+    // the token SHOP is cosmetic-only and guards against negative balances
+    s.parlor.tokens = 2;
+    if (E.parlorBuyBack('spiral')) fail('parlor: cannot buy a card-back you cannot afford');
+    if (s.parlor.tokens !== 2) fail('parlor: a failed purchase must not change the balance');
+    s.parlor.tokens = 10;
+    if (!E.parlorBuyBack('spiral')) fail('parlor: an affordable card-back should buy');
+    if (s.parlor.tokens !== 0 || s.parlor.back !== 'spiral') fail('parlor: buying spends tokens and sets the back');
+    if (s.parlor.tokens < 0) fail('parlor: the shop must never drive tokens negative');
+
+    // the dice award never goes negative
+    s.parlor.tokens = 0;
+    E.parlorDiceAward(25);
+    if (s.parlor.tokens !== 0) fail('parlor: a busted dice round pays zero');
+    E.parlorDiceAward(20);
+    if (s.parlor.tokens !== 3) fail('parlor: a jackpot dice round pays 3');
+
+    // (9) NG+ carries the parlor (tokens + album + games) through BOTH directions
+    s.parlor.tokens = 7; s.parlor.games = 5; s.parlor.album = { 'River Snake': true };
+    Object.assign(s, { opened: {}, bossesDefeated: {}, unsealed: {}, gearState: {}, repairSites: {}, freeSlabs: {} });
+    const stash = JSON.stringify(s.parlor);
+    E.startGolden();
+    if (JSON.stringify(s.parlor) !== stash) fail('parlor: startGolden must carry tokens/album/games through untouched');
+    if (!s.endingDone) fail('parlor: the crown survives NG+, so the Parlor is still open');
+    E.returnToFinishedKingdom();
+    if (JSON.stringify(s.parlor) !== stash) fail('parlor: returnToFinishedKingdom must carry the parlor through untouched');
+    E.state = null;
+  }
 }
 
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');

@@ -125,6 +125,12 @@ var MM = globalThis.MM = globalThis.MM || {};
       courtSessions: 0,     // full 3/3 sessions heard — counts UP only (the milestone counter)
       casesHeard: 0,        // total cases settled — counts UP only (a teacher-flavored tally)
       magistrateVisits: 0,  // how many times the recurring Magistrate has appeared (escalation index)
+      // ---------- Wave 15: "The Parlor" (post-ending, casual card play) ----------
+      // Casual fluency play — does NOT touch mastery or the report card (a
+      // casino that grades you is less fun). tokens (never gold, never
+      // negative, a loss costs zero); games/wins count UP only; album = kinds
+      // won from opponents (the collect-them-all trophies); cosmetics only.
+      parlor: { tokens: 0, games: 0, wins: 0, album: {}, back: 'default', hats: {}, seenIntro: false },
     };
     E.enterWorld();
     E.save();
@@ -280,6 +286,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.courtSessions == null) s.courtSessions = 0;
     if (s.casesHeard == null) s.casesHeard = 0;
     if (s.magistrateVisits == null) s.magistrateVisits = 0;
+    // Wave 15: the Parlor — a pre-Wave-15 save migrates clean (no tokens, no
+    // trophies, all counters at zero). The two-digit edge dial lives under
+    // s.parent (missing = single-digit, the default).
+    if (!s.parlor) s.parlor = { tokens: 0, games: 0, wins: 0, album: {}, back: 'default', hats: {}, seenIntro: false };
+    if (s.parlor.album == null) s.parlor.album = {};
+    if (s.parlor.hats == null) s.parlor.hats = {};
+    if (s.parlor.back == null) s.parlor.back = 'default';
+    if (s.parent && s.parent.parlorTwoDigit == null) s.parent.parlorTwoDigit = false;
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     // Session-shape pass (2026-07-13): resuming has ALWAYS pulled you to the
@@ -1353,6 +1367,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Also KEPT untouched (like s.wing): the Court — s.court, s.faculty,
     // s.courtSessions, s.casesHeard, s.magistrateVisits. The castle you built
     // as teacher survives NG+; the crown does too, so the court still sits.
+    // Wave 15: s.parlor (tokens + the won-card collection + cosmetics + games)
+    // is likewise left untouched — snapshot/restore only ever touch the fixed
+    // KINGDOM fields, so the Parlor carries through startGolden AND
+    // returnToFinishedKingdom automatically (unit-tested both ways).
     s.hp = s.maxhp;
     s.stamina = s.maxStamina;
     E.enterWorld();
@@ -1711,6 +1729,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         // Wave 12 (P3): the Workshop Wing's door by the Study, and the spot
         // the confessed wardrobe eventually calls home (floor until then).
         if (ch === 'H') return E.wingDoor();
+        if (ch === 'Z') return E.parlorDoor();   // Wave 15: the card parlor
         if (ch === 'o' && s.wing && s.wing.wardrobeMoved) {
           return MM.ui.dialog('🚪 The wardrobe, at home', MM.data.WING_WARDROBE_HOME);
         }
@@ -1734,6 +1753,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (s.mapId === 'wing') return E.wingMove(dx, dy, nx, ny, ch);
       // Wave 13 (P2): Your Own Room — combat-free, castle rules, buildable.
       if (s.mapId === 'myroom') return E.myRoomMove(dx, dy, nx, ny, ch);
+      // Wave 15 (P4): the Parlor — combat-free, castle rules, its own alphabet.
+      if (s.mapId === 'parlor') return E.parlorMove(dx, dy, nx, ny, ch);
       if (s.mapId === 'gullwrack') {
         if (ch === '7') return E.tryEnterDungeon(21);
         if (ch === 'W') return E.gullwrackDock();
@@ -4097,6 +4118,149 @@ var MM = globalThis.MM = globalThis.MM || {};
     const s = E.state;
     if (!s || s.mapId !== 'castle' || !s.faculty || !s.faculty.length) return null;
     return MM.data.FACULTY_POSTS.find(p => s.faculty.includes(p.id) && p.x === x && p.y === y) || null;
+  };
+
+  // ---------- Wave 15: "The Parlor" — the card game "Tiny Hats" ----------
+  // Post-ending, combat-free, no timers, gentle failure. The pure card engine
+  // (deck, edges, capture rule, the DETERMINISTIC opponent) lives in
+  // js/parlor.js (MM.parlor); this is the room, the rewards, and the wiring.
+  // DESIGN DECISION (per the wave's records-to-mastery call): the Parlor does
+  // NOT record to mastery or the report card — it is casual fluency play, so
+  // NOTHING here calls recordAnswer. Tokens, never gold; a loss costs zero.
+  E.ensureParlor = function () {
+    const s = E.state;
+    if (!s.parlor) s.parlor = { tokens: 0, games: 0, wins: 0, album: {}, back: 'default', hats: {}, seenIntro: false };
+    if (!s.parlor.album) s.parlor.album = {};
+    if (!s.parlor.hats) s.parlor.hats = {};
+    if (!s.parlor.back) s.parlor.back = 'default';
+    return s.parlor;
+  };
+
+  // The castle-side door ('Z'): a gentle "not yet" pre-ending (like the Wing).
+  E.parlorDoor = function () {
+    const s = E.state;
+    if (!s.endingDone) return MM.ui.dialog('🎩 The Parlor', MM.data.PARLOR.dealer.notYet);
+    E.enterParlor();
+  };
+
+  E.enterParlor = function () {
+    const s = E.state;
+    MM.track('enterParlor');
+    if (E.resetTransientEntities) E.resetTransientEntities();
+    E.ensureParlor();
+    s.mapId = 'parlor';
+    s.grid = MM.maps.parse(MM.maps.PARLOR, '#');
+    s.monsters = [];   // the castle rule extends here: no combat, ever
+    const start = MM.maps.find(s.grid, 'P')[0];
+    s.px = start.x; s.py = start.y;
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.log(MM.data.PARLOR.enterLine);
+    E.save();
+    MM.ui.refresh();
+    if (!s.parlor.seenIntro) {   // once-ever: Deuce introduces the house
+      s.parlor.seenIntro = true;
+      E.save();
+      MM.ui.dialog(MM.data.PARLOR.dealer.name, MM.data.PARLOR.dealer.intro);
+    }
+  };
+  E.exitParlor = function () {
+    E.enterCastle();
+    const s = E.state;
+    s.px = 17; s.py = 9;   // land beside the parlor door 'Z' (16,9)
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.refresh();
+  };
+
+  E.parlorMove = function (dx, dy, nx, ny, ch) {
+    const s = E.state;
+    if (ch === 'X') return E.exitParlor();
+    if (ch === 'D') return MM.ui.parlorHub();     // Deuce: play / collection / tokens
+    if (ch === 'C') return MM.ui.parlorPlay();    // sit at the felt table
+    if (ch === 'T') return MM.ui.parlorDice();    // the "reach 20" side-table
+    if (ch === '#') return;
+    if (ch === '.' || ch === 'P') {
+      E.petPos = { x: s.px, y: s.py };
+      s.px = nx; s.py = ny;
+    }
+  };
+
+  // Deal two hands of 5. Card DATA is deterministic (edges are a pure function
+  // of the kind); WHICH cards you're dealt may use Math.random — that is not
+  // card data and not the opponent's move, so it never touches the determinism
+  // the wave requires. A drive can pass explicit hands for a reproducible game.
+  E.parlorDealHands = function (opts) {
+    const s = E.state;
+    opts = opts || {};
+    if (opts.youHand && opts.oppHand) return { you: opts.youHand.slice(), opp: opts.oppHand.slice() };
+    const deck = MM.parlor.deckFromState(s);
+    const house = MM.parlor.houseDeck(s);
+    const sample = (pool, n) => {
+      const a = pool.slice(), out = [];
+      for (let i = 0; i < n && a.length; i++) out.push(a.splice(Math.floor(Math.random() * a.length), 1)[0]);
+      return out;
+    };
+    const you = sample(deck, 5);
+    // If the kid has met fewer than five kinds, Deuce lends the rest (nobody is
+    // ever short a hand). House cards are plain (no foil) until you win them.
+    while (you.length < 5 && house.length) you.push(house[Math.floor(Math.random() * house.length)]);
+    const opp = sample(house, 5);
+    return { you, opp };
+  };
+
+  E.parlorNewMatch = function (opts) {
+    opts = opts || {};
+    const hands = E.parlorDealHands(opts);
+    const m = MM.parlor.newMatch({ youHand: hands.you, oppHand: hands.opp, first: opts.first || 'you', plies: 1 });
+    MM.parlor.current = m;   // exposed for the UI and drives (like MM.battle.current)
+    return m;
+  };
+
+  // Settle a finished match: bank tokens (playing earns a few, winning a few
+  // more; a loss costs ZERO — tokens only ever go up here), sometimes take the
+  // opponent's card into the collection, bump the games counter, and claim the
+  // House Dealer Faculty post if it just came due. Records nothing to mastery.
+  E.parlorFinishMatch = function (m) {
+    const par = E.ensureParlor();
+    const result = MM.parlor.winner(m);
+    par.games = (par.games || 0) + 1;
+    let tokensGained = 1;            // playing earns a few
+    let wonCard = null;
+    if (result === 'you') {
+      par.wins = (par.wins || 0) + 1;
+      tokensGained += 2;            // winning, a few more
+      const oppKinds = [];
+      for (const c of m.board) if (c && c.side === 'opp') oppKinds.push(c.card.kind);
+      for (const c of m.hands.opp) oppKinds.push(c.kind);
+      const fresh = oppKinds.filter(k => !par.album[k]);
+      const pool = fresh.length ? fresh : oppKinds;
+      if (pool.length && Math.random() < 0.6) { wonCard = pool[0]; par.album[wonCard] = true; }
+    }
+    par.tokens = Math.max(0, (par.tokens || 0) + tokensGained);   // never negative
+    const claimed = E.checkFaculty();   // the House Dealer post may come due
+    E.save();
+    return { result, tokensGained, wonCard, claimed };
+  };
+
+  // The dice side-table award — deterministic from the total; a bust (over 20)
+  // pays zero and never costs anything.
+  E.parlorDiceAward = function (total) {
+    const par = E.ensureParlor();
+    const reward = MM.parlor.diceReward(total);
+    par.tokens = Math.max(0, (par.tokens || 0) + reward);
+    E.save();
+    return reward;
+  };
+
+  // Buy a cosmetic card-back — tokens only, never gold, never anything that
+  // helps you win. Guarded so tokens can never go negative.
+  E.parlorBuyBack = function (id) {
+    const par = E.ensureParlor();
+    const back = (MM.data.PARLOR.backs || []).find(b => b.id === id);
+    if (!back || par.back === id || (par.tokens || 0) < back.price) return false;
+    par.tokens = Math.max(0, par.tokens - back.price);
+    par.back = id;
+    E.save();
+    return true;
   };
 
   // Untangling one = a short battle drawing the same weakest-first mixed

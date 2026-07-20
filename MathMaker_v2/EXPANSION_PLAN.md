@@ -3626,7 +3626,79 @@ for v1). May NOT cut: recording under the real skill (the pedagogical
 point), gentle-failure re-ask, the Faculty system + its documented
 extension point (later waves depend on it), day-keyed renewal.
 
-## Wave 15 order — "The Parlor" (Castle Expansion Wave B) (user directive 2026-07-20)
+## Wave 15 order — "The Parlor" (Castle Expansion Wave B) (user directive 2026-07-20) — ✅ SHIPPED v1.11.0 2026-07-20 (design-reviewed; prose approved)
+
+**Implementation status (implementer session, 2026-07-20):** all of P1–P4 +
+the dice side-table shipped; the P2 card ENGINE did NOT slip. Unit suite green
+(exit 0, incl. every ordered Wave 15 block); `tests/drive-parlor.js` = 31
+checks, zero JS errors; full 39-drive sweep + detached marathon per the
+evidence discipline (logs in `tests/logs/*-wave15.log` +
+`sweep-wave15-summary.txt` + `marathon-wave15.log`). Five screenshots audited
+by eye (board mid-match, a capture, the dealer, the dice table, the House
+Dealer in the castle) — the card art reads as CARDS (bordered, creature in the
+middle, edge numbers on the four sides + a tiny hat on foils), never as loose
+digits on the floor (the numeral-hazard the order warns about).
+
+What shipped, per P-item:
+- **P0 (the spike) — SKIPPED as permitted.** The rule + opponent were built
+  straight into the DOM-free `js/parlor.js` and proven by unit tests
+  (determinism by poisoning Math.random; a full deterministic game to a
+  terminal board) rather than a throwaway script — the tests ARE the de-risk.
+- **P1 — the card model.** `MM.parlor`: a card = a monster KIND drawn from
+  `s.bestiary.seen`; befriended kinds (`s.bestiary.befriended`) are FOIL and
+  wear a tiny hat. Four edge numbers `{t,r,b,l}` are a PURE function of the
+  kind's name + its toughness (`hash(name|edge|dial)` over the bestiary
+  catalog — NO Math.random in card data). The two-digit dial is a parent
+  switch (`s.parent.parlorTwoDigit`, in Parent Settings): single-digit 1..9 by
+  default, two-digit 10..99 when raised.
+- **P2 — the game (the engine, and it holds).** 3×3 board, two hands of five,
+  the kid places first, alternating; Triple-Triad capture (my facing edge
+  STRICTLY greater flips the neighbour). The math is the play: every placement
+  is a comparison, and a running captured-cell tally is shown. The OPPONENT is
+  DETERMINISTIC (`P.oppMove` — 1-ply greedy, max immediate captures; documented
+  tiebreak: most captures → lowest cell → lowest hand index), unit-tested by
+  poisoning Math.random.
+- **P3 — stakes, collection, comedy.** TOKENS not gold (never negative; a loss
+  costs zero — playing earns a few, winning a few more). Winning sometimes
+  yields the opponent's card into a collection ALBUM (Monster-Book idiom). A
+  cosmetic token shop sells card-backs. Every card wears/earns a tiny hat;
+  courteous trash-talk pool; a becalmed Skeleton (Deuce) deals. The Games Den
+  folded in as the "reach 20, don't go over" dice side-table (pure mental
+  addition; a bust costs nothing).
+- **P4 — Faculty + placement.** The Parlor is a new room off the castle (the
+  'Z' door on the castle's right inner wall, mirroring the Wing's 'H', gated on
+  s.endingDone, its own tileSprite alphabet). The **House Dealer** post is
+  APPENDED to `MM.data.FACULTY_POSTS` with its own `earned: s => games>=3`
+  predicate — `E.checkFaculty` claims it with ZERO changes there (the Wave 14
+  extension point, used exactly as designed).
+- **Records-to-mastery:** the Parlor does NOT record to mastery or the report
+  card (per the order's recommendation) — nothing here calls recordAnswer.
+
+Deviations, and why:
+- **P0 spike skipped** (allowed) — see above.
+- **2-ply opponent CUT** (deviation authority) — 1-ply greedy is a fine v1;
+  `plies` is threaded through the match so a later pass can deepen the search
+  without touching any caller.
+- **The per-card "hat for your favorite card" purchase was folded into the
+  existing foil-hat system** rather than a separate token buy: befriended
+  cards already wear hats, and won cards are hatted in the album. The token
+  shop keeps the card-backs (the "cosmetic card-backs" the order names). Under
+  the deviation authority that permits cutting the token cosmetic shop
+  entirely, this is a trim, not a removal.
+- **The dealer is a TILE sprite** in the parlor (like the Wing's portraits),
+  not an NPCS entry — D/T/C are not NPCS keys, so the overworld NPC pass never
+  draws them, and no NPCS glyph is spent. The castle-side House Dealer is the
+  Faculty overlay (same reformed Skeleton, now on the staff).
+- **Glyph:** the parlor door is `'Z'` in the CASTLE map (the Spire's clock-door
+  glyph in DUNGEONS — the castle tileSprite block returns first, so there is no
+  collision; unit-guarded, as are parlor 'D'/'T'/'C').
+- **NG+:** `s.parlor` (tokens + album + games + cosmetics) survives `startGolden`
+  AND `returnToFinishedKingdom` by being left untouched (like `s.wing` /
+  `s.court`) — snapshot/restore only ever touch the fixed KINGDOM fields.
+  Unit-tested both directions.
+- NOT cut (order requirements honored): the deterministic opponent, the gentle
+  no-loss framing, tokens-not-gold, the tiny-hat comedy, the Faculty dealer via
+  the extension point, and card-edge determinism.
 
 Second wave of CASTLE_EXPANSION_PLAN.md (read it + the Wave 14 Court order
 first). The card game "Tiny Hats" — the endgame "one more round" hook the

@@ -740,6 +740,34 @@ petitioners**, and each has a dispute only good arithmetic can settle —
   petitioners press small thank-yous on you, too: a bite of food, a potion,
   and — once in a while — a tiny hat for your pet.
 
+### 🃏 The Parlor — the card game "Tiny Hats"
+
+Through the curtained door on the right side of the throne room (once the crown
+is yours) is a card parlor, where a very courteous reformed Skeleton named
+**Deuce** deals a game called **Tiny Hats**. It's the "just one more round"
+corner of the castle — no timer, no way to really lose.
+
+- **Your deck is everyone you've met.** Every card is a monster **kind** from
+  your Monster Book, with four **edge numbers**. The monsters you **befriended**
+  are foil cards — they wear a tiny hat. Tougher kinds carry bigger numbers.
+- **Play is compare-and-capture.** You and Deuce take turns placing cards on a
+  3×3 board. Put a card next to an enemy card and the **bigger facing number
+  takes it** — it flips to your side. Whoever owns more squares wins. The whole
+  game is fast number comparison and keeping a running tally in your head —
+  no quiz bolted on, just the play.
+- **Losing costs nothing.** "Good game — again?" A loss is just a rematch;
+  you never lose anything but the round. Win, and you earn a few **tokens** —
+  and sometimes take one of Deuce's own cards (and its tiny hat) into your
+  **collection**. Tokens buy purely-cosmetic card-backs; they never buy an
+  advantage, and they can't go below zero.
+- **A side-table** runs "**Reach 20**" — roll, add it up in your head, stop
+  before you go over. Pure mental addition; a bust just costs you nothing.
+- **Grown-ups:** Parent Settings has a **two-digit cards** switch that makes
+  the edge numbers bigger (real magnitude comparison and larger sums) for older
+  kids. The Parlor is casual play — it is **never graded** and never touches
+  the report card. Play enough and Deuce joins the castle staff as **House
+  Dealer**, turning up in the throne room to stay.
+
 ### A few playtest fixes
 
 A real play session turned up some friction, since fixed: every locked door

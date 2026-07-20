@@ -2308,6 +2308,13 @@ var MM = globalThis.MM = globalThis.MM || {};
           <input type="checkbox" id="bigTextCheck" ${s.bigText ? 'checked' : ''}>
           Larger reading text (dialogs, problems, and the story log)
         </label>
+        <h3>🃏 Card Parlor</h3>
+        <label class="topic-check">
+          <input type="checkbox" id="parlorTwoDigitCheck" ${s.parent.parlorTwoDigit ? 'checked' : ''}>
+          Two-digit cards (harder) — the post-game card game "Tiny Hats" uses bigger edge numbers,
+          for real magnitude comparison and larger running sums. <span class="dim">Off = single-digit (default).
+          The Parlor is casual play; it is never graded.</span>
+        </label>
         <h3>Current progress</h3>
         <p style="font-size:14px">📗 On task <b>${Math.min(s.taskIndex, 13)}</b> ·
           answered <b>${s.totals.correct}/${s.totals.answered}</b> correctly overall.
@@ -2352,6 +2359,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       s.musicOff = document.getElementById('musicOffCheck').checked;
       s.bigText = document.getElementById('bigTextCheck').checked;
       document.body.classList.toggle('big-text', s.bigText);
+      s.parent.parlorTwoDigit = document.getElementById('parlorTwoDigitCheck').checked;   // Wave 15
       MM.engine.save();
       closeModal();
       const n = Object.values(map).filter(Boolean).length;
@@ -2682,6 +2690,249 @@ var MM = globalThis.MM = globalThis.MM || {};
     const chBtn = document.getElementById('yardChallenge');
     if (chBtn) chBtn.onclick = () => { closeModal(); UI.yardCardIntro(ch.card, true); };
     document.getElementById('yardClose').onclick = () => { closeModal(); UI.refresh(); };
+  };
+
+  // ================= Wave 15: "The Parlor" — the card game UI =================
+  // The board and cards are rendered as HTML in the modal (legible at any
+  // scale, and the edge numbers sit clearly ON a bordered card with a creature
+  // in the middle — never loose digits on the floor, the numeral-hazard the
+  // wave warns about). The pure rules live in MM.parlor; the rewards in engine.
+  const PARLOR_STYLE = `<style>
+    .pboard{display:grid;grid-template-columns:repeat(3,64px);grid-gap:6px;justify-content:center;margin:12px auto}
+    .pcell{width:64px;height:64px;border-radius:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center}
+    .pcell.empty{border:2px dashed #57506a;background:#221d38;cursor:pointer}
+    .pcell.empty.armed:hover{border-color:#ffd94a;background:#2c2648}
+    .pcard{position:relative;width:60px;height:60px;border:2px solid #8a7f68;border-radius:8px;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+    .pcard img{image-rendering:pixelated}
+    .pcard.sel{outline:3px solid #ffd94a;outline-offset:1px}
+    .pcard.flip{animation:pflip .4s ease}
+    @keyframes pflip{0%{transform:scale(1)}50%{transform:scale(1.18) rotate(3deg)}100%{transform:scale(1)}}
+    .pedge{position:absolute;font-size:12px;font-weight:bold;color:#f4f0e6;text-shadow:0 1px 2px #000;line-height:1}
+    .pe-t{top:1px;left:50%;transform:translateX(-50%)}
+    .pe-b{bottom:1px;left:50%;transform:translateX(-50%)}
+    .pe-l{left:3px;top:50%;transform:translateY(-50%)}
+    .pe-r{right:3px;top:50%;transform:translateY(-50%)}
+    .phat{position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:15px}
+    .phand{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:10px 0}
+    .phand .pcard{cursor:pointer}
+    .ptally{text-align:center;font-size:15px;margin:4px 0}
+    .ptally .you{color:#7ea8ff}.ptally .opp{color:#e88aa0}
+  </style>`;
+
+  function parlorCardHTML(card, side, opts) {
+    opts = opts || {};
+    let img = '';
+    try { img = MM.sprites.get(card.sprite, { palette: card.pal || {}, scale: 3 }).toDataURL(); } catch (e) { img = ''; }
+    const border = side === 'you' ? '#3d6bb8' : side === 'opp' ? '#a83a4a' : '#8a7f68';
+    const bg = side === 'you' ? '#25314a' : side === 'opp' ? '#3a2430' : '#2a2438';
+    const e = card.edges;
+    const hat = card.hat ? `<div class="phat">${card.hat}</div>` : '';
+    return `<div class="pcard${opts.sel ? ' sel' : ''}${opts.flip ? ' flip' : ''}" ` +
+      `style="background:${bg};border-color:${border}" ${opts.attr || ''}>` +
+      hat +
+      `<div class="pedge pe-t">${e.t}</div><div class="pedge pe-r">${e.r}</div>` +
+      `<div class="pedge pe-b">${e.b}</div><div class="pedge pe-l">${e.l}</div>` +
+      `<img src="${img}" width="40" height="40" alt="">` +
+      `</div>`;
+  }
+
+  // The parlor hub — Deuce's menu (bump the dealer 'D').
+  UI.parlorHub = function () {
+    const s = MM.engine.state;
+    const par = MM.engine.ensureParlor();
+    const D = MM.data.PARLOR.dealer;
+    const talk = MM.data.pick(MM.data.PARLOR.trashTalk);
+    const body = `${D.hub}<br><br><span class="dim">🪙 Tokens: <b>${par.tokens}</b> · ` +
+      `🎴 Games: <b>${par.games}</b> · 🏆 Won cards: <b>${Object.keys(par.album).length}</b></span>` +
+      `<br><br><i>"${talk}"</i>`;
+    UI.dialogChoices(D.name, body, [
+      { label: '🃏 Play a round', primary: true, onClick: () => UI.parlorPlay() },
+      { label: '🏆 My collection', onClick: () => UI.parlorAlbum() },
+      { label: '🪙 Token table', onClick: () => UI.parlorShop() },
+      { label: '🎲 Reach 20 (dice)', onClick: () => UI.parlorDice() },
+      { label: 'Maybe later', onClick: () => {} },
+    ]);
+  };
+
+  // Start (or resume) a match and render the board.
+  UI.parlorPlay = function () {
+    const m = (MM.parlor.current && !MM.parlor.isOver(MM.parlor.current)) ? MM.parlor.current : MM.engine.parlorNewMatch();
+    UI.parlorShowBoard(m);
+  };
+
+  // Render the current match. Kid selects a hand card, then clicks an empty
+  // cell; the deterministic opponent replies; captures animate; on a full
+  // board the match settles (tokens, sometimes a card — never a scold).
+  UI.parlorShowBoard = function (m) {
+    MM.parlor.current = m;
+    let sel = -1;                 // selected hand index
+    let flipCells = [];           // cells that just flipped (for the animation)
+    const render = () => {
+      const tally = MM.parlor.score(m);
+      const armed = sel >= 0 && m.turn === 'you';
+      const cells = [];
+      for (let i = 0; i < 9; i++) {
+        const occ = m.board[i];
+        if (occ) cells.push(`<div class="pcell">${parlorCardHTML(occ.card, occ.side, { flip: flipCells.includes(i) })}</div>`);
+        else cells.push(`<div class="pcell empty${armed ? ' armed' : ''}" data-cell="${i}"></div>`);
+      }
+      const hand = m.hands.you.map((c, i) =>
+        parlorCardHTML(c, 'you', { sel: i === sel, attr: `data-hand="${i}"` })).join('');
+      openModal(`${PARLOR_STYLE}
+        <h2>🃏 Tiny Hats</h2>
+        <div class="ptally"><span class="you">You ${tally.you}</span> &nbsp;·&nbsp; <span class="opp">Deuce ${tally.opp}</span></div>
+        <div class="dialog-body" style="text-align:center">
+          <div class="dim" style="font-size:13px">${m.turn === 'you' ? (sel < 0 ? 'Pick a card, then tap a square. Bigger edge takes the neighbor.' : 'Now tap an empty square.') : 'Deuce is thinking…'}</div>
+          <div class="pboard">${cells.join('')}</div>
+          <div class="phand">${hand}</div>
+        </div>
+        <div class="btnrow"><button id="pLeave" class="secondary">Leave the table</button></div>`);
+      document.getElementById('pLeave').onclick = () => { closeModal(); UI.refresh(); };
+      document.querySelectorAll('#modalBox .phand .pcard').forEach(el => {
+        el.onclick = () => { sel = +el.dataset.hand; flipCells = []; render(); };
+      });
+      document.querySelectorAll('#modalBox .pcell.empty').forEach(el => {
+        el.onclick = () => {
+          if (sel < 0 || m.turn !== 'you') return;
+          onKidPlace(+el.dataset.cell);
+        };
+      });
+    };
+    const onKidPlace = (cell) => {
+      const idx = sel; sel = -1;
+      if (!MM.parlor.play(m, 'you', idx, cell)) { sel = -1; return render(); }
+      flipCells = m.lastFlips.slice();
+      if (m.lastFlips.length) MM.sound.coin(); else MM.sound.whoosh();
+      render();
+      if (MM.parlor.isOver(m)) return setTimeout(finish, 450);
+      // the deterministic opponent replies after a short beat
+      setTimeout(() => {
+        if (m.turn === 'opp' && m.hands.opp.length) {
+          MM.parlor.oppPlay(m);
+          flipCells = m.lastFlips.slice();
+          if (m.lastFlips.length) MM.sound.coin();
+          render();
+        }
+        if (MM.parlor.isOver(m)) setTimeout(finish, 450);
+      }, 420);
+    };
+    const finish = () => {
+      const res = MM.engine.parlorFinishMatch(m);
+      const P = MM.data.PARLOR;
+      let body;
+      if (res.result === 'you') { MM.sound.fanfare(); body = MM.data.pick(P.winLines); }
+      else if (res.result === 'opp') { MM.sound.thud(); body = MM.data.pick(P.lossLines); }
+      else { body = MM.data.pick(P.tieLines); }
+      body += `<br><br><span class="dim">🪙 +${res.tokensGained} token${res.tokensGained === 1 ? '' : 's'} for playing` +
+        `${res.result === 'you' ? ' and winning' : ''}. (A loss never costs a thing.)</span>`;
+      if (res.wonCard) body += `<br><br>${P.cardWon}`;
+      for (const post of (res.claimed || [])) body += `<br><br>${post.spawnLine}`;
+      MM.parlor.current = null;
+      UI.dialogChoices('🃏 ' + (res.result === 'you' ? 'You win!' : res.result === 'opp' ? 'Good game' : 'A draw'), body, [
+        { label: '🔁 Another round', primary: true, onClick: () => UI.parlorPlay() },
+        { label: 'Back to the felt', onClick: () => {} },
+      ]);
+    };
+    render();
+  };
+
+  // The card album — trophies won from opponents (reuses the Monster Book idiom).
+  UI.parlorAlbum = function () {
+    const par = MM.engine.ensureParlor();
+    const A = MM.data.PARLOR.album;
+    const kinds = Object.keys(par.album);
+    const twoDigit = MM.parlor.twoDigit(MM.engine.state);
+    let grid;
+    if (!kinds.length) grid = `<p class="dim">${A.empty}</p>`;
+    else {
+      const cards = kinds.map(k => {
+        const card = MM.parlor.cardFor(k, twoDigit, true);   // won cards wear a hat
+        return `<div style="text-align:center"><div style="display:inline-block">${parlorCardHTML(card, null, {})}</div>` +
+          `<div style="font-size:11px" class="dim">${k}</div></div>`;
+      }).join('');
+      grid = `<p class="dim">${A.intro}</p><p>${A.countLine(kinds.length)}</p>` +
+        `<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:8px">${cards}</div>`;
+    }
+    openModal(`${PARLOR_STYLE}
+      <h2>${A.title}</h2>
+      <div class="dialog-body">${grid}</div>
+      <div class="btnrow"><button id="pAlbumClose" class="primary">Close</button></div>`);
+    document.getElementById('pAlbumClose').onclick = () => { closeModal(); UI.refresh(); };
+  };
+
+  // The token table — cosmetic card-backs only (tokens, never gold).
+  UI.parlorShop = function () {
+    const par = MM.engine.ensureParlor();
+    const S = MM.data.PARLOR.shop;
+    const rows = (MM.data.PARLOR.backs || []).map(b => {
+      const owned = par.back === b.id;
+      const canBuy = !owned && par.tokens >= b.price;
+      return `<div class="shop-row${owned ? ' owned' : ''}">
+        <span class="shop-item">🂠 ${b.name}<span class="quip">${S.backLine}</span></span>
+        <span class="shop-price">${b.price === 0 ? 'free' : b.price + ' 🪙'}</span>
+        ${owned ? '<span class="shop-buy">✓ in use</span>' : `<button class="shop-buy pback" data-id="${b.id}" ${canBuy ? '' : 'disabled'}>Use</button>`}
+      </div>`;
+    }).join('');
+    openModal(`
+      <h2>${S.title}</h2>
+      <div class="dialog-body">
+        <p style="font-size:13.5px">${S.intro}</p>
+        <p class="dim">🪙 Tokens: <b>${par.tokens}</b></p>
+        ${rows}
+      </div>
+      <div class="btnrow"><button id="pShopClose" class="primary">Close</button></div>`);
+    document.getElementById('pShopClose').onclick = () => { closeModal(); UI.refresh(); };
+    document.querySelectorAll('#modalBox .pback').forEach(btn => {
+      btn.onclick = () => {
+        const ok = MM.engine.parlorBuyBack(btn.dataset.id);
+        if (ok) { MM.sound.coin(); UI.log(MM.data.PARLOR.shop.bought((MM.data.PARLOR.backs.find(b => b.id === btn.dataset.id) || {}).name)); }
+        UI.parlorShop();
+      };
+    });
+  };
+
+  // The Games Den side-table: "reach 20, don't go over" — pure mental addition.
+  UI.parlorDice = function () {
+    const D = MM.data.PARLOR.dice;
+    let rolls = [];
+    const roll = () => 1 + Math.floor(Math.random() * 6);
+    const render = () => {
+      const total = MM.parlor.diceTotal(rolls);
+      const bust = total > 20;
+      const faces = rolls.length ? rolls.map(r => `<span style="font-size:26px">${'⚀⚁⚂⚃⚄⚅'[r - 1]}</span>`).join(' ') : '<span class="dim">— roll to begin —</span>';
+      openModal(`
+        <h2>${D.title}</h2>
+        <div class="dialog-body" style="text-align:center">
+          <p style="font-size:13.5px">${D.intro}</p>
+          <div style="margin:14px 0">${faces}</div>
+          <div style="font-size:22px">Running total: <b style="color:${bust ? '#e88aa0' : '#7ee0e8'}">${total}</b>${bust ? ' — bust!' : ''}</div>
+          <p class="dim" style="font-size:12.5px">${D.prompt}</p>
+        </div>
+        <div class="btnrow">
+          ${bust ? '' : '<button id="pRoll" class="primary">🎲 Roll</button>'}
+          ${rolls.length && !bust ? '<button id="pHold" class="secondary">✋ Hold</button>' : ''}
+          <button id="pDiceClose" class="secondary">Leave</button>
+        </div>`);
+      const rb = document.getElementById('pRoll');
+      if (rb) rb.onclick = () => { rolls.push(roll()); MM.sound.whoosh(); render(); };
+      const hb = document.getElementById('pHold');
+      if (hb) hb.onclick = () => settle(total);
+      document.getElementById('pDiceClose').onclick = () => {
+        if (bust) settle(total); else { closeModal(); UI.refresh(); }
+      };
+      if (bust) { MM.sound.thud(); }
+    };
+    const settle = (total) => {
+      const reward = MM.engine.parlorDiceAward(total);
+      const P = MM.data.PARLOR.dice;
+      let msg = total > 20 ? P.bust : total === 20 ? P.jackpotLine : P.holdLine(total);
+      if (reward) { msg += `<br><br><span class="dim">🪙 +${reward} token${reward === 1 ? '' : 's'}.</span>`; MM.sound.coin(); }
+      UI.dialogChoices('🎲 Reach 20', msg, [
+        { label: '🔁 Again', primary: true, onClick: () => UI.parlorDice() },
+        { label: 'Back to the felt', onClick: () => {} },
+      ]);
+    };
+    render();
   };
 
   UI.showProblem = function (opts) {
