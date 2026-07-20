@@ -4328,3 +4328,23 @@ representation core), DEFAULT-to-knight backward-compat, change-anytime
 from day one (never stuck), stat-free cosmetics, Passport carry, jokes
 never on the kid. Confirm the final non-human roster with the design
 session BEFORE drawing sprites (art is the real cost here).
+
+### ROSTER LOCKED (2026-07-20, user) — supersedes "finalize the set" above
+The five pickable avatars: **woman, man, dragon, fox, slug.** Locked design calls:
+- **Woman + man are BOTH palette-customizable** (skin tone / hair / outfit) —
+  the representation core (generalize the s.greenHair swap on hero/hero2).
+  This directly serves the origin request (a kid seeing herself), and any
+  kid of any background can make the woman OR man look like them. Not two
+  fixed skins.
+- **Dragon, fox, slug are BESPOKE hero sprites** — purpose-built, dignified,
+  2 walk frames each, hold the tool, wear hats. The SLUG is its OWN hero
+  sprite, NOT the enemy slime reskinned (distinct from enemies + the pet).
+  A dignified deadpan slug-hero is the comedy, never a lesser option.
+- **The knight stays** — it is the backward-compat DEFAULT for existing
+  saves (they render EXACTLY as today; never change a current player's
+  look) AND remains a selectable legacy form via the Looking Glass, so no
+  current player loses it. New games pick from the five above (knight may
+  also appear in the picker as the classic option — implementer's call, but
+  it must never vanish for someone who already has it).
+- World-reaction comedy pools: author for dragon, fox, slug (the humans
+  stay neutral — they ARE the kid). e.g. the dragon-in-the-courtyard line.
