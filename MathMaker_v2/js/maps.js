@@ -1171,7 +1171,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     '##........#....#.F...F..##',
     '###########....###########',
     '###########....###########',
-    '##o......H#....#Z..VV...##',
+    '##o......H#....#Z..VV..K##',
     '##..Q.J.................##',
     '##.......##F..F#........##',
     '##diklnwr##....#........##',
@@ -1200,6 +1200,45 @@ var MM = globalThis.MM = globalThis.MM || {};
     '#.....P.....#',
     '######X######',
   ];
+
+  // ===== Wave 16: "The Kitchen Garden" (Castle Expansion Wave C) =====
+  // Two paired rooms as one supply chain, reached through the castle's 'K'
+  // door. A combat-free overworld like the castle/Wing/Parlor (no monsters, no
+  // stamina), with its OWN tileSprite alphabet (none of these letters is an
+  // NPCS key, so the overworld NPC pass never draws them — the v1.7.9 'Y'
+  // lesson). Garden on the left, kitchen on the right, one open floor between:
+  //   X back out to the castle    P arrival
+  //   B the seed bench (bump → plant a rectangle, count it, harvest it)
+  //   , tilled soil (the plot; walkable)   Y a planted seedling (walkable)
+  //   R a ripe plant, ready to harvest (walkable — the plants never judge)
+  //   C the cook station (bump → pick a recipe, scale the measure)
+  //   S the sous-chef (bump → talk)   V a very serious carrot (bump → talk)
+  // The bench/cook/chef/carrot are drawn by the tile pass (B/C/S/V are NOT
+  // NPCS keys). The plot occupies x=6..13, y=2..7 (see GARDEN_PLOT).
+  MM.maps.GARDEN = [
+    '######################',
+    '#....................#',
+    '#..B..,,,,,,,,....S..#',
+    '#.....,,,,,,,,....C..#',
+    '#.....,,,,,,,,.......#',
+    '#.....,,,,,,,,.......#',
+    '#.....,,,,,,,,.......#',
+    '#.....,,,,,,,,.......#',
+    '#..V.................#',
+    '#....................#',
+    '#.........P..........#',
+    '##########X###########',
+  ];
+  // Geometry the garden's engine handlers read (prose lives in data.js).
+  MM.maps.GARDEN_PLOT = { x0: 6, y0: 2, w: 8, h: 6 };   // the tilled plot: x 6..13, y 2..7
+  MM.maps.GARDEN_BENCH = { x: 3, y: 2 };
+  MM.maps.GARDEN_COOK = { x: 18, y: 3 };
+  MM.maps.GARDEN_CHEF = { x: 18, y: 2 };
+  MM.maps.GARDEN_CARROT = { x: 3, y: 8 };
+  MM.maps.GARDEN_ARRIVAL = { x: 10, y: 10 };
+  // Bigger plots as the kid's tier rises (courtCaseTier-style, via
+  // MM.mastery.tierFor). Never larger than the plot itself (8 wide, 6 tall).
+  MM.maps.GARDEN_MAX = { 1: { rows: 4, cols: 5 }, 2: { rows: 5, cols: 7 }, 3: { rows: 6, cols: 8 } };
 
   // ===== Wave 12 (P3): the Workshop Wing — the castle's proving rooms =====
   // Combat-free (s.monsters = [] — the castle rule extends here), entered
@@ -1678,7 +1717,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   // NPC pass may run (its alphabet avoids every NPCS key), castle movement.
   // 'myroom' (Wave 13) is an overworld like the castle and the Wing: no
   // monsters ever, no stamina, its own alphabet block below.
-  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom', 'parlor'];
+  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom', 'parlor', 'garden'];
   MM.maps.isOverworld = mapId => MM.maps.OVERWORLD_IDS.includes(mapId);
 
   // Gear gates (Clockwork Spire): exactly one of A/B/C is open at a time, and
@@ -1836,6 +1875,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       // 'Z' is the Spire's clock-door glyph in DUNGEONS — this castle block
       // returns first, so there is no collision (unit-guarded in test.js).
       if (ch === 'Z') return 'parlorDoor';
+      // Wave 16: the Kitchen Garden door in the castle's east wall. 'K' is the
+      // world map's expansion-entrance glyph for dungeon 13 (intercepted in the
+      // 'world' block below) and unused by any dungeon mechanic; the castle
+      // block returns first, so there is no collision (unit-guarded in test.js).
+      if (ch === 'K') return 'gardenDoor';
       if (ch === 'o') {
         const wg = MM.engine && MM.engine.state && MM.engine.state.wing;
         return (wg && wg.wardrobeMoved) ? 'wardrobe' : 'hallFloor';
@@ -1912,6 +1956,24 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ch === 'D') return 'dealer';         // Deuce, the house dealer (bump → play)
       if (ch === 'T') return 'diceTable';      // the "reach 20" side-table
       if (ch === 'C') return 'cardTable';      // the felt table (bump → play)
+      return 'hallFloor';                      // '.', 'P'
+    }
+    // Wave 16 (P1/P2): the Kitchen Garden owns its whole alphabet, castle-style.
+    // Several letters mean OTHER things elsewhere ('B'/'R' gear tiles + the
+    // workbench, 'S' shop/cat statue, 'C' gear gate/card table, 'V' the crest
+    // board, 'Y' the Tutor/echo doors) — this block sits before every shared
+    // case, and each collision has a unit guard in tests/test.js. None of
+    // B/Y/R/C/S/V/',' is an NPCS key, so the overworld NPC pass never draws them.
+    if (mapId === 'garden') {
+      if (ch === '#') return 'wall';
+      if (ch === 'X') return 'castleDoor';    // back out to the castle
+      if (ch === 'B') return 'seedBench';     // plant a patch, count it, harvest it
+      if (ch === ',') return 'soil';          // tilled plot soil (walkable)
+      if (ch === 'Y') return 'seedling';      // a planted seedling (walkable)
+      if (ch === 'R') return 'ripePlant';     // ripe, ready to harvest (walkable)
+      if (ch === 'C') return 'cookStation';   // the kitchen counter (bump → recipe)
+      if (ch === 'S') return 'sousChef';      // the monster sous-chef in a toque
+      if (ch === 'V') return 'carrot';        // a very serious carrot (bump → talk)
       return 'hallFloor';                      // '.', 'P'
     }
     if (mapId === 'isles' && (ch === 'u' || ch === 'v' || ch === 'w')) return 'murk';

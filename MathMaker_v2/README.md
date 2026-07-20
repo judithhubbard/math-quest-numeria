@@ -768,6 +768,33 @@ corner of the castle — no timer, no way to really lose.
   the report card. Play enough and Deuce joins the castle staff as **House
   Dealer**, turning up in the throne room to stay.
 
+### 🌱 The Kitchen Garden
+
+Through the green door in the throne room's east wall (once the crown is yours)
+are two rooms that work as one: a plantable **garden** and a castle **kitchen**,
+joined by a supply chain — grow it, then cook it.
+
+- **Plant multiplication you can walk through.** At the seed bench, choose how
+  many **rows** and how many in **each row**, and a tidy rectangle of seedlings
+  fills the plot. Then the garden asks the honest question — *how many did you
+  plant in all?* — which is rows **×** columns. It's the **array** model of
+  multiplication (the picture the dungeons skip), and it records to your report
+  card under times-tables. A wrong count is never a scold: the plants wait, the
+  worked array is shown, and you count again. Bigger plots as you grow stronger.
+- **Cook by measure.** Carry a harvest to the kitchen and a **sous-chef** in a
+  too-big toque hands you a recipe that calls for a **measured** amount —
+  scaled up for company, or down for just you. Work out the measure and you've
+  made the real dish; it goes into your larder as **food** for the road. This is
+  hands-on **fractions**, and it records too.
+- **A wrong measure is the comedy, never a loss.** Miss the fraction and the pot
+  produces a gloriously-named **disaster dish** — *Regret Soup*, *The Sandwich
+  That Asks Questions*, *Structurally Concerning Porridge* — which your **pet**
+  will eat out of sheer loyalty, with **opinions**. The worked answer is shown
+  and you simply try again. Nothing is ever wasted, and nothing is ever lost.
+- **A very serious carrot** oversees the rows (it was *elected*, by the row).
+  Grow and cook enough and two reformed monsters take up posts — a **Gardener**
+  and a **Cook** — turning up in the throne room to stay.
+
 ### A few playtest fixes
 
 A real play session turned up some friction, since fixed: every locked door

@@ -3823,7 +3823,82 @@ comedy, the Faculty dealer via the extension point, card determinism.
 Biggest risk is P2's engine — if it slips, SAY SO and stop; Waves C/D are
 independent and can go first.
 
-## Wave 16 order — "The Kitchen Garden" (Castle Expansion Wave C) (user directive 2026-07-20)
+## Wave 16 order — "The Kitchen Garden" (Castle Expansion Wave C) (user directive 2026-07-20) — ✅ SHIPPED v1.12.0 2026-07-20 (design-reviewed; prose approved)
+
+**Implementation status (implementer session, 2026-07-20):** all of P1–P4 +
+the comedy cast shipped. Unit suite green (exit 0, incl. the new Wave 16 block);
+`tests/drive-kitchen.js` = 34 checks, zero JS errors; full 40-drive sweep +
+detached marathon per the evidence discipline (logs in `tests/logs/*-wave16.log`
++ `sweep-wave16-summary.txt` + `marathon-wave16.log`; marathon final line:
+"MARATHON COMPLETE: level 18, 1857 gold, 0 gold badges — every flag earned, none
+granted", zero JS errors). Sweep: 39/40 first pass; the one miss, `drive-depth`,
+is the known Calm-Mode shake-timing flake under contention — green clean-solo
+(exit 0, 18 checks), unrelated to this wave. Six screenshots audited by eye (the
+garden room, a planted array, the count problem, a recipe modal, a disaster dish
+with the pet's emote, the sous-chef, a Faculty post) — the array READS as a grid
+of plants and the count problem is in WORDS (no numeral hazard); a screenshot
+audit caught a recipe frame promising "the difference" over an equivalence
+problem, so all recipe frames were made operation-AGNOSTIC (the fix below).
+
+What shipped, per P-item:
+- **P1 — the garden plot.** A new combined room (mapId `'garden'`, an overworld
+  like the castle), reached through the castle's `'K'` door (east wall, gated on
+  s.endingDone; pre-ending = a gentle "not yet"). The seed bench plants an r×c
+  RECTANGLE; the array asks "how many did you plant?" via `MM.problems.gardenArray`
+  and RECORDS under **muldiv_facts**. A wrong count re-asks gently (worked array
+  shown), never a scold. Bigger plots by tier (`MM.maps.GARDEN_MAX`, via
+  `MM.mastery.tierFor`). Harvest yields a simple ingredient counter that feeds P2.
+- **P2 — the castle kitchen** (same map, right half). The cook station serves a
+  real fraction problem (`MM.problems.kitchenRecipe`) recording under
+  **fractions_as** OR **fractions_m** (weakest-first, parent-switch aware). A
+  correct measure makes the real dish → a **food grant** via `E.yardGrantReward`
+  (the real food economy). A wrong measure makes a gloriously-named **disaster
+  dish** (authored pool) — never a scold, never a loss; the worked answer shows
+  and it re-asks; the pet reacts (field emote + a line).
+- **P3 — comedy & cast.** ONE opinionated carrot (`'V'`, bump-modal); a monster
+  **sous-chef** in a toque (`'S'`, once-ever intro + a line pool); the pet's
+  dish opinions (a `E.petEmote` glyph over the pet + a line in the result modal +
+  sound). Interaction budget stayed tight (walk-to / bump-plant / answer /
+  pick-recipe) — no minigame sprawl.
+- **P4 — Faculty + rewards.** A **Gardener** (reformed Rat, `earned: harvests>=2`)
+  and a **Cook** (reformed Slime, `earned: dishes>=3`) APPENDED to
+  `MM.data.FACULTY_POSTS` — `E.checkFaculty` claims them with ZERO changes (the
+  Wave 14 extension point, used exactly as designed). Rewards are the dishes
+  (food economy) + up-only counters (harvests, dishes). No gold-grind, no power.
+- **Records-to-mastery: YES** (confirmed) — garden → muldiv_facts, kitchen →
+  fractions_as/fractions_m. Unit tests assert each recorded key.
+
+Deviations from this order, and why:
+- **Planting AUTO-FILLS the rectangle** (the order's "choose rows, choose
+  columns, SEE the array fill in") rather than stepping each seedling: hand-
+  walking r×c seedlings would make the count a foregone conclusion and lose the
+  honest "how many did you plant?" surprise. The mason-trail PLACEMENT PATTERN is
+  reused faithfully — a persisted, fully-removable plot (`s.garden.plot`) with a
+  **reset** ("Clear the plot", the wedge-nudge law) — and seedlings are WALKABLE
+  (the plants never judge), so nothing can ever wedge the kid.
+- **BOTH fraction strands KEPT** (not cut): fractions_as (measuring/adding parts)
+  and fractions_m (scaling by a factor), chosen weakest-first + parent-switched.
+- **Ingredients are a simple counter, not a new item class** (permitted): a
+  harvest yields `s.garden.ingredients`; cooking a real dish grants actual FOODS.
+- **The talking-vegetable cast is one carrot** (permitted trim to a single
+  opinionated carrot for v1).
+- **Recipe frames are operation-AGNOSTIC** (like the Court's Magistrate): the
+  sous-chef fusses about measuring carefully, the plain generated problem carries
+  the operation — so any variant of the skill fits and "keep the math text clean"
+  holds. (Screenshot audit fix — see above.)
+- **ONE combined map** holds both rooms (garden left, kitchen right) — the plan's
+  "the grow→cook loop makes two rooms feel like one system" — with a single
+  castle door and one tileSprite alphabet.
+- **Faculty sprite:** the Gardener is a reformed **Rat** (there is no boar
+  sprite), reframed as a former vegetable-thief; the Cook is a reformed Slime.
+- **Glyphs:** castle door `'K'` (the world map's dungeon-13 entrance glyph — the
+  castle block returns first, no collision); garden alphabet `B`/`,`/`Y`/`R`/`C`/
+  `S`/`V` — none is an NPCS key, so the overworld NPC pass never draws them; each
+  is unit-guarded (context → sprite).
+- **NG+:** `s.garden` (plot + ingredients + harvests/dishes counters) survives
+  `startGolden` AND `returnToFinishedKingdom` by being left untouched (like
+  `s.wing`/`s.court`/`s.parlor`) — unit-tested both directions. `sw.js` /
+  `js/tracker.js` versions NOT bumped (the design session ships).
 
 Third wave of CASTLE_EXPANSION_PLAN.md (read it + the Wave 14 Court and
 Wave 15 Parlor orders first). TWO paired rooms as one supply chain — a

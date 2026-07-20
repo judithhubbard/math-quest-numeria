@@ -1672,7 +1672,127 @@ var MM = globalThis.MM = globalThis.MM || {};
       spawnLine: 'Word of the Parlor has reached the castle. A reformed <b>Skeleton</b> — Deuce, of the excellent shuffling hands — has taken up the official post of <b>House Dealer</b>, and looks thrilled to be on the staff.',
       line: 'The House Dealer riffles a deck it does not strictly need to riffle. "I have a POST now," Deuce says, adjusting its tiny hat with evident pride. "A desk, a title, a little brass plate. I used to be a pile of bones in a catacomb. Now I run a card table in a castle." It fans the deck. "Life is mostly a matter of finding the right table."',
     },
+    // Wave 16 (P4): the Kitchen Garden's two posts. Appended with their OWN
+    // earned(state) predicates (harvests gathered / dishes cooked) — the Wave 14
+    // E.checkFaculty loop claims them with ZERO changes there, exactly the
+    // extension this list was built for. Reformed monsters, visible in the castle.
+    {
+      id: 'gardener', title: 'Castle Gardener', sprite: 'rat',
+      pal: { A: '#6f8a48', B: '#4f6330', T: '#c7d69a' }, badge: '🌱', x: 20, y: 10,
+      earned: s => ((s.garden && s.garden.harvests) || 0) >= 2,
+      spawnLine: 'Word of the flourishing rows has spread. A reformed <b>Rat</b> — who once raided the vegetable stores and now grows them — has taken up the post of <b>Castle Gardener</b>, and could not be prouder of its dirt.',
+      line: 'The Castle Gardener leans on a hoe with the deep contentment of a creature that has found its calling. "I used to STEAL vegetables," it admits, brushing soil from its paws. "Whole sacks of turnips. Terrible business, and honestly a lot of running." It gestures at the neat rows with the hoe. "Now I grow them in tidy little arrays. Rows and columns. It is the most peaceful thing I have ever done, and nobody chases me anymore."',
+    },
+    {
+      id: 'cook', title: 'Castle Cook', sprite: 'slime',
+      pal: { A: '#c46a4a', a: '#a04a2c', F: '#ffe4d0' }, badge: '🍲', x: 22, y: 10,
+      earned: s => ((s.garden && s.garden.dishes) || 0) >= 3,
+      spawnLine: 'The smell of something wonderful has reached the throne room. A reformed <b>Slime</b> in a tall white toque has taken up the post of <b>Castle Cook</b> — it says running a proper kitchen is "a dream I did not know I was allowed to have."',
+      line: 'The Castle Cook adjusts its toque, which is nearly as tall as it is. "A KITCHEN," it says, savoring the word. "With measuring cups. Real ones." It stirs a pot that smells improbably good. "The trick, they tell me, is the fractions. Half of this, three-quarters of that, doubled if company comes." It offers you a spoon. "I got them all wrong at first. Made some truly alarming soups. But nothing was ever wasted — the pet ate every one, bless it."',
+    },
   ];
+
+  // ===== Wave 16: "The Kitchen Garden" (Castle Expansion Wave C) =====
+  // Two paired rooms as one supply chain: a plantable GARDEN (multiplication
+  // as an ARRAY you plant) and a KITCHEN (fractions / scaling by measure).
+  // Both RECORD to mastery under their real skills. Combat-free (s.monsters =
+  // []), no timers, gentle failure (a wrong measure makes a FUNNY dish, never
+  // a scold, never a loss). Comedy channels: field / glyph / sound / modal —
+  // never the log. All prose below is authored (paste for design review).
+  MM.data.GARDEN = {
+    // The castle-side door ('K'): a gentle "not yet" pre-ending (like the Wing).
+    doorNotYet: 'A green door with a little painted trowel on it, and the warm smell of soil and something cooking beyond. It is locked, for now.<br><br><i>A kingdom has to be set right before its garden can be tended in peace. Not yet.</i>',
+    enterLine: '🌱 <b>The Kitchen Garden.</b> Neat rows of soil on one side, a warm little kitchen on the other — and the smell of both drifting together.',
+    // The seed bench (bump 'B'): plant a rectangle, count it, harvest it.
+    benchTitle: '🌱 The seed bench',
+    benchBody: 'Trays of seedlings, a watering can, and a plot of good soil laid out in rows. Plant a patch and the garden will ask you to count it — rows times columns, the honest way.',
+    plantPickRows: 'How many <b>rows</b> shall we plant?',
+    plantPickCols: rows => `${rows} row${rows === 1 ? '' : 's'} — and how many seedlings in <b>each row</b>?`,
+    planted: (r, c) => `🌱 You press ${r} × ${c} seedlings into the soil, row by row, until a tidy green rectangle stands in the plot. Now — how many is that?`,
+    countAgain: 'Your seedlings are in the ground, uncounted. Shall we count the array?',
+    // Gentle-failure line on a wrong COUNT (the plants do not judge). The worked
+    // solution (the array) shows above it; this re-asks, never scolds.
+    miscount: [
+      'Not quite — but the seedlings do not mind being counted twice. They have nowhere to be. Look at the rows and try once more.',
+      'Close! The plants are very patient about this. Count the rows, then the columns, and go again.',
+      'The garden waits. Nobody has ever been rushed here. Give the array another look.',
+    ],
+    // A correct count → the patch is grown, ready to harvest.
+    counted: (n) => `✓ <b>${n} seedlings</b>, counted true. The little rectangle of green stands proud. It will be ready to harvest whenever you next come by.`,
+    harvestReady: 'The patch is grown and ready — a full array of it.',
+    harvested: (n) => `🧺 You gather the whole array — <b>${n} fresh ingredients</b> — into a basket and carry it toward the kitchen. The plot is bare soil again, ready for the next planting.`,
+    clearPlot: '🌱 You gently lift the seedlings back into their trays. The plot is bare soil again. (Nothing is ever wasted here — they will keep.)',
+    plotEmpty: 'Bare, tilled soil, waiting for a rectangle of seedlings. Plant a patch at the seed bench.',
+    // The talking carrot (P3): a single squat, opinionated Numberling cousin.
+    // Field/glyph/sound + bump-modal only. It believes it is in charge.
+    carrotName: '🥕 A very serious carrot',
+    carrot: [
+      '"You there." A carrot, mostly buried, regards you with enormous authority. "I have been elected to oversee this row. By whom? By the row. Carry on. I am WATCHING."',
+      '"A word of advice from management," says the carrot, which is a carrot. "Straight rows. Even columns. A garden is just multiplication that you can eat, and I will not have it done sloppily."',
+      '"Do not," says the carrot, with the gravity of a much larger vegetable, "let the cook near me. We have a history. It involves a grater. I would rather not discuss it."',
+      '"I could leave this soil at any time," the carrot announces, not leaving the soil. "I stay because I am NEEDED. Someone has to have standards. The turnips certainly do not."',
+      '"Excellent work on the array," the carrot says, as though it planted it. "I supervised. It was exhausting. I shall require a nap and possibly a small parade."',
+    ],
+    // The sous-chef (bump 'S'): a monster in a tiny toque who runs the kitchen.
+    chefName: '🍲 The Sous-Chef',
+    chefIntro: '"AH! A fellow cook!" A round little creature in a toque three sizes too big bustles over, wooden spoon aloft. "Welcome to the kitchen! The rule here is simple: measure honestly and everything turns out lovely. Measure wrongly and — well. You will meet the results. The pet meets most of them." It beams. "Bring me a harvest from the garden and we shall make something. Or something ADJACENT to something. Both are welcome."',
+    chef: [
+      '"The secret to cooking," the sous-chef confides, "is that a recipe is just a fraction wearing an apron. Half of this. Three-quarters of that. Doubled, if friends are coming." It taps its nose with the spoon, leaving a small smear of flour.',
+      '"I have burned water," the sous-chef says proudly. "Twice. On PURPOSE, the second time, to see if I could do it again. I could. The pet was very brave about it."',
+      '"Measure twice, ladle once," it says, then reconsiders. "Or measure once and ladle with tremendous confidence. That is more my style, honestly, and it shows."',
+    ],
+    chefNeedIngredients: '"Ah — the cupboard is bare, chef!" The sous-chef turns its empty pot upside down and a single sad crumb falls out. "Off to the garden with you. Plant a patch, count it true, harvest the array, and bring it back. I shall keep the fire warm." <i>(No harvest yet — the kitchen waits, patiently, forever.)</i>',
+    // Picking a recipe scales it; the kid computes the measure (records under
+    // the fraction skill). Header shown above the plain math problem.
+    cookHeader: (dish, frame) => `🍲 <b>${dish}</b><br><span class="dim">${frame}</span>`,
+    cookLeave: 'Wipe your hands for now',
+    // Recipe frames, per skill. The DISH is the good outcome; the FRAME is the
+    // sous-chef's request. The problem itself (plain math) is generated.
+    // Frames are operation-AGNOSTIC on purpose (like the Court's Magistrate):
+    // the sous-chef fusses about measuring carefully, the plain math problem
+    // below carries the real operation — so any variant of the skill fits the
+    // frame and the "keep the math text clean" rule holds.
+    recipes: {
+      fractions_m: [
+        { dish: 'Glimmer-Moss Stew', frame: 'The sous-chef taps the recipe. "Company\'s coming — work out the measure and tell me exactly how much."' },
+        { dish: 'Honeyroot Tart', frame: '"Bigger crowd today," says the sous-chef, sleeves rolled. "Do the fractions and give me the amount."' },
+        { dish: 'Sunrise Porridge', frame: '"Measure it out just right," the sous-chef says, guarding the pot. "How much do we need?"' },
+        { dish: 'Thunderpepper Chili', frame: '"This one wants EXACTLY the right amount, no more," warns the sous-chef, "or the SPOONS start to worry."' },
+      ],
+      fractions_as: [
+        { dish: 'Two-Berry Cordial', frame: '"Careful with the measures — same jug, steady pour," the sous-chef says, holding it level.' },
+        { dish: 'Meadowleaf Soup', frame: '"Work out the measure and tell me the total," says the sous-chef, ladle poised over the pot.' },
+        { dish: 'Frostmint Sorbet', frame: '"Get the fraction exactly right," the sous-chef says. "That is precisely how much frost we want."' },
+        { dish: 'Harvest Loaf', frame: '"Measure the flour to the fraction," the sous-chef says, dusting its paws. "How much is that?"' },
+      ],
+    },
+    // A CORRECT measure → the real dish. Feeds the food economy.
+    dishDone: (dish) => `✨ <b>${dish}</b>, made exactly right! It comes out of the pot looking like the picture, which almost never happens. Into the larder it goes.`,
+    // A WRONG measure → a gloriously-named DISASTER DISH. Never a loss; the
+    // worked solution shows above; it re-asks. Field/glyph/sound + this modal.
+    disasters: [
+      { name: 'Regret Soup', line: 'The measure is off, and the pot produces <b>Regret Soup</b> — a broth so pensive it seems to be thinking about its choices. It is not a loss. Nothing here is. But it IS Regret Soup.' },
+      { name: 'The Sandwich That Asks Questions', line: 'What emerges is <b>The Sandwich That Asks Questions</b>. It is unclear which questions. It is unclear how a sandwich asks anything. You feel gently interrogated. Try the measure again.' },
+      { name: 'Structurally Concerning Porridge', line: 'The bowl fills with <b>Structurally Concerning Porridge</b> — porridge that a builder would want to inspect before approving. It holds a spoon upright at an angle physics has not signed off on. Have another go.' },
+      { name: 'Ambitious Pudding', line: 'Out comes <b>Ambitious Pudding</b>, which is reaching for something none of you can name. You respect its dream. You do not respect its texture. The recipe waits, unbothered.' },
+      { name: 'The Loaf of Mild Alarm', line: 'The oven yields <b>The Loaf of Mild Alarm</b>. Nothing is technically wrong with it. Everything about it is technically unsettling. The sous-chef salutes it. Measure once more.' },
+      { name: 'Suspicious Casserole', line: 'It is a <b>Suspicious Casserole</b>. It has done nothing wrong that you can prove. You would simply prefer it did not look at you like that. No harm done — count the measure again.' },
+    ],
+    // The pet has OPINIONS (field/glyph/sound + this line in the result modal).
+    petGood: [
+      'Your pet inhales the whole dish in one heroic gulp, then looks up with the shining eyes of a creature that has tasted greatness. 💖',
+      'Your pet takes one dignified bite, considers it with the seriousness of a royal taster, and then loses all composure entirely. Tail everywhere. 😋',
+      'Your pet does a small, involuntary happy spin and immediately pretends it did not. The dish is a triumph and you both know it. ✨',
+    ],
+    petBad: [
+      'Your pet sniffs the disaster dish, sneezes with tremendous force, and then — because it loves you — eats it anyway, heroically, one appalled bite at a time. 😖',
+      'Your pet regards the dish. The dish regards your pet. After a long standoff, your pet eats it out of sheer loyalty and gives you a look you will remember. 🫠',
+      'Your pet gamely tries the disaster dish, makes a face known to zoologists as "the flavor of a brave decision," and finishes every scrap. Nothing wasted. 😤',
+    ],
+    // Milestone celebration prefix when a Faculty post is claimed here.
+    facultyClaimed: 'And there is news:',
+  };
+
   // The castle door ('H' by the Study) and the hall's-end teaser doorway.
   MM.data.WING_DOOR_LOCKED = name =>
     `A sturdy door with a brass plate, polished bright and freshly engraved. The plate reads: <b>${name}</b>.<br><br>Under it, in smaller letters: <i>Not yet.</i>`;

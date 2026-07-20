@@ -1414,6 +1414,14 @@ var MM = globalThis.MM = globalThis.MM || {};
           ctx.textAlign = 'center';
           ctx.fillText('💤', pvx * TILE + TILE / 2, pvy * TILE - 4);
         }
+        // Wave 16: the pet reacts to a dish — an emote pops over it (field/glyph
+        // channel), briefly, then fades. Off under Calm Mode like the idle gags.
+        if (!s.calmMode && MM.engine.petEmote && Date.now() < MM.engine.petEmote.until) {
+          const eb = Math.abs(Math.sin(now / 200)) * 4;
+          ctx.font = '14px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(MM.engine.petEmote.ch, pvx * TILE + TILE / 2, pvy * TILE - 4 - eb);
+        }
         if (MM.engine.petAlert) {
           // big, bouncing, impossible to miss
           const jump = Math.abs(Math.sin(now / 200)) * 8;

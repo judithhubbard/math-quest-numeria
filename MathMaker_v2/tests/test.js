@@ -1338,6 +1338,15 @@ for (let idx = 1; idx <= MM.data.TASKS.length; idx++) {
   checkMap(MM.maps.CASTLE, 'castle', 'castle');   // Wave 7
   checkMap(MM.maps.WING, 'wing', 'wing');         // Wave 12
   checkMap(MM.maps.PARLOR, 'parlor', 'parlor');   // Wave 15
+  checkMap(MM.maps.GARDEN, 'garden', 'garden');   // Wave 16
+  // Wave 16: the plot's planted glyphs ('Y' seedling, 'R' ripe) only appear
+  // once something is planted — audit a sample with both in the plot.
+  {
+    const sample = MM.maps.GARDEN.map(r => r.split(''));
+    const P = MM.maps.GARDEN_PLOT;
+    sample[P.y0][P.x0] = 'Y'; sample[P.y0][P.x0 + 1] = 'R';
+    checkMap(sample.map(r => r.join('')), 'garden', 'garden planted');
+  }
   // Wave 13: Your Own Room's grid is BUILT (template + placed pieces), so
   // audit a sample carrying every placeable piece char.
   {
@@ -4114,6 +4123,186 @@ for (const skill of skills) {
     if (JSON.stringify(s.parlor) !== stash) fail('parlor: returnToFinishedKingdom must carry the parlor through untouched');
     E.state = null;
   }
+}
+
+// ---------- Wave 16: "The Kitchen Garden" ----------
+{
+  require(path.join(ROOT, 'js/sprites.js'));
+  const E = MM.engine;
+
+  // (a) new-glyph context guards (the v1.7.9 'Y' lesson). The garden owns its
+  // whole alphabet; several letters mean OTHER things elsewhere.
+  const guard = (ch, x, y, mapId, want) => {
+    const got = MM.maps.tileSprite(ch, x, y, mapId, 0);
+    if (got !== want) fail(`W16 tileSprite('${ch}', ${mapId}) = '${got}', want '${want}'`);
+    if (!MM.sprites.DEFS[got]) fail(`W16 tileSprite('${ch}', ${mapId}) -> '${got}' has no sprite def`);
+  };
+  guard('K', 23, 9, 'castle', 'gardenDoor');     // the castle's garden door
+  guard('K', 0, 0, 'world', 'hole');             // 'K' on the world map is d13's entrance (unaffected)
+  guard('B', 3, 2, 'garden', 'seedBench');
+  guard(',', 6, 2, 'garden', 'soil');
+  guard('Y', 6, 2, 'garden', 'seedling');
+  guard('R', 6, 2, 'garden', 'ripePlant');
+  guard('C', 18, 3, 'garden', 'cookStation');
+  guard('S', 18, 2, 'garden', 'sousChef');
+  guard('V', 3, 8, 'garden', 'carrot');
+  // the collisions elsewhere are unaffected (garden block sits before shared cases)
+  guard('C', 3, 2, 'parlor', 'cardTable');       // 'C' in the parlor is the card table
+  guard('S', 2, 15, 'wing', 'catStatue');        // 'S' in the wing is a cat statue
+  guard('B', 1, 2, 'myroom', 'workbench');       // 'B' in myroom is the workbench
+  guard('Y', 0, 0, 'isles', 'tutor');            // 'Y' on the isles is still the Tutor
+  guard('R', 0, 0, 'd19f1', 'gearPlate');        // 'R' in a dungeon is still a gear plate
+  // the garden map really contains one of each station glyph
+  {
+    const gg = MM.maps.parse(MM.maps.GARDEN, '#');
+    for (const g of ['B', 'C', 'S', 'V', 'P', 'X']) if (MM.maps.find(gg, g).length !== 1) fail(`W16: the GARDEN map needs exactly one '${g}'`);
+    const cg = MM.maps.parse(MM.maps.CASTLE, '#');
+    if (MM.maps.find(cg, 'K').length !== 1) fail("W16: the CASTLE map needs exactly one garden door 'K'");
+  }
+
+  // (b) gardenArray asks r×c and RECORDS under muldiv_facts (assert the key)
+  {
+    const p = MM.problems.gardenArray(3, 4, 1);
+    if (p.skill !== 'muldiv_facts') fail(`W16: gardenArray must record under muldiv_facts (got ${p.skill})`);
+    if (!(p.answer && p.answer.n === 12 && p.answer.d === 1)) fail('W16: gardenArray(3,4) answer must be 12');
+    if (!MM.problems.checkAnswer(p, '12')) fail('W16: gardenArray canonical answer rejected');
+    if (MM.problems.checkAnswer(p, '11')) fail('W16: gardenArray must reject a wrong count');
+    if (!/3/.test(p.text) || !/4/.test(p.text) || !p.solution) fail('W16: gardenArray must name the rows and columns and show a worked solution');
+    for (let r = 2; r <= 6; r++) for (let c = 2; c <= 8; c++) {
+      const q = MM.problems.gardenArray(r, c, 2);
+      if (q.answer.n !== r * c) { fail(`W16: gardenArray(${r},${c}) product wrong`); break; }
+    }
+  }
+
+  // (c) kitchenRecipe scales a real fraction problem and RECORDS under the
+  // fraction skill (assert the key) — fractions_as AND fractions_m
+  for (const sk of ['fractions_as', 'fractions_m']) {
+    for (let i = 0; i < 30; i++) {
+      const r = MM.problems.kitchenRecipe(sk, 2);
+      if (r.problem.skill !== sk) { fail(`W16: kitchenRecipe(${sk}) must record under its own skill (got ${r.problem.skill})`); break; }
+      if (!r.dish || !r.frame) { fail(`W16: kitchenRecipe(${sk}) missing dish/frame`); break; }
+      if (!r.problem.text || !r.problem.answer || !r.problem.solution) { fail(`W16: kitchenRecipe(${sk}) invalid problem`); break; }
+    }
+  }
+
+  // ---- build a pre-Wave-16 save (no garden field) and load it ----
+  localStorage.setItem('mathmaker2_save_w16', JSON.stringify({
+    version: 4, name: 'w16', hp: 24, maxhp: 24, stamina: 100, maxStamina: 100,
+    gold: 10, level: 1, xp: 0, potions: 1, difficulty: 'hero',
+    parent: { pin: null, topics: {} }, taskIndex: 14, haveItem: false,
+    tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+    mastery: {}, badges: {}, bestiary: { seen: {}, kills: {}, gauntlet: {}, befriended: {} },
+    continent: 'west', isles: { lenses: { tidepool: true, frostbite: true, cinderforge: true }, keys: {}, egg: null, pet: null, lampLit: true, spireDone: true },
+    charmsOn: [], opened: {}, bossesDefeated: {}, defeatedAt: {}, streak: 0,
+    totals: { answered: 0, correct: 0 }, worldPos: null, seenBattleHelp: true, endingDone: true,
+    petHats: [],
+    gear: { weapon: ['stick'], body: ['clothes'], helmet: [], boots: [], ring: [], amulet: [] },
+    equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null }, enchants: {},
+    items: { food: {}, treasures: [], charms: [], gems: [] },
+  }));
+  E.load('w16');
+  const s = E.state;
+  // (h) migration: a pre-Wave-16 save defaults clean
+  if (!s.garden || s.garden.plot !== null) fail('W16: a pre-Wave-16 save should migrate to an empty plot');
+  if (s.garden.ingredients !== 0 || s.garden.harvests !== 0 || s.garden.dishes !== 0) fail('W16: garden counters should migrate to 0');
+  if (s.garden.seenChef !== false) fail('W16: seenChef should migrate to false');
+
+  // capture UI for the flow
+  const realDialog = MM.ui.dialog, realChoices = MM.ui.dialogChoices, realShow = MM.ui.showProblem, realBurst = MM.ui.worldBurst;
+  let prob = null;
+  MM.ui.dialog = () => {};
+  MM.ui.dialogChoices = () => {};
+  MM.ui.showProblem = (o) => { prob = o; };
+  MM.ui.worldBurst = () => {};
+
+  // (d) plant an array → count records under muldiv_facts; a wrong count re-asks
+  E.gardenPlant(3, 4);
+  if (!s.garden.plot || s.garden.plot.rows !== 3 || s.garden.plot.cols !== 4) fail('W16: gardenPlant must record the r×c plot');
+  if (s.garden.plot.cells.length !== 12) fail('W16: a 3×4 plot fills 12 seedling cells (the array)');
+  if (s.garden.ready) fail('W16: a freshly-planted patch is not yet ready (must be counted first)');
+  const mBefore = (s.mastery.muldiv_facts || { attempts: 0 }).attempts;
+  E.gardenCount();
+  const wrong = prob.onAnswer(false, '99999');
+  if (wrong.end) fail('W16: a wrong count must not end (it re-asks gently)');
+  if (!MM.data.GARDEN.miscount.includes(wrong.msg)) fail('W16: a wrong count shows a gentle re-ask line (never a scold)');
+  if (s.hp !== 24) fail('W16: a wrong count never costs HP (gentle failure)');
+  if (s.garden.ready) fail('W16: a wrong count does NOT grow the patch');
+  if ((s.mastery.muldiv_facts || {}).attempts !== mBefore + 1) fail('W16: a count records under muldiv_facts (the miss counted)');
+  const right = prob.onAnswer(true, '12');
+  if (right.end !== 'win') fail('W16: a correct count grows the patch');
+  if (!s.garden.ready) fail('W16: a correct count marks the patch ready to harvest');
+  if ((s.mastery.muldiv_facts || {}).attempts !== mBefore + 2) fail('W16: the correct count records too, under muldiv_facts');
+
+  // (e) reset/removal of placed seedlings (the wedge-nudge law)
+  E.gardenClearPlot();
+  if (s.garden.plot !== null || s.garden.ready) fail('W16: clearing the plot removes every placed seedling (fully removable)');
+
+  // (f) harvest yields ingredients + bumps the harvests counter (counts up)
+  E.gardenPlant(2, 5); s.garden.ready = true;   // grow it (count path proven above)
+  const harv0 = s.garden.harvests, ing0 = s.garden.ingredients;
+  E.gardenHarvest();
+  if (s.garden.harvests !== harv0 + 1) fail('W16: harvesting bumps the harvests counter (counts up)');
+  if (s.garden.ingredients !== ing0 + 10) fail('W16: harvesting a 2×5 array yields 10 fresh ingredients');
+  if (s.garden.plot !== null) fail('W16: harvesting clears the plot to bare soil');
+
+  // (g) cook: a WRONG measure → a named DISASTER DISH, no loss; a CORRECT
+  // measure → the real dish + a food grant + records under the fraction skill
+  {
+    const recipe = MM.problems.kitchenRecipe('fractions_m', 1);
+    const fBefore = (s.mastery.fractions_m || { attempts: 0 }).attempts;
+    s.garden.ingredients = 6;
+    E.cookRecipe(recipe);
+    const dis = prob.onAnswer(false, '99999');
+    if (dis.end) fail('W16: a wrong measure must not end (it re-asks, still no loss)');
+    if (!E._lastDish || !E._lastDish.disaster) fail('W16: a wrong measure makes a DISASTER dish');
+    if (!MM.data.GARDEN.disasters.some(d => d.name === E._lastDish.name)) fail('W16: the disaster dish is one of the authored, gloriously-named pool');
+    if (s.hp !== 24) fail('W16: a disaster dish never costs HP (never a loss)');
+    if ((s.mastery.fractions_m || {}).attempts !== fBefore + 1) fail('W16: a measure records under fractions_m (the miss counted)');
+    if (!E.petEmote) fail('W16: the pet reacts to a disaster dish (an emote pops)');
+
+    const a = recipe.problem.answer, canon = a.d === 1 ? String(a.n) : `${a.n}/${a.d}`;
+    const foodBefore = Object.values(s.items.food).reduce((n, v) => n + v, 0);
+    const dishesBefore = s.garden.dishes;
+    const good = prob.onAnswer(true, canon);
+    if (good.end !== 'win') fail('W16: a correct measure makes the real dish');
+    if (s.garden.dishes !== dishesBefore + 1) fail('W16: a real dish bumps the dishes counter (counts up)');
+    if (Object.values(s.items.food).reduce((n, v) => n + v, 0) <= foodBefore) fail('W16: a correct dish feeds the real food economy (a food grant)');
+    if ((s.mastery.fractions_m || {}).attempts !== fBefore + 2) fail('W16: the correct measure records too, under fractions_m');
+  }
+
+  // (i) the Gardener + Cook Faculty posts append and E.checkFaculty claims them
+  // UNCHANGED (the Wave 14 extension point, used exactly as designed)
+  {
+    const gp = MM.data.FACULTY_POSTS.find(p => p.id === 'gardener');
+    const cp = MM.data.FACULTY_POSTS.find(p => p.id === 'cook');
+    if (!gp || typeof gp.earned !== 'function') fail('W16: a Gardener post with earned() must be appended to FACULTY_POSTS');
+    if (!cp || typeof cp.earned !== 'function') fail('W16: a Cook post with earned() must be appended to FACULTY_POSTS');
+    if (!gp.earned({ garden: { harvests: 2 } })) fail('W16: the Gardener earns at 2 harvests');
+    if (gp.earned({ garden: { harvests: 1 } })) fail('W16: the Gardener must NOT earn before its milestone');
+    if (!cp.earned({ garden: { dishes: 3 } })) fail('W16: the Cook earns at 3 dishes');
+    if (cp.earned({ garden: { dishes: 2 } })) fail('W16: the Cook must NOT earn before its milestone');
+    const st = { faculty: [], garden: { harvests: 2, dishes: 3 } };
+    E.state = st;
+    const claimed = E.checkFaculty();   // same loop as the Court's — zero changes there
+    if (!st.faculty.includes('gardener') || !claimed.some(p => p.id === 'gardener')) fail('W16: checkFaculty must claim the Gardener at its milestone');
+    if (!st.faculty.includes('cook') || !claimed.some(p => p.id === 'cook')) fail('W16: checkFaculty must claim the Cook at its milestone');
+    if (E.checkFaculty().length) fail('W16: checkFaculty must not re-claim an already-taken post');
+    E.state = s;   // restore the loaded save for the NG+ test below
+  }
+
+  // (j) NG+ carries the garden (plot + ingredients + harvests/dishes) through
+  // BOTH directions — the Kitchen Garden survives startGolden AND return
+  s.garden = { plot: { rows: 3, cols: 4, cells: [{ x: 6, y: 2 }] }, ready: true, ingredients: 7, harvests: 4, dishes: 5, seenChef: true };
+  Object.assign(s, { opened: {}, bossesDefeated: {}, unsealed: {}, gearState: {}, repairSites: {}, freeSlabs: {} });
+  const gstash = JSON.stringify(s.garden);
+  E.startGolden();
+  if (JSON.stringify(s.garden) !== gstash) fail('W16: startGolden must carry the garden through untouched');
+  if (!s.endingDone) fail('W16: the crown survives NG+, so the Kitchen Garden is still open');
+  E.returnToFinishedKingdom();
+  if (JSON.stringify(s.garden) !== gstash) fail('W16: returnToFinishedKingdom must carry the garden through untouched');
+
+  MM.ui.dialog = realDialog; MM.ui.dialogChoices = realChoices; MM.ui.showProblem = realShow; MM.ui.worldBurst = realBurst;
+  E.state = null;
 }
 
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');

@@ -131,6 +131,14 @@ var MM = globalThis.MM = globalThis.MM || {};
       // negative, a loss costs zero); games/wins count UP only; album = kinds
       // won from opponents (the collect-them-all trophies); cosmetics only.
       parlor: { tokens: 0, games: 0, wins: 0, album: {}, back: 'default', hats: {}, seenIntro: false },
+      // ---------- Wave 16: "The Kitchen Garden" (post-ending, renewable) ----------
+      // A plantable garden (arrays → muldiv_facts) + a kitchen (measuring →
+      // fractions_as/fractions_m). Both RECORD to mastery. plot = the planted
+      // rectangle {rows, cols, cells:[{x,y}]}; ready = counted+grown, ready to
+      // harvest; ingredients = a simple fresh-produce counter the kitchen
+      // spends; harvests/dishes count UP only (the Faculty milestones + the
+      // teacher-flavored tally). seenChef = the sous-chef's once-ever intro.
+      garden: { plot: null, ready: false, ingredients: 0, harvests: 0, dishes: 0, seenChef: false },
     };
     E.enterWorld();
     E.save();
@@ -294,6 +302,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.parlor.hats == null) s.parlor.hats = {};
     if (s.parlor.back == null) s.parlor.back = 'default';
     if (s.parent && s.parent.parlorTwoDigit == null) s.parent.parlorTwoDigit = false;
+    // Wave 16: the Kitchen Garden — a pre-Wave-16 save migrates clean (empty
+    // plot, no ingredients, all counters at zero). The garden/kitchen record
+    // under existing skills (muldiv_facts / fractions_as / fractions_m), which
+    // already have their own parent switches.
+    if (!s.garden) s.garden = { plot: null, ready: false, ingredients: 0, harvests: 0, dishes: 0, seenChef: false };
+    if (s.garden.plot === undefined) s.garden.plot = null;
+    if (s.garden.ingredients == null) s.garden.ingredients = 0;
+    if (s.garden.harvests == null) s.garden.harvests = 0;
+    if (s.garden.dishes == null) s.garden.dishes = 0;
+    if (s.garden.seenChef == null) s.garden.seenChef = false;
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     // Session-shape pass (2026-07-13): resuming has ALWAYS pulled you to the
@@ -1371,6 +1389,9 @@ var MM = globalThis.MM = globalThis.MM || {};
     // is likewise left untouched — snapshot/restore only ever touch the fixed
     // KINGDOM fields, so the Parlor carries through startGolden AND
     // returnToFinishedKingdom automatically (unit-tested both ways).
+    // Wave 16: s.garden (the plot + ingredients + harvests/dishes counters) is
+    // ALSO left untouched, for the same reason — the Kitchen Garden the kid
+    // tended as teacher survives NG+ in both directions (unit-tested).
     s.hp = s.maxhp;
     s.stamina = s.maxStamina;
     E.enterWorld();
@@ -1730,6 +1751,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         // the confessed wardrobe eventually calls home (floor until then).
         if (ch === 'H') return E.wingDoor();
         if (ch === 'Z') return E.parlorDoor();   // Wave 15: the card parlor
+        if (ch === 'K') return E.gardenDoor();   // Wave 16: the Kitchen Garden
         if (ch === 'o' && s.wing && s.wing.wardrobeMoved) {
           return MM.ui.dialog('🚪 The wardrobe, at home', MM.data.WING_WARDROBE_HOME);
         }
@@ -1755,6 +1777,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (s.mapId === 'myroom') return E.myRoomMove(dx, dy, nx, ny, ch);
       // Wave 15 (P4): the Parlor — combat-free, castle rules, its own alphabet.
       if (s.mapId === 'parlor') return E.parlorMove(dx, dy, nx, ny, ch);
+      // Wave 16: the Kitchen Garden — combat-free, castle rules, its own alphabet.
+      if (s.mapId === 'garden') return E.gardenMove(dx, dy, nx, ny, ch);
       if (s.mapId === 'gullwrack') {
         if (ch === '7') return E.tryEnterDungeon(21);
         if (ch === 'W') return E.gullwrackDock();
@@ -4261,6 +4285,296 @@ var MM = globalThis.MM = globalThis.MM || {};
     par.back = id;
     E.save();
     return true;
+  };
+
+  // ---------- Wave 16: "The Kitchen Garden" (post-ending, renewable) ----------
+  // Two paired rooms as one supply chain. The GARDEN plants multiplication as
+  // an ARRAY (records under muldiv_facts — the array model IS times-table
+  // fluency, and its parent switch already governs it); the KITCHEN scales a
+  // recipe by MEASURE (records under fractions_as / fractions_m, both parent-
+  // switched). Combat-free (s.monsters = []), no timers, gentle failure (a
+  // wrong measure makes a FUNNY dish, never a scold, never a loss). The mason-
+  // trail placement PATTERN is reused (a persisted, fully-removable plot + a
+  // reset), but planting a rectangle AUTO-FILLS the array (the order's "choose
+  // rows, choose columns, see the array fill in") — stepping r×c individual
+  // seedlings would make the count a foregone conclusion and lose the honest
+  // "how many did you plant?" surprise. Comedy channels: field / glyph / sound
+  // / modal, never the log.
+  E.KITCHEN_SKILLS = ['fractions_m', 'fractions_as'];
+  E.KITCHEN_COST = 2;   // fresh ingredients a single dish spends (a harvest yields many)
+
+  E.ensureGarden = function () {
+    const s = E.state;
+    if (!s.garden) s.garden = { plot: null, ready: false, ingredients: 0, harvests: 0, dishes: 0, seenChef: false };
+    const g = s.garden;
+    if (g.ingredients == null) g.ingredients = 0;
+    if (g.harvests == null) g.harvests = 0;
+    if (g.dishes == null) g.dishes = 0;
+    if (g.seenChef == null) g.seenChef = false;
+    return g;
+  };
+  // Bigger plots / harder recipes as the kid's tier rises (adaptive, capped).
+  E.gardenTier = function (skill) {
+    return Math.max(1, Math.min(3, MM.mastery.tierFor(E.state, skill)));
+  };
+
+  // The castle-side 'K' door: a gentle "not yet" pre-ending (like the Wing).
+  E.gardenDoor = function () {
+    const s = E.state;
+    if (!s.endingDone) return MM.ui.dialog('🌱 A green door', MM.data.GARDEN.doorNotYet);
+    E.enterGarden();
+  };
+  E.gardenOpen = () => !!(E.state && E.state.endingDone);
+
+  E.enterGarden = function () {
+    const s = E.state;
+    MM.track('enterGarden');
+    if (E.resetTransientEntities) E.resetTransientEntities();
+    E.ensureGarden();
+    s.mapId = 'garden';
+    s.grid = MM.maps.parse(MM.maps.GARDEN, '#');
+    s.monsters = [];   // the castle rule extends here: no combat, ever
+    E.buildGardenGrid();
+    const start = MM.maps.GARDEN_ARRIVAL;
+    s.px = start.x; s.py = start.y;
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.log(MM.data.GARDEN.enterLine);
+    E.save();
+    MM.ui.refresh();
+  };
+  E.exitGarden = function () {
+    E.enterCastle();
+    const s = E.state;
+    s.px = 22; s.py = 9;   // land beside the garden door 'K' (23,9)
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.refresh();
+  };
+
+  // Re-derive the garden's grid: the planted plot overlays the tilled soil —
+  // seedlings 'Y' while growing, ripe 'R' once counted+grown. Both walkable.
+  E.buildGardenGrid = function () {
+    const s = E.state;
+    if (!s || s.mapId !== 'garden' || !s.grid) return;
+    const g = E.ensureGarden();
+    const ch = g.ready ? 'R' : 'Y';
+    if (g.plot && g.plot.cells) {
+      for (const c of g.plot.cells) if (s.grid[c.y]) s.grid[c.y][c.x] = ch;
+    }
+  };
+
+  E.gardenMove = function (dx, dy, nx, ny, ch) {
+    const s = E.state;
+    if (ch === 'X') return E.exitGarden();
+    if (ch === 'B') return E.gardenBench();
+    if (ch === 'C') return E.cookStation();
+    if (ch === 'S') return E.sousChefTalk();
+    if (ch === 'V') return MM.ui.dialog(MM.data.GARDEN.carrotName, MM.data.pick(MM.data.GARDEN.carrot));
+    if (ch === '#') return;
+    // seedlings ('Y'/'R') and soil (',') are WALKABLE — you may stroll among
+    // your own plants (they never judge), so nothing here can ever wedge.
+    if (ch === '.' || ch === 'P' || ch === ',' || ch === 'Y' || ch === 'R') {
+      E.petPos = { x: s.px, y: s.py };
+      s.px = nx; s.py = ny;
+    }
+  };
+
+  // ---------- P1: the garden plot (multiplication as an array you plant) ----------
+  E.gardenBench = function () {
+    const g = E.ensureGarden();
+    const G = MM.data.GARDEN;
+    const buttons = [];
+    if (!g.plot) {
+      buttons.push({ label: '🌱 Plant a patch', onClick: () => E.gardenPickRows() });
+    } else if (!g.ready) {
+      buttons.push({ label: '🔢 Count the seedlings', onClick: () => E.gardenCount() });
+      buttons.push({ label: '🌱 Clear the plot (start over)', onClick: () => E.gardenClearPlot() });
+    } else {
+      buttons.push({ label: `🧺 Harvest the patch (${g.plot.rows}×${g.plot.cols})`, onClick: () => E.gardenHarvest() });
+      buttons.push({ label: '🌱 Clear the plot (start over)', onClick: () => E.gardenClearPlot() });
+    }
+    buttons.push({ label: 'Leave it', onClick: () => {} });
+    MM.ui.dialogChoices(G.benchTitle, g.plot ? (g.ready ? G.harvestReady : G.countAgain) : G.benchBody, buttons);
+  };
+  E.gardenPickRows = function () {
+    const G = MM.data.GARDEN;
+    const max = MM.maps.GARDEN_MAX[E.gardenTier('muldiv_facts')] || MM.maps.GARDEN_MAX[1];
+    const buttons = [];
+    for (let r = 2; r <= max.rows; r++) buttons.push({ label: `${r} rows`, onClick: () => E.gardenPickCols(r) });
+    MM.ui.dialogChoices(G.benchTitle, G.plantPickRows, buttons);
+  };
+  E.gardenPickCols = function (rows) {
+    const G = MM.data.GARDEN;
+    const max = MM.maps.GARDEN_MAX[E.gardenTier('muldiv_facts')] || MM.maps.GARDEN_MAX[1];
+    const buttons = [];
+    for (let c = 2; c <= max.cols; c++) buttons.push({ label: `${c} in each row`, onClick: () => E.gardenPlant(rows, c) });
+    MM.ui.dialogChoices(G.benchTitle, G.plantPickCols(rows), buttons);
+  };
+  // Plant an r×c rectangle into the top-left of the plot (the array fills in).
+  // The placed cells persist in s.garden.plot and are fully removable
+  // (gardenClearPlot — the reset). Returns false if it won't fit (a guard).
+  E.gardenPlant = function (rows, cols) {
+    const s = E.state;
+    const g = E.ensureGarden();
+    const P = MM.maps.GARDEN_PLOT;
+    if (rows < 1 || cols < 1 || rows > P.h || cols > P.w) return false;
+    const cells = [];
+    for (let ry = 0; ry < rows; ry++) for (let cx = 0; cx < cols; cx++) cells.push({ x: P.x0 + cx, y: P.y0 + ry });
+    g.plot = { rows, cols, cells };
+    g.ready = false;
+    E.buildGardenGrid();
+    E.save();
+    MM.sound.thud();
+    if (s && s.mapId === 'garden' && MM.ui.worldBurst && !s.calmMode) {
+      MM.ui.worldBurst(P.x0 + Math.floor(cols / 2), P.y0 + Math.floor(rows / 2), '#5bb85f', 12);
+    }
+    MM.ui.refresh();
+    MM.ui.dialog(MM.data.GARDEN.benchTitle, MM.data.GARDEN.planted(rows, cols), () => E.gardenCount());
+    return true;
+  };
+  // The array made honest: "how many did you plant?" = rows × cols, RECORDED
+  // under muldiv_facts. A wrong count is gently re-asked (the worked solution
+  // shows the array); a correct count grows the patch, ready to harvest.
+  E.gardenCount = function () {
+    const g = E.ensureGarden();
+    if (!g.plot) return E.gardenBench();
+    const prob = MM.problems.gardenArray(g.plot.rows, g.plot.cols, E.gardenTier('muldiv_facts'));
+    MM.ui.showProblem({
+      header: `🌱 ${MM.data.GARDEN.benchTitle}`,
+      problem: prob,
+      leaveLabel: 'Come back to it',
+      onAnswer(correct, kidAnswer) {
+        recordAnswer('muldiv_facts', correct, { text: prob.text, kidAnswer });
+        if (!correct) return { msg: MM.data.pick(MM.data.GARDEN.miscount) };
+        g.ready = true;
+        E.buildGardenGrid();
+        E.save();
+        MM.sound.tada();
+        return { msg: MM.data.GARDEN.counted(g.plot.rows * g.plot.cols), end: 'win' };
+      },
+      onNext: () => E.gardenCount(),
+      onEnd() { E.buildGardenGrid(); MM.ui.refresh(); },
+    });
+  };
+  // The reset: lift every seedling back out (fully removable). Seedlings never
+  // wedge (they walk), but the wedge-nudge law wants a reset in every placeable
+  // space — this is it, so nothing planted is ever stuck.
+  E.gardenClearPlot = function () {
+    const s = E.state;
+    const g = E.ensureGarden();
+    g.plot = null;
+    g.ready = false;
+    if (s && s.mapId === 'garden' && s.grid) s.grid = MM.maps.parse(MM.maps.GARDEN, '#');
+    E.save();
+    MM.sound.tone(2);
+    MM.ui.log(MM.data.GARDEN.clearPlot);
+    MM.ui.refresh();
+  };
+  // Harvest the grown array → fresh ingredients for the kitchen (the supply
+  // chain), bump the harvests counter (counts UP only), claim the Gardener
+  // Faculty post if it just came due. Renewable, never on a clock.
+  E.gardenHarvest = function () {
+    const s = E.state;
+    const g = E.ensureGarden();
+    if (!g.plot || !g.ready) return E.gardenBench();
+    const n = g.plot.rows * g.plot.cols;
+    g.ingredients = (g.ingredients || 0) + n;
+    g.harvests = (g.harvests || 0) + 1;
+    g.plot = null;
+    g.ready = false;
+    if (s && s.mapId === 'garden' && s.grid) s.grid = MM.maps.parse(MM.maps.GARDEN, '#');
+    const claimed = E.checkFaculty();
+    E.save();
+    MM.sound.coin();
+    if (s && s.mapId === 'garden' && MM.ui.worldBurst && !s.calmMode) MM.ui.worldBurst(s.px, s.py, '#5bb85f', 14);
+    MM.ui.refresh();
+    E.gardenAnnounce(MM.data.GARDEN.harvested(n), claimed);
+  };
+  // Show a garden dialog, appending any just-claimed Faculty post's spawnLine
+  // (the reformed monster who took a post — the same idiom as the Court).
+  E.gardenAnnounce = function (body, claimed) {
+    if (claimed && claimed.length) {
+      body += `${body ? '<br><br>' : ''}${MM.data.GARDEN.facultyClaimed}`;
+      for (const post of claimed) body += `<br><br>${post.spawnLine}`;
+      MM.sound.fanfare();
+    }
+    if (body) MM.ui.dialog('🌱 The Kitchen Garden', body);
+  };
+
+  // ---------- P2: the kitchen (fractions / scaling by measure) ----------
+  E.sousChefTalk = function () {
+    const g = E.ensureGarden();
+    const G = MM.data.GARDEN;
+    if (!g.seenChef) { g.seenChef = true; E.save(); return MM.ui.dialog(G.chefName, G.chefIntro); }
+    MM.ui.dialog(G.chefName, MM.data.pick(G.chef));
+  };
+  // Which fraction strand to serve: parent-switch aware, weakest-first between
+  // the two (the kitchen auto-targets whichever is rustier). If a parent
+  // switched BOTH off, cook anyway (a room is never a dead end) — the recorded
+  // skill just falls back to the pair.
+  E.kitchenSkill = function () {
+    const s = E.state;
+    let pool = E.KITCHEN_SKILLS.filter(sk => E.topicEnabled(sk));
+    if (!pool.length) pool = E.KITCHEN_SKILLS.slice();
+    return MM.mastery.weakestFirst(s, pool)[0];
+  };
+  E.cookStation = function () {
+    const g = E.ensureGarden();
+    const G = MM.data.GARDEN;
+    if ((g.ingredients || 0) < 1) return MM.ui.dialog(G.chefName, G.chefNeedIngredients);
+    const skill = E.kitchenSkill();
+    const recipe = MM.problems.kitchenRecipe(skill, E.gardenTier(skill));
+    E.cookRecipe(recipe);
+  };
+  // Present a recipe: the kid computes the scaled measure (records under the
+  // fraction skill). A CORRECT measure makes the real dish → feeds the food
+  // economy (E.yardGrantReward) + bumps the dishes counter. A WRONG measure
+  // makes a gloriously-named DISASTER DISH — never a scold, never a loss; the
+  // worked solution shows above and it re-asks. The pet has OPINIONS either way.
+  E.cookRecipe = function (recipe) {
+    const g = E.ensureGarden();
+    const G = MM.data.GARDEN;
+    const p = recipe.problem;
+    E._gardenPendingFaculty = null;
+    MM.ui.showProblem({
+      header: G.cookHeader(recipe.dish, recipe.frame),
+      problem: p,
+      leaveLabel: G.cookLeave,
+      onAnswer(correct, kidAnswer) {
+        recordAnswer(p.skill, correct, { text: p.text, kidAnswer });
+        if (!correct) {
+          const dis = MM.data.pick(G.disasters);
+          E._lastDish = { name: dis.name, disaster: true, petLine: MM.data.pick(G.petBad) };
+          E.gardenPetReact(false);
+          return { msg: `${dis.line}<br><br>${E._lastDish.petLine}` };
+        }
+        g.ingredients = Math.max(0, (g.ingredients || 0) - E.KITCHEN_COST);
+        g.dishes = (g.dishes || 0) + 1;
+        const grant = E.yardGrantReward({ food: 1 });
+        E._gardenPendingFaculty = E.checkFaculty();
+        E._lastDish = { name: recipe.dish, disaster: false, petLine: MM.data.pick(G.petGood) };
+        E.gardenPetReact(true);
+        E.save();
+        MM.sound.coin();
+        let msg = G.dishDone(recipe.dish);
+        if (grant.parts.length) msg += `<br><br>🍽 Into the larder: ${grant.parts.join(', ')}.`;
+        msg += `<br><br>${E._lastDish.petLine}`;
+        return { msg, end: 'win' };
+      },
+      onNext: () => E.cookRecipe(recipe),   // a wrong measure re-asks (still no loss)
+      onEnd(how) {
+        MM.ui.refresh();
+        if (how === 'win' && E._gardenPendingFaculty && E._gardenPendingFaculty.length) {
+          E.gardenAnnounce('', E._gardenPendingFaculty);
+          E._gardenPendingFaculty = null;
+        }
+      },
+    });
+  };
+  // The pet reacts to a dish (field/glyph/sound): an emote pops over the pet
+  // and a sound plays. petGood/petBad LINES are shown in the cook result modal.
+  E.gardenPetReact = function (good) {
+    E.petEmote = { ch: good ? '😋' : '😖', until: Date.now() + 2600 };
+    if (good) MM.sound.purr(); else MM.sound.chirp();
   };
 
   // Untangling one = a short battle drawing the same weakest-first mixed
