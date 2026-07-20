@@ -3625,3 +3625,128 @@ the recurring petitioner's escalation (a single fixed grievance is fine
 for v1). May NOT cut: recording under the real skill (the pedagogical
 point), gentle-failure re-ask, the Faculty system + its documented
 extension point (later waves depend on it), day-keyed renewal.
+
+## Wave 15 order — "The Parlor" (Castle Expansion Wave B) (user directive 2026-07-20)
+
+Second wave of CASTLE_EXPANSION_PLAN.md (read it + the Wave 14 Court order
+first). The card game "Tiny Hats" — the endgame "one more round" hook the
+game lacks. It is the HIGHEST-fun, HIGHEST-replay castle activity AND the
+biggest NEW engine of the four, so it stands alone in its own wave with
+its own risk budget. Cards are the monster kinds the kid has met; play is
+compare-and-capture; winning well is fast number comparison and running
+addition, at high volume, under no time pressure.
+
+ALL standing rules apply and are review-blocking: combat-free castle
+(s.monsters = []; the monsters are on CARDS, never hit); no timers; gentle
+failure (a lost match is "good game — again?", never a scold, never a real
+loss); jokes on monsters/items never the kid; comedy channels
+field/glyph/sound/modal, never the log; new glyphs get tileSprite context
+guards + unit checks; doors gate never decorate. Post-ending: gates on
+s.endingDone.
+
+### P0 (RECOMMENDED, may skip if confident) — a capture-rule spike
+Before committing the UI, prototype the core in a throwaway node script:
+the 3×3 board, the capture rule, and ONE deterministic opponent playing a
+full game to completion. Confirm the rule is unambiguous and the opponent
+terminates. Delete the spike after; it exists to de-risk, not to ship.
+
+### P1 — The card model (deck sourced from who you've met)
+- A card = one monster KIND the kid has encountered: roster drawn from
+  s.bestiary.seen (name → true); befriended kinds (s.bestiary.befriended)
+  are FOIL variants that wear a tiny hat on the card (the collection hook).
+- Each card has four EDGE numbers (top/right/bottom/left), derived
+  DETERMINISTICALLY per kind from MM.data.monsterStats-style values (so a
+  kid's deck reflects who they've met; tougher kinds carry bigger edges).
+  A pure function kind → {t,r,b,l}; no Math.random anywhere in card data
+  (unit-tested by poisoning Math.random).
+- Difficulty is a PARENT SWITCH: single-digit edges by default, two-digit
+  edges (real magnitude comparison + bigger running sums) when raised.
+  Follows the existing parent-topic-switch pattern.
+
+### P2 — The game (compare-and-capture)
+- 3×3 board; kid and opponent each hold 5 cards, alternate placing; last
+  cell may go unplayed. Placing a card: for each orthogonally-adjacent
+  ENEMY card, compare MY facing edge vs THEIR facing edge — mine strictly
+  greater CAPTURES it (flips to my side). Standard Triple Triad; keep the
+  rule this simple (kids know this game shape).
+- THE MATH, made honest: (a) comparison — every placement is "is my edge
+  bigger than theirs?"; (b) running addition — the board shows each side's
+  CAPTURED-CARD COUNT and, as an optional readout the kid can total, a
+  running board score. Design decision to settle at build (recommend the
+  simpler): win by capture-count (comparison-driven) with a visible
+  running tally; the parent two-digit dial is what keeps the comparison
+  non-trivial for older kids. Do NOT bolt on a separate quiz — the math is
+  the play.
+- The OPPONENT must be DETERMINISTIC (no Math.random): pick the placement
+  maximizing immediate captures, with a fixed documented tiebreak. Unit-
+  tested to play a full reproducible game. Difficulty tiers = how many
+  plies it looks ahead (1-ply greedy → 2-ply), NOT hidden number-fudging.
+- Gentle throughout: no timer; a lost match costs nothing but a rematch;
+  the board never punishes a "wrong" placement — a bad move just captures
+  less, and the outcome narrates itself.
+
+### P3 — Stakes, collection, and comedy (NO grind)
+- TOKENS, not gold (plan rule: never real-money framing, never loss-
+  chasing). A small token counter; playing earns a few, winning a few
+  more; tokens buy ONLY cosmetic card-backs / a hat for your favorite
+  card. Losing costs zero tokens.
+- Winning a match sometimes yields the OPPONENT'S card (and its tiny hat)
+  into your collection — the "collect them all" hook, the game's real
+  reward. A card album (reuse the Monster Book idiom) shows what you hold.
+- Comedy (field/glyph/sound/modal only): every card wears a tiny hat;
+  opponents trash-talk with total courtesy ("I have been practicing. I
+  lost anyway. But I practiced."); a becalmed monster deals. The Games Den
+  side-table folds in here: a TOKEN dice game, "reach 20 without going
+  over" — pure mental addition, no probability instruction (7th grade),
+  no loss-chasing.
+
+### P4 — Faculty + placement (reuse Wave 14's system)
+- The Parlor is a new room off the castle (a door like the Wing's 'H', or
+  a parlor annex — pick per the map; combat-free overworld rules, own
+  tileSprite alphabet, glyph-collision guarded).
+- Append the DEALER post to MM.data.FACULTY_POSTS with its own
+  earned(state) predicate (e.g. games played >= N) — the Wave 14
+  E.checkFaculty loop claims it with ZERO changes there (that extension
+  point was built for exactly this). A reformed monster becomes the
+  house dealer, visible in the castle.
+
+### Records-to-mastery decision (confirm at build)
+Recommendation: the Parlor does NOT touch mastery or the report card — it
+is casual fluency play, and a casino that grades you is less fun. The
+comparison/addition practice is real but stays off the transcript. If
+included at all, a casual "games won / cards held" line, never an
+accuracy grade. (Contrast Wave 14's Court, which DOES record — that's
+curriculum; this is play.)
+
+### Evidence & prose discipline (unchanged, mandatory)
+Unit: card-data determinism (poison Math.random; same kind → same edges);
+the capture rule (a known board → known captures, incl. no-capture and
+multi-capture cases); the opponent plays a full deterministic game to a
+terminal board; parent two-digit dial changes edge ranges; token counter
+never goes negative and a loss costs zero; dealer Faculty post appends and
+E.checkFaculty claims it unchanged; parlor glyph context guards; migration
+of a pre-Wave-15 save; NG+ carries the card collection + tokens through
+startGolden AND returnToFinishedKingdom. Drive drive-parlor.js (~20
+checks): parlor gated on endingDone; play a scripted full match to a win
+and a loss (deterministic opponent makes this reproducible); a capture
+flips a card; winning banks a token + sometimes the opponent's card; a
+loss costs nothing; the two-digit parent dial; the dice side-table totals
+correctly; the dealer appears at its milestone. Full sweep (39 drives) +
+DETACHED marathon (nohup … & disown; poll IN-TURN to MARATHON COMPLETE —
+do NOT end the turn to wait; logs in tests/logs/, paste final lines).
+SCREENSHOT AUDIT: the board mid-match, a capture, a card's tiny hat legible
+at scale (WATCH the numeral-hazard — edge numbers ARE numerals here, so
+verify the card art reads as a card, not as loose digits on the floor),
+the dealer NPC, the dice table. NO COMMIT — stop and report with ALL new
+prose verbatim (dealer lines, opponent trash-talk pool, album/collection
+lines, dice-table lines, token-shop lines). Do NOT bump sw.js / tracker.js
+versions — the design session ships.
+
+### Deviation authority
+May cut freely if hairy: the dice side-table (Games Den — nice-to-have);
+2-ply opponent (1-ply greedy is a fine v1); the token cosmetic shop (cards
+alone are reward enough). May NOT cut: deterministic opponent (testability
++ no hidden fudging), gentle no-loss framing, tokens-not-gold, the tiny-hat
+comedy, the Faculty dealer via the extension point, card determinism.
+Biggest risk is P2's engine — if it slips, SAY SO and stop; Waves C/D are
+independent and can go first.
