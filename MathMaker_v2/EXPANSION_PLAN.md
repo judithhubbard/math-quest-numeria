@@ -4215,3 +4215,116 @@ befriended roster driving the pens, the empty-pen non-failure state, the
 once-ever Parade capstone, the Keeper Faculty post via the extension
 point. This is the last castle wave — after it, the Faculty is full and
 the castle is a living place; note that in the ship report.
+
+## Wave 18 order — "Choose Your Hero" (avatar selection) (user directive 2026-07-20)
+
+A focused feature, NOT part of the castle-expansion line (Waves 14-17) —
+orthogonal, ships AFTER the Menagerie. Origin: a kid asked to choose her
+avatar instead of always being the knight. This directly serves the Story
+Bible's thesis "the hero is you." Small feature; most of the plumbing
+already exists (the hero is drawn at ONE render site, ui.js ~1439, with
+two walk frames hero/hero2, mirror-for-facing, and ALREADY a palette-swap
+hook: `palette: s.greenHair ? { P: '#4ec449' } : {}` — generalize that).
+
+ALL standing rules apply and are review-blocking: no timers; jokes on
+monsters/items/the WORLD, NEVER on the kid or the kid's choice (every
+avatar is treated as an unimpeachably excellent decision); comedy channels
+field/glyph/sound/modal, never the log; new glyphs get tileSprite context
+guards + unit checks. Purely COSMETIC — no stats, ever (matches the
+wardrobe/hats/card-backs grammar). Inclusive BY CONSTRUCTION — vary
+skin/hair/presentation; do NOT gender the choices or tie them to
+classes/stats. Every avatar is its own DIGNIFIED hero.
+
+### P1 — The roster (deliberately small; bespoke, NOT bestiary)
+`s.avatar` = the chosen form; drives the render at ui.js. Roster:
+- **One customizable HUMAN** — the representation anchor. Skin tone, hair
+  color, outfit color as PALETTE swaps on the existing hero/hero2 frames
+  (generalize the greenHair hook into s.avatarPalette). Nearly free art;
+  covers a wide range of real kids in one slot.
+- **A small BESPOKE non-human set, led by the DRAGON** — each a NEW,
+  purpose-built HERO (2 walk frames apiece), dignified and aspirational,
+  drawn from scratch — NOT reused bestiary/enemy sprites (they'd confuse
+  "which sprite is me vs the enemy" and cheapen the befriended axis) and
+  visually distinct from the PET that trails behind. Dragon is confirmed;
+  1-2 more (candidates: fox, star/celestial creature) — FINALIZE the set
+  with the design session before drawing. Keep it limited.
+- Every avatar must: hold the wielded tool, mirror for facing, WEAR earned
+  hats (the tiny-hat throughline extends to any form — a dragon in a
+  mortarboard), and READ at 3× scale as a hero (numeral-hazard N/A but the
+  read-as-hero-not-enemy check is the equivalent gate).
+- DEFAULT = the current knight, so existing saves (no s.avatar) render
+  EXACTLY as today — clean backward-compat. Migration in load().
+
+### P2 — Where you choose: start + change-anytime (one state, two doors)
+- **Initial pick: the profile / new-game screen** (main.js — profileScreen
+  / newName / btnNew / E.newGame). Name + form chosen together, light (a
+  row of avatars + palette swatches for the human), no big ceremony gating
+  the story. Sensible default so hitting "start" is never blocked.
+- **Change ANY time — always available, never a deep unlock.** No accounts
+  (COPPA) means "I want the dragon now" must never cost progress. ONE
+  setting (s.avatar/s.avatarPalette), TWO front-ends (the game's proven
+  "two doors, one state" pattern, like the music/sound toggles):
+  1. A plain **Looking Glass**, reachable from the Bag/menu from day one,
+     no gating — the safety valve so no kid is ever stuck with a regretted
+     form.
+  2. The **Study wardrobe** (the Wave 12 ex-furniture character) as the
+     DELUXE post-ending version — same picker, wrapped in its personality.
+  Both write the same fields.
+- The choice rides in the **Adventurer's Passport** (save export/import) —
+  the kid stays herself/himself/the dragon across an export/import.
+
+### P3 — The comedy (never at the kid's expense)
+- **The world reacts to a novel hero, deadpan** — a small SHARED pool of
+  occasional narrator lines (bounded — NOT per-NPC-per-avatar, which would
+  balloon): e.g. "There is a dragon in the courtyard. It appears to be
+  running the kingdom. Nobody is discussing this." Author a few per
+  non-human form; the human form stays neutral (it IS the kid).
+- **The Study wardrobe presents the choice with character** — it resigned
+  from being furniture, so it deeply understands choosing a form ("Ah,
+  choosing a form again. I understand the impulse deeply. I chose 'not a
+  wardrobe.' Best decision of my life.").
+- **The pet double-takes** — reuse Wave 16's E.petEmote: on a form change
+  to a creature, "your pet looks at you, then at itself, then at you
+  again" + a 🤔 glyph. One line, one glyph.
+- **The Looking Glass is deadpan** — "The glass shows you as a dragon. As
+  far as the glass is concerned, you have always been a dragon. The glass
+  is not a reliable historian."
+- Keep the comedy budget TIGHT — a handful of lines, not a system.
+
+### Evidence & prose discipline (unchanged, mandatory)
+Unit: s.avatar drives the rendered sprite id + palette (a fixture per
+avatar returns the right frame set); DEFAULT-to-knight for a save with no
+avatar field (backward-compat assertion); s.avatarPalette applies on the
+human; the Passport export/import round-trips s.avatar + palette; NG+
+carries them through startGolden AND returnToFinishedKingdom; the Looking
+Glass + wardrobe both write the same state; new-game sets the picked
+avatar; glyph/sprite validators pass for every new avatar (2 frames each,
+right dimensions). Drive drive-avatar.js (~16 checks): profile-screen pick
+sets the form; the hero renders as the chosen avatar (screenshot per
+avatar); change via the Bag Looking Glass mid-game (no progress lost);
+change via the Study wardrobe post-ending; a hat sits on a non-human form;
+the pet double-take fires on a creature change; Passport export→import
+preserves the avatar. Full sweep (+drive-avatar) + DETACHED marathon
+(nohup … & disown; POLL IN-TURN to MARATHON COMPLETE — do NOT end the turn
+to wait). SCREENSHOT AUDIT: EACH avatar in the overworld (walk frames read,
+tool held, mirror works), a non-human avatar wearing a tiny hat, the
+profile-screen picker, the Looking Glass, the wardrobe picker — and
+confirm every avatar reads as a HERO, distinct from enemies and the pet.
+NEW JS FILE (if any): add to BOTH index.html AND the sw.js cache list
+(the v1.11.0 lesson) — but prefer extending js/sprites.js + js/ui.js +
+js/engine.js. NEW SOUNDS → the tests/test.js stub list. NO COMMIT — stop
+and report with ALL new prose verbatim (picker signage, the world-reaction
+pool, the wardrobe's avatar lines, the Looking Glass lines, the pet
+double-take). Do NOT bump sw.js / tracker.js versions — the design session
+ships.
+
+### Deviation authority
+May cut freely if hairy: the bespoke set down to dragon-only for v1 (the
+human+palette anchor carries the representation value; more heroes can
+follow); the world-reaction pool to one line per form; the deluxe wardrobe
+front-end if the Looking Glass covers it (add the wardrobe wrapper later).
+May NOT cut: the customizable HUMAN with skin/hair/outfit palettes (the
+representation core), DEFAULT-to-knight backward-compat, change-anytime
+from day one (never stuck), stat-free cosmetics, Passport carry, jokes
+never on the kid. Confirm the final non-human roster with the design
+session BEFORE drawing sprites (art is the real cost here).
