@@ -1429,6 +1429,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       body: '"Mostly a pantry, I admit. But mind the counterweight gate: it opens only while something <b>heavy</b> rests on the pressure plate. The slab will do nicely. The cheese is real."' },
     '31,13': { title: "📜 MathMaker Milla's Plate Room",
       body: '"A pressure plate holds this floor\'s gates open only <b>while</b> it is held down — step off, and they fall shut. A pushed slab holds a plate as long as you leave it there. Any plate will do; they share the load."' },
+    // Wave 13 (P1): the Echo Annex, down the shaft off the far room.
+    '32,24': { title: '📜 The Echo Annex',
+      body: 'Carved small and neat, low on the wall:<br><br>"The violet plate remembers your last <b>twelve steps</b>. Stand on it, and the Understudy performs them — from the plate, to the letter, and not one step more. Walk the route you want copied, take a bow, and step on.<br><br>— MathMaker Tallis, who could never be in two places at once. Until she could."' },
   };
   // The wardrobe: an obvious mimic with a terrible tell (bobs when you are
   // FAR, dead still when adjacent). Three bumps and it comes clean.
@@ -1446,15 +1449,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     `A sturdy door with a brass plate, polished bright and freshly engraved. The plate reads: <b>${name}</b>.<br><br>Under it, in smaller letters: <i>Not yet.</i>`;
   MM.data.WING_ENTER_LINE = '🛠 <b>The Workshop Wing.</b> Six proving rooms, each signed by a MathMaker before you. Someone has dusted, recently.';
   MM.data.WING_DOORWAY_BLANK = 'At the very end of the hall: a doorway with nothing behind it yet — just clean stone, and a blank brass plate waiting for a name.<br><br><i>Whoever finishes the proving rooms, presumably.</i>';
+  // Wave 13: the v1.8.2 "masons" holding-note is GONE — the named plate now
+  // opens the door for real. Shown once, then the doorway just opens.
   MM.data.WING_DOORWAY_NAMED = name =>
     `The blank plate isn\'t blank anymore. It reads: <b>${name}</b>.<br><br>` +
-    // v1.8.2 (live playtest): the old line ("your room, when you're ready to
-    // build it") read as a RIDDLE — a kid stood here hunting for the trigger,
-    // and there isn't one yet. The promise must say "not today, and not
-    // because you're missing something" in so many words. Wave 13 replaces
-    // this note with the actual door opening.
-    `Behind the doorway: clean stone, waiting. A note is pinned to the frame, in the MathMaker\'s hand:<br><br>` +
-    `<i>"Every Keeper builds a proving room of their own, when its time comes. Yours hasn\'t come yet — there is nothing to find and nothing to solve behind this door today. But the wall knows your name now. When the masons are ready, so is the doorway."</i>`;
+    `And behind the doorway, where there was only clean stone — there is a <b>room</b>. Bare walls, good light, ` +
+    `a workbench under the window, and a pedestal waiting at the far end. The masons came and went while nobody ` +
+    `was watching. Masons are like that.<br><br>` +
+    `<i>Every Keeper builds a proving room of their own. This one is yours.</i>`;
   MM.data.WING_TITLE_LINE = 'Six rooms, six signatures, six proofs — every one of them answered.<br><br>From this day you are <b>Keeper of the Proving Rooms</b>. The empty doorway at the hall\'s end has been listening. Go and see.';
   // Pantry shelf flavor (bump pool — a modal would be friction; these are
   // log echoes of a purely visual room, mechanics-free).
@@ -1463,6 +1465,85 @@ var MM = globalThis.MM = globalThis.MM || {};
     '🥫 Pickled things, alphabetized. Bartleby\'s system endures.',
     '🧂 A salt cellar the size of a helmet. It has seen use.',
   ];
+
+  // ---------- Wave 13: "The Understudy & Your Own Room" ----------
+  // STANDING RULES apply unchanged: jokes are observations, never obstacles;
+  // comedy channels are field/glyph/sound/modal, never the log alone; the
+  // kid is never the punchline; sincere beats stay sincere.
+
+  // P1 — the Understudy's once-ever introduction (a big beat: modal allowed).
+  MM.data.UNDERSTUDY_INTRO = {
+    title: '🎭 The Understudy',
+    body: '"<b>AH!</b>" A small slime pops out of — somewhere. It is wearing a paper crown, folded with tremendous care, ' +
+      'and holding a stick exactly the way heroes hold swords.<br><br>' +
+      '"I have watched <b>every step</b>," it announces. "The walking! The turning! The stopping — <i>magnificent</i>. ' +
+      'I know your last twelve by heart." It plants the stick like a banner. "Places, everyone. <b>This is my moment.</b>"<br><br>' +
+      '<i>And it sets off along your own footsteps, exactly, like an actor who has waited a hundred rehearsals ' +
+      'for the lead to be out sick.</i>',
+  };
+
+  // P2 — Your Own Room: the workbench, the cords, the pupil, the visit.
+  MM.data.MYROOM_ENTER_LINE = '🧱 <b>Your own room.</b> Bare stone, good light. The workbench is ready when you are.';
+  MM.data.MYROOM_BENCH_TITLE = '🛠 The workbench';
+  MM.data.MYROOM_BENCH_BODY =
+    'Everything a room needs, in neat labeled crates. Choose what to carry — ' +
+    'you\'ll set one down on each tile you <b>step off</b>, like a mason laying a course. ' +
+    'Bump a placed piece to take it back; the bench takes back plates, cracked tiles and slabs.';
+  MM.data.MYROOM_PIECES = {
+    wall: { label: '🧱 Wall block', emoji: '🧱' },
+    slab: { label: '🪨 Push-slab', emoji: '🪨' },
+    plate: { label: '⚙️ Pressure plate', emoji: '⚙️' },
+    gate: { label: '🚪 Counterweight gate', emoji: '🚪' },
+    crack: { label: '⚠️ Cracked tile', emoji: '⚠️' },
+    chest: { label: '🎁 Chest', emoji: '🎁' },
+  };
+  MM.data.MYROOM_PEDESTAL_LINE = solves =>
+    'A stone pedestal with a chest-shaped hollow on top, waiting at the far end of the room. ' +
+    'Whoever reaches it has solved whatever the room asks.' +
+    (solves > 0 ? `<br><br><span class="dim">Solved by pupils: <b>${solves}</b>.</span>` : '');
+  MM.data.MYROOM_CORD_TITLE = '🔔 A pull-cord by the arch';
+  MM.data.MYROOM_CORD_BODY = 'A braided cord with a neat label in the MathMaker\'s hand: <b>"INVITE A PUPIL."</b>';
+  MM.data.MYROOM_PUPIL_ARRIVES = '🐌 A pupil slides in under the arch — the enrolled slime, notebook face on, taking your room very seriously.';
+  // The polite-stuck flow IS the feature — never a failure state, never a cost.
+  MM.data.MYROOM_PUPIL_STUCK = {
+    title: '💭 The pupil comes back',
+    body: 'The slime slides back to the arch and looks up at you — not upset, just thinking hard.<br><br>' +
+      '"I tried the long way, and the short way, and a way that turned out to be a wall," it says. ' +
+      '"Could I have a <b>hint</b> — or a <b>hallway</b>?"<br><br>' +
+      '<i>No hurry. Rooms are allowed to be revised. That\'s most of building them.</i>',
+  };
+  MM.data.MYROOM_FIRST_SOLVE = {
+    title: '✨ Your room works',
+    body: 'The pupil reaches the pedestal — and bounces, twice, in a way that in a slime means <b>triumph</b>.<br><br>' +
+      'It solved <i>your</i> room. The one you built. Every wall where you put it, every plate doing exactly ' +
+      'what you meant it to do.<br><br><i>The room pays no gold. The room is the trophy.</i>',
+  };
+  MM.data.MYROOM_MISCOUNT_CAMEO = name => ({
+    title: '🧑‍🎓 Miscount, in the doorway',
+    body: '"I heard the cheering from the hall." Miscount leans on the doorframe, looking at your room the way ' +
+      'some people look at paintings.<br><br>"A room that <b>can</b> be solved, and still asks you to earn it — ' +
+      'that\'s the hardest thing to build. I spent years building the other kind, by accident."<br><br>' +
+      `He taps the name plate on his way out. "It\'s a good room, <b>${name}</b>. It tests fairly."`,
+  });
+  MM.data.MYROOM_SOLVE_AGAIN = '🎉 The pupil reaches the pedestal and does its small triumphant bounce. Your room holds up.';
+
+  // P3 — the homesick staircase.
+  MM.data.STAIRCASE_FOLLOW_LINE = '🏠 The staircase turns to follow you. It does not explain itself. It is a staircase.';
+  MM.data.STAIRCASE_WAIT_LINE = '🪜 The staircase stops at the doorway and settles in to wait, radiating patience.';
+  MM.data.STAIRCASE_PIER_LINE = '🪜 The staircase waits at the pier. Stairs do not sail. It knows this about itself.';
+  // Monsters ignore it — code-level indifference is the joke; ONE log echo
+  // for parents, once per session, with a real monster's name when possible.
+  MM.data.STAIRCASE_MONSTER_ECHO = monName =>
+    `👀 ${monName} looks at the staircase. The staircase looks at nothing. It is a staircase.`;
+  MM.data.STAIRCASE_HOMECOMING = {
+    title: '🏠 The staircase comes home',
+    body: '<i>The little staircase presses itself against the tower wall — and <b>fits</b>. A seam you never noticed ' +
+      'takes it in, step by step, until the wall is only a wall, and somewhere inside, the Spiral Stair is one ' +
+      'flight taller. Or always was. With stairs it\'s hard to say.</i><br><br>' +
+      'Two stone feet poke out under the bottom step for one last moment. Then they, too, are stairs.<br><br>' +
+      '<b>The Spiral Stair remembers.</b> <span class="dim">The tower door has a new option: ' +
+      '<b>⤴ Start from floor 10</b>. It knows a shortcut. Of course it does — it is one.</span>',
+  };
   MM.data.STATUE_PRICE = 220;
   MM.data.STATUE_EMPTY = 'An empty plinth, waiting for someone worth remembering.';
   MM.data.STATUE_LINE = name => `A small stone likeness of ${name} — carved with more fondness than accuracy, honestly.`;

@@ -85,7 +85,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       daysTended: 0,        // counts UP only. Never resets, never shames.
       lastTendedDate: null, // dedupe: 2 tangles same day = still 1 day tended
       tangles: null,        // {date, items:[{x,y,done}]} — like s.bounties
-      spiral: { highest: 0, landing: 0, toppedOut: false }, // Spiral Stair: deepest floor, highest checkpoint, reached-the-top-once flag
+      // Spiral Stair: deepest floor, highest checkpoint, reached-the-top-once
+      // flag; staircase = the Wave 13 homesick staircase's state machine
+      // ('lost' | 'following' | {waiting:{x,y}} | 'home').
+      spiral: { highest: 0, landing: 0, toppedOut: false, staircase: 'lost' },
       academyTotal: 0,      // lifetime Academy slates checked (attendance; never resets)
       castleFurnish: { rug: false, garden: false, library: false, statues: [] },
       petHats: [],          // owned pet-hat ids; s.isles.pet.hat is which one is WORN
@@ -114,6 +117,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       // ---------- Wave 12: "The Proving Rooms" ----------
       wing: null,             // the Workshop Wing: lazily built by E.ensureWing
       freeSlabs: {},          // Wave 12 (P2): free-standing slab positions per mapId
+      // ---------- Wave 13: "The Understudy & Your Own Room" ----------
+      seenUnderstudy: false,  // once-EVER: the Understudy's introduction modal
     };
     E.enterWorld();
     E.save();
@@ -258,6 +263,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Wave 12: the Workshop Wing + free slabs — missing means "never visited."
     if (s.wing === undefined) s.wing = null;
     if (!s.freeSlabs) s.freeSlabs = {};
+    // Wave 13: the Understudy + the homesick staircase — missing means
+    // "never happened yet" (myRoom migrates lazily inside E.ensureWing).
+    if (s.seenUnderstudy == null) s.seenUnderstudy = false;
+    if (!s.spiral.staircase) s.spiral.staircase = 'lost';
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     // Session-shape pass (2026-07-13): resuming has ALWAYS pulled you to the
@@ -669,6 +678,9 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   E.enterWorld = function () {
     const s = E.state;
+    // Wave 13: per-map-visit transients (echo buffer, Understudy, pupil,
+    // staircase trail) never survive a map change.
+    if (E.resetTransientEntities) E.resetTransientEntities();
     if ((s.continent || 'west') === 'isles') return E.enterIsles();
     if (s.continent === 'horologe') return E.enterHorologe();
     if (s.continent === 'chime') return E.enterChime();
@@ -691,6 +703,20 @@ var MM = globalThis.MM = globalThis.MM || {};
     const start = safeStart(s);
     s.px = start.x; s.py = start.y;
     E.petPos = { x: s.px, y: s.py };
+    // Wave 13 (P3): a following staircase re-forms behind you; one parked
+    // right where you stand (it waited at the door) falls in on its own.
+    if (s.spiral && s.spiral.staircase) {
+      const st = s.spiral.staircase;
+      if (st === 'following') {
+        E.stairPos = { x: s.px, y: s.py };
+        E._stairTrail = [];
+      } else if (st.waiting && st.waiting.x === s.px && st.waiting.y === s.py) {
+        s.spiral.staircase = 'following';
+        E.stairPos = { x: s.px, y: s.py };
+        E._stairTrail = [];
+        MM.ui.log('🪜 The staircase falls in behind you again.');
+      }
+    }
     E.refreshTangles();
     MM.ui.log('You stand in the kingdom of Numeria.');
     // Session-shape pass (2026-07-13): a returning kid should hear what's
@@ -795,6 +821,12 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.enterCastle = function () {
     const s = E.state;
     MM.track('enterCastle');
+    // Wave 13 (P3): the staircase waits outside — stairs live in towers,
+    // not castles. It knows the difference. (Bump it on the way out.)
+    if (s.spiral && s.spiral.staircase === 'following' && s.mapId === 'world') {
+      E.stairParkHere();
+    }
+    if (E.resetTransientEntities) E.resetTransientEntities();
     if (MM.maps.isOverworld(s.mapId)) s.worldPos = { x: s.px, y: s.py };
     s.mapId = 'castle';
     s.grid = MM.maps.parse(MM.maps.CASTLE, '#');
@@ -1322,6 +1354,15 @@ var MM = globalThis.MM = globalThis.MM || {};
   // Sailing between continents (the Compass Rose) — with the voyage scene.
   E.sail = function (dest) {
     MM.track('sail ' + dest);
+    // Wave 13 (P3): stairs do not sail. A following staircase waits at the
+    // pier, radiating patience, until you come back for it.
+    if (E.state && E.state.spiral && E.state.spiral.staircase === 'following') {
+      const p = MM.maps.STAIRCASE_PIER_WAIT;
+      E.state.spiral.staircase = { waiting: { x: p.x, y: p.y } };
+      E.stairPos = null;
+      MM.ui.log(MM.data.STAIRCASE_PIER_LINE);
+      E.save();
+    }
     MM.ui.sailScene(dest, () => {
       const s = E.state;
       s.continent = dest;
@@ -1451,6 +1492,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     // isles, horologe, chime, or gullwrack) — but never on floor changes,
     // which must not clobber it
     if (s.mapId === 'world' || s.mapId === 'isles' || s.mapId === 'horologe' || s.mapId === 'chime' || s.mapId === 'gullwrack') s.worldPos = { x: s.px, y: s.py };
+    // Wave 13: a following staircase waits at the dungeon door (it starts
+    // INSIDE the Cavern of Echoes, so in-dungeon following stays; only an
+    // overworld->dungeon transition parks it). Per-visit transients reset.
+    if (s.spiral && s.spiral.staircase === 'following' && s.mapId === 'world') E.stairParkHere();
+    if (E.resetTransientEntities) E.resetTransientEntities();
     // single-floor dungeons keep their historical 'dN' ids (saved games!)
     s.mapId = floors.length > 1 ? `d${idx}f${floor}` : 'd' + idx;
     s.dungeonIndex = idx;
@@ -1664,6 +1710,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       // Wave 12 (P3): the Workshop Wing — combat-free, castle rules
       // (no monsters, no stamina), its own alphabet.
       if (s.mapId === 'wing') return E.wingMove(dx, dy, nx, ny, ch);
+      // Wave 13 (P2): Your Own Room — combat-free, castle rules, buildable.
+      if (s.mapId === 'myroom') return E.myRoomMove(dx, dy, nx, ny, ch);
       if (s.mapId === 'gullwrack') {
         if (ch === '7') return E.tryEnterDungeon(21);
         if (ch === 'W') return E.gullwrackDock();
@@ -1705,6 +1753,8 @@ var MM = globalThis.MM = globalThis.MM || {};
         // same idea as a dungeon's monster array overlaid on the grid.
         const tangleHere = s.tangles && s.tangles.items.find(t => !t.done && t.x === nx && t.y === ny);
         if (tangleHere) return E.startTangleBattle(tangleHere);
+        // Wave 13 (P3): a waiting staircase is bumped back into following.
+        if (E.stairBumpAt(nx, ny)) return;
         if (ch === 'C') return E.castle();
         if (ch === 'H') return E.spiralMenu();
         if (ch === 'Y') return E.tutor();
@@ -1731,8 +1781,10 @@ var MM = globalThis.MM = globalThis.MM || {};
         return MM.ui.log('🕳 The floor here is shattered — a stone slab could mend it.');
       }
       if (ch === '.' || ch === 'P' || ch === '=') {
+        const wasX = s.px, wasY = s.py;
         E.petPos = { x: s.px, y: s.py };
         s.px = nx; s.py = ny;
+        E.stairStep(wasX, wasY);   // Wave 13: the following staircase trails 2 back
         E.walkStamina();
         E.updatePetAlert();
       }
@@ -1740,6 +1792,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     }
 
     // dungeon
+    // Wave 13 (P1): the Understudy stands wherever its route ended,
+    // committed — walking into it swaps places, like a becalmed friend
+    // (it must never block a chokepoint).
+    if (E.tryUnderstudySwap(nx, ny)) return;
+    // Wave 13 (P3): the lost staircase in the Cavern of Echoes — bump to
+    // start the escort.
+    if (E.stairBumpAt(nx, ny)) return;
     const mon = s.monsters.find(m => m.x === nx && m.y === ny && m.hp > 0);
     // Wave 10 (P4c, rare-surprise pool): the hatted-slimes moment. Never a
     // fight — they split apart, embarrassed, and scurry off; the hat is
@@ -1858,10 +1917,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     const fromCh = s.grid[fromY] && s.grid[fromY][fromX];
     E.petPos = { x: s.px, y: s.py };
     s.px = nx; s.py = ny;
+    E.recordStep(dx, dy);          // Wave 13: the echo plates' rolling buffer
+    E.stairStep(fromX, fromY);     // Wave 13: the following staircase trails 2 back
     E.walkStamina();
     if (fromCh === '!') E.crumbleBehind(fromX, fromY);
     if (ch === '!') E.crackCreak();
     if (ch === '+') E.platePressFeedback();
+    if (ch === '?') E.echoPlateStep();
     if (ch === 'X') return E.exitDungeon();
     if (ch === '>') return E.changeFloor(1);
     if (ch === '<') return E.changeFloor(-1);
@@ -2106,14 +2168,22 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.wing && s.wing.slabs && mapId === 'wing' && s.wing.slabs.some(sl => sl.under === '+')) return true;
     const free = s.freeSlabs && s.freeSlabs[mapId];
     if (free && free.some(sl => sl.under === '+')) return true;
+    // Wave 13 (P1): the Understudy HOLDS a plate wherever its route ended —
+    // the plate-occupancy check's one new clause.
+    const u = E.understudy;
+    if (u && u.mapId === mapId && at(u.x, u.y) === '+') return true;
+    // Wave 13 (P2): Your Own Room's live slabs (per-visit, like the grid).
+    if (mapId === 'myroom' && E._myRoomSlabs && E._myRoomSlabs.some(sl => sl.under === '+')) return true;
     return false;
   };
   // Is THIS plate tile occupied right now (pressed sprite)? Slabs draw 'U'
-  // over the plate cell anyway, so only player/pet need checking.
+  // over the plate cell anyway, so only player/pet/Understudy need checking.
   E.plateOccupied = function (x, y) {
     const s = E.state;
     if (!s || !s.grid) return false;
     if (s.px === x && s.py === y) return true;
+    const u = E.understudy;
+    if (u && u.mapId === s.mapId && u.x === x && u.y === y) return true;
     const pp = E.petPos;
     return !!(s.isles && s.isles.pet && pp && pp.x === x && pp.y === y);
   };
@@ -2282,6 +2352,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!w.mirrors) w.mirrors = MM.maps.WING_ARMORY.initial.slice();
     if (!w.mirrorTurns) w.mirrorTurns = {};
     if (!w.cats) w.cats = MM.maps.WING_CATS.statues.map(c => c.initial);
+    // Wave 13 (P2): Your Own Room — layout + solve-count persist here, so
+    // they ride along with the rest of the Wing through NG+ snapshot/restore
+    // (startGolden/returnToFinishedKingdom deliberately leave s.wing alone).
+    if (!w.myRoom) {
+      w.myRoom = { pieces: [], hand: null, solveCount: 0, seenFirstSolve: false, seenOpen: false };
+    }
     return w;
   };
   E.wingOpen = () => !!(E.state && E.state.endingDone);
@@ -2298,6 +2374,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.enterWing = function () {
     const s = E.state;
     MM.track('enterWing');
+    if (E.resetTransientEntities) E.resetTransientEntities();   // Wave 13 transients
     E.ensureWing();
     s.mapId = 'wing';
     s.grid = MM.maps.parse(MM.maps.WING, '#');
@@ -2343,6 +2420,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.wingMove = function (dx, dy, nx, ny, ch) {
     const s = E.state;
     const w = E.ensureWing();
+    if (E.tryUnderstudySwap(nx, ny)) return;   // Wave 13: it never blocks
     if (ch === 'X') return E.exitWing();
     if (ch === 'H') return E.wingDoorway();
     if (ch === 'T') return E.wingPortrait(nx, ny);
@@ -2374,9 +2452,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     const fromCh = s.grid[fromY] && s.grid[fromY][fromX];
     E.petPos = { x: s.px, y: s.py };
     s.px = nx; s.py = ny;
+    E.recordStep(dx, dy);   // Wave 13: the echo plates' rolling buffer
     if (fromCh === '!') E.crumbleBehind(fromX, fromY);
     if (ch === '!') E.crackCreak();
     if (ch === '+') E.platePressFeedback();
+    if (ch === '?') E.echoPlateStep();
     if (ch === 'v') return E.wingFall();
     if (ch === '<') return E.wingLadder();
     if (ch === '_') return E.tileEffects('_', dx, dy);
@@ -2429,11 +2509,21 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (!p) return;
     MM.ui.dialog(p.title, p.body);
   };
+  // Wave 13 (P2): the named plate now OPENS the door (the v1.8.2 "masons"
+  // holding-note is gone). Pre-title, the doorway keeps the blank-plate tease.
   E.wingDoorway = function () {
     const s = E.state;
-    const all = E.WING_ROOMS.every(r => s.wing && s.wing.rooms && s.wing.rooms[r]);
-    MM.ui.dialog(all ? '🚪 The doorway bears a name' : '🚪 An empty doorway',
-      all ? MM.data.WING_DOORWAY_NAMED(s.name) : MM.data.WING_DOORWAY_BLANK);
+    const w = E.ensureWing();
+    if (w.titleGiven) {
+      if (!w.myRoom.seenOpen) {
+        w.myRoom.seenOpen = true;
+        E.save();
+        return MM.ui.dialog('🚪 The doorway bears a name', MM.data.WING_DOORWAY_NAMED(s.name),
+          () => E.enterMyRoom());
+      }
+      return E.enterMyRoom();
+    }
+    MM.ui.dialog('🚪 An empty doorway', MM.data.WING_DOORWAY_BLANK);
   };
 
   // ---------- the wardrobe (an obvious mimic with a terrible tell) ----------
@@ -2687,6 +2777,700 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (MM.ui.worldBurst && !s.calmMode) MM.ui.worldBurst(s.px, s.py, '#ffd94a', 22);
     E.save();
     MM.ui.dialog('🏅 Keeper of the Proving Rooms', MM.data.WING_TITLE_LINE);
+  };
+
+  // ========== Wave 13: "The Understudy & Your Own Room" ==========
+  // STANDING RULES apply: jokes are observations, never obstacles; comedy
+  // channels are field/glyph/sound/modal, never the log alone.
+
+  // Per-map-visit transients: the echo plates' step buffer, the Understudy,
+  // the pupil, and the following staircase's trail. Nothing here is saved.
+  E.STEP_BUFFER_MAX = 12;
+  E.stepBuffer = [];
+  E.understudy = null;   // { mapId, x, y, path, i, active, pausedBeat, stopped, lastStep }
+  E.pupil = null;        // Your Own Room's visiting solver (drawn as the enrolled slime)
+  E.stairPos = null;     // where the following staircase stands (2 moves back)
+  E._stairTrail = [];
+  E._myRoomSlabs = null; // Your Own Room's live slab positions (rebuilt per visit)
+  E.resetTransientEntities = function () {
+    E.stepBuffer = [];
+    E.understudy = null;
+    E.pupil = null;
+    E.stairPos = null;
+    E._stairTrail = [];
+    E._myRoomSlabs = null;
+  };
+
+  // ---------- P1: echo plates & the Understudy ----------
+  E.recordStep = function (dx, dy) {
+    if (!dx && !dy) return;
+    E.stepBuffer.push({ dx, dy });
+    if (E.stepBuffer.length > E.STEP_BUFFER_MAX) E.stepBuffer.shift();
+  };
+  E.echoPlateStep = function () {
+    const s = E.state;
+    E.summonUnderstudy(s.px, s.py);
+  };
+  E.UNDERSTUDY_STEP_MS = 220;
+  E.summonUnderstudy = function (x, y) {
+    const s = E.state;
+    MM.track('understudy');
+    // re-stepping the plate re-stages the scene with a fresh buffer copy
+    E.understudy = {
+      mapId: s.mapId, x, y,
+      path: E.stepBuffer.slice(),
+      i: 0, active: E.stepBuffer.length > 0,
+      pausedBeat: false, stopped: false, lastStep: 0,
+    };
+    MM.sound.tada();
+    E._understudyPop = { until: Date.now() + 1600 };   // 🎭, in the field
+    if (!s.seenUnderstudy) {
+      // once-EVER big beat: the introduction. The replay holds for its cue —
+      // understudyPulse skips whole beats while any modal is up.
+      s.seenUnderstudy = true;
+      E.save();
+      MM.ui.dialog(MM.data.UNDERSTUDY_INTRO.title, MM.data.UNDERSTUDY_INTRO.body);
+    }
+    MM.ui.refresh();
+  };
+  // Pulsed from ui.js's worldLoop — NEVER its own setInterval, so the
+  // headless unit suite can drive the replay deterministically by calling
+  // E.understudyTick() directly.
+  E.understudyPulse = function (now) {
+    const u = E.understudy;
+    if (!u || !u.active) return;
+    if (MM.ui.modalOpen() || MM.battle.active()) return;
+    if (now - u.lastStep < E.UNDERSTUDY_STEP_MS) return;
+    u.lastStep = now;
+    E.understudyTick();
+  };
+  E.understudyTick = function () {
+    const s = E.state;
+    const u = E.understudy;
+    if (!u || !u.active) return;
+    if (!s || s.mapId !== u.mapId) { E.understudy = null; return; }
+    if (u.i >= u.path.length) return E.understudyFinish();
+    // one theatrical half-beat pause before the final step
+    if (u.i === u.path.length - 1 && !u.pausedBeat) { u.pausedBeat = true; return; }
+    const { dx, dy } = u.path[u.i];
+    const nx = u.x + dx, ny = u.y + dy;
+    const ch = s.grid[ny] && s.grid[ny][nx];
+    const blocked = ch == null || !'.P+?'.includes(ch)
+      || (nx === s.px && ny === s.py)
+      || (s.monsters || []).some(m => m.hp > 0 && m.x === nx && m.y === ny);
+    if (blocked) {
+      // polite: no failure, no cost — it just stands there, committed
+      u.stopped = true;
+      return E.understudyFinish();
+    }
+    u.x = nx; u.y = ny; u.i++;
+    if (u.i >= u.path.length) E.understudyFinish();
+  };
+  E.understudyFinish = function () {
+    const s = E.state;
+    const u = E.understudy;
+    if (!u) return;
+    u.active = false;
+    // wherever its route ends, it stays — and if that tile is a pressure
+    // plate, it HOLDS it (see the clause in E.platePowered)
+    if (s.grid[u.y] && s.grid[u.y][u.x] === '+') E.platePressFeedback();
+    MM.ui.refresh();
+  };
+  // Walking into the Understudy swaps places, like a becalmed friend — it
+  // must never block a route (if it was still mid-scene, it yields the
+  // stage, graciously, and stays where it lands).
+  E.tryUnderstudySwap = function (nx, ny) {
+    const s = E.state;
+    const u = E.understudy;
+    if (!u || u.mapId !== s.mapId || u.x !== nx || u.y !== ny) return false;
+    const ox = s.px, oy = s.py;
+    s.px = nx; s.py = ny;
+    u.x = ox; u.y = oy;
+    u.active = false;
+    MM.sound.tone(1);
+    MM.ui.refresh();
+    return true;
+  };
+
+  // ---------- P2: Your Own Room ----------
+  E.enterMyRoom = function () {
+    const s = E.state;
+    MM.track('enterMyRoom');
+    E.resetTransientEntities();
+    E.ensureWing();
+    s.mapId = 'myroom';
+    s.monsters = [];   // combat-free, forever — the castle rule
+    const en = MM.maps.MYROOM_ENTRY;
+    s.px = en.x; s.py = en.y;
+    E.buildMyRoomGrid();
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.log(MM.data.MYROOM_ENTER_LINE);
+    E.save();
+    MM.ui.refresh();
+  };
+  E.exitMyRoom = function () {
+    E.enterWing();
+    const s = E.state;
+    s.px = 38; s.py = 11;   // back in the hall, beside the named doorway
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.refresh();
+  };
+  // Rebuild the room's grid from the persisted layout (per-visit live state:
+  // slabs return to their placed spots, crumbled cracks knit whole).
+  E.buildMyRoomGrid = function () {
+    const s = E.state;
+    if (s.mapId !== 'myroom') return;
+    const mr = E.ensureWing().myRoom;
+    // if the kid stands where a solid piece belongs, step them clear first
+    const SOLID = { wall: 1, slab: 1, gate: 1, chest: 1 };
+    if (mr.pieces.some(p => SOLID[p.t] && p.x === s.px && p.y === s.py)) {
+      const en = MM.maps.MYROOM_ENTRY;
+      s.px = en.x; s.py = en.y;
+      E.petPos = { x: en.x, y: en.y };
+    }
+    s.grid = MM.maps.parse(MM.maps.MYROOM, '#');
+    E._myRoomSlabs = [];
+    for (const p of mr.pieces) {
+      s.grid[p.y][p.x] = MM.maps.MYROOM_PIECE_CHARS[p.t];
+      if (p.t === 'slab') E._myRoomSlabs.push({ x: p.x, y: p.y, under: '.' });
+    }
+  };
+  // Placement: pure and unit-testable. False = rejected (budget spent,
+  // outside the template floor, the entry tile, or an occupied cell).
+  E.myRoomPlace = function (t, x, y) {
+    const s = E.state;
+    const mr = E.ensureWing().myRoom;
+    const budget = MM.maps.MYROOM_BUDGET[t];
+    if (!budget) return false;
+    if (mr.pieces.filter(p => p.t === t).length >= budget) return false;
+    const en = MM.maps.MYROOM_ENTRY;
+    if (x === en.x && y === en.y) return false;   // the arch tile stays clear
+    const tmpl = MM.maps.parse(MM.maps.MYROOM, '#');
+    if (!tmpl[y] || tmpl[y][x] !== '.') return false;   // template floor only
+    if (mr.pieces.some(p => p.x === x && p.y === y)) return false;
+    if (s && s.mapId === 'myroom') {
+      if (!s.grid[y] || s.grid[y][x] !== '.') return false;   // a pushed slab rests there
+      if (x === s.px && y === s.py) return false;
+    }
+    mr.pieces.push({ t, x, y });
+    if (s && s.mapId === 'myroom') {
+      s.grid[y][x] = MM.maps.MYROOM_PIECE_CHARS[t];
+      if (t === 'slab') (E._myRoomSlabs = E._myRoomSlabs || []).push({ x, y, under: '.' });
+    }
+    E.save();
+    return true;
+  };
+  const pieceName = t => MM.data.MYROOM_PIECES[t].label.replace(/^\S+\s/, '');
+  // The mason's trail: carrying a piece, each step sets one down on the
+  // tile you just left. (Deviation, documented: the order's literal
+  // "bumping an empty floor tile places it" freezes the builder in place —
+  // any step IS a bump on empty floor. Laying-behind keeps walking free,
+  // reads instantly, and every mislaid piece is one bump from recovery.)
+  E.myRoomLay = function (x, y) {
+    const mr = E.ensureWing().myRoom;
+    const t = mr.hand;
+    if (!t || E.pupil) return;
+    if (!E.myRoomPlace(t, x, y)) return;
+    MM.sound.thud();
+    const left = MM.maps.MYROOM_BUDGET[t] - mr.pieces.filter(p => p.t === t).length;
+    if (left <= 0) {
+      mr.hand = null;
+      E.save();
+      MM.ui.log(`🧺 That was the last ${pieceName(t).toLowerCase()} — your hands are free.`);
+    }
+    MM.ui.refresh();
+  };
+  E.myRoomBench = function () {
+    const mr = E.ensureWing().myRoom;
+    if (E.pupil) return MM.ui.log('🐌 The pupil is mid-attempt — watch!');
+    const buttons = [];
+    for (const t of Object.keys(MM.maps.MYROOM_BUDGET)) {
+      const left = MM.maps.MYROOM_BUDGET[t] - mr.pieces.filter(p => p.t === t).length;
+      if (left > 0) {
+        buttons.push({
+          label: `${MM.data.MYROOM_PIECES[t].label} — carry (${left} left)`,
+          onClick: () => {
+            mr.hand = t;
+            E.save();
+            MM.ui.log(`🧺 Carrying: ${MM.data.MYROOM_PIECES[t].label}. Each step sets one down on the tile you leave.`);
+          },
+        });
+      }
+    }
+    // walk-on and pushable pieces can't be bump-collected — the bench takes
+    // them back (the always-available way out; nothing is ever stuck placed)
+    for (const t of ['slab', 'plate', 'crack', 'gate']) {
+      if (mr.pieces.some(p => p.t === t)) {
+        buttons.push({ label: `↩ Take back a ${pieceName(t).toLowerCase()}`, onClick: () => E.myRoomTakeBack(t) });
+      }
+    }
+    if (mr.hand) buttons.push({ label: '🖐 Carry nothing', onClick: () => { mr.hand = null; E.save(); } });
+    buttons.push({ label: 'Leave it', onClick: () => {} });
+    MM.ui.dialogChoices(MM.data.MYROOM_BENCH_TITLE, MM.data.MYROOM_BENCH_BODY, buttons);
+  };
+  E.myRoomTakeBack = function (t) {
+    const mr = E.ensureWing().myRoom;
+    if (E.pupil) return;
+    for (let i = mr.pieces.length - 1; i >= 0; i--) {
+      if (mr.pieces[i].t === t) { mr.pieces.splice(i, 1); break; }
+    }
+    E.buildMyRoomGrid();   // safe rebuild — also re-homes the live slabs
+    MM.sound.tone(2);
+    MM.ui.log('↩ Back to the bench it goes.');
+    E.save();
+    MM.ui.refresh();
+  };
+  E.myRoomPickupBump = function (nx, ny) {
+    const s = E.state;
+    const mr = E.ensureWing().myRoom;
+    if (E.pupil) return MM.ui.log('🐌 The pupil is mid-attempt — watch!');
+    const i = mr.pieces.findIndex(p => p.x === nx && p.y === ny && (p.t === 'wall' || p.t === 'chest'));
+    if (i < 0) return;
+    const t = mr.pieces[i].t;
+    mr.pieces.splice(i, 1);
+    s.grid[ny][nx] = '.';
+    MM.sound.tone(2);
+    MM.ui.log(`↩ You lift the ${pieceName(t).toLowerCase()} back out — it returns to the bench.`);
+    E.save();
+    MM.ui.refresh();
+  };
+  E.myRoomSlabBump = function (dx, dy, nx, ny) {
+    const s = E.state;
+    if (E.pupil) { MM.sound.thud(); return MM.ui.log('🐌 The pupil is mid-attempt — watch!'); }
+    const list = E._myRoomSlabs || [];
+    const slab = list.find(sl => sl.x === nx && sl.y === ny);
+    if (!slab) return;
+    const bx = nx + dx, by = ny + dy;
+    const destCh = s.grid[by] && s.grid[by][bx];
+    const blocked = !(destCh === '.' || destCh === '+')
+      || list.some(o => o !== slab && o.x === bx && o.y === by);
+    if (blocked) { MM.sound.thud(); E.slabWedged(); return; }   // the v1.8.2 nudge works here too
+    s.grid[ny][nx] = slab.under || '.';
+    slab.x = bx; slab.y = by; slab.under = destCh;
+    s.grid[by][bx] = 'U';
+    MM.sound.thud();
+    E.slabScrape(bx, by);
+    if (destCh === '+') E.platePressFeedback();
+    MM.ui.refresh();
+  };
+  // The reset pull-cord: slabs shuffle home to their placed spots, crumbled
+  // cracks knit whole. The wedge law, honored from day one.
+  E.myRoomReset = function () {
+    const s = E.state;
+    const mr = E.ensureWing().myRoom;
+    if (E.pupil) return MM.ui.log('🐌 The pupil is mid-attempt — watch!');
+    const homes = mr.pieces.filter(p => p.t === 'slab');
+    (E._myRoomSlabs || []).forEach((sl, i) => {
+      const home = homes[i];
+      if (!home || (home.x === sl.x && home.y === sl.y)) return;
+      if (home.x === s.px && home.y === s.py) return;             // never under the kid
+      if (s.grid[home.y][home.x] !== '.') return;
+      s.grid[sl.y][sl.x] = sl.under || '.';
+      sl.x = home.x; sl.y = home.y; sl.under = '.';
+      s.grid[home.y][home.x] = 'U';
+    });
+    for (const p of mr.pieces) {
+      if (p.t === 'crack' && s.grid[p.y][p.x] === 'v') s.grid[p.y][p.x] = '!';
+    }
+    MM.sound.fanfare();
+    MM.ui.log('⚙️ You pull the cord — the slabs shuffle home, and the cracked tiles knit themselves whole.');
+    MM.ui.refresh();
+  };
+  // The room's movement branch.
+  E.myRoomMove = function (dx, dy, nx, ny, ch) {
+    const s = E.state;
+    const mr = E.ensureWing().myRoom;
+    if (ch === 'X') return E.exitMyRoom();
+    if (ch === 'B') return E.myRoomBench();
+    if (ch === 'V') return E.myRoomInvite();
+    if (ch === 'R') return E.myRoomReset();
+    if (ch === 'O') return MM.ui.dialog('🏆 The pedestal', MM.data.MYROOM_PEDESTAL_LINE(mr.solveCount || 0));
+    if (ch === 'U') return E.myRoomSlabBump(dx, dy, nx, ny);
+    if (ch === 'W' || ch === '*') return E.myRoomPickupBump(nx, ny);
+    if (ch === '&' && !E.platePowered('myroom')) {
+      MM.sound.thud();
+      return MM.ui.log('🧱 Your counterweight gate is shut — it lifts while something rests on a plate. (The bench can take it back.)');
+    }
+    if (ch === '#') return;
+    if (ch === 'v') {   // a crumbled crack: a shallow pit, gently survived
+      MM.sound.thud();
+      const en = MM.maps.MYROOM_ENTRY;
+      s.px = en.x; s.py = en.y;
+      E.petPos = { x: en.x, y: en.y };
+      MM.ui.log('🕳 You hop down into the little pit and clamber out by the arch. The reset cord mends cracked tiles.');
+      MM.ui.refresh();
+      return;
+    }
+    const fromX = s.px, fromY = s.py;
+    const fromCh = s.grid[fromY] && s.grid[fromY][fromX];
+    E.petPos = { x: s.px, y: s.py };
+    s.px = nx; s.py = ny;   // no stamina — the castle rule
+    if (fromCh === '!') E.crumbleBehind(fromX, fromY);
+    if (ch === '!') E.crackCreak();
+    if (ch === '+') E.platePressFeedback();
+    if (mr.hand) E.myRoomLay(fromX, fromY);   // the mason's trail
+  };
+
+  // ---------- P2: the pupil's solver ----------
+  // BFS over (pupil pos, slab positions, crack-used bits). DETERMINISTIC:
+  // fixed expansion order, no Math.random anywhere in here. BOUNDED: past
+  // MYROOM_SOLVER_CAP explored states it reports unsolvable — and
+  // unsolvable is ALLOWED; the polite-stuck flow is the feature.
+  E.MYROOM_SOLVER_CAP = 30000;
+  E.myRoomSolve = function (pieces, live) {
+    const base = MM.maps.parse(MM.maps.MYROOM, '#');
+    const cracks = [];
+    let slabs0 = [];
+    for (const p of pieces) {
+      if (p.t === 'slab') { slabs0.push({ x: p.x, y: p.y }); continue; }
+      base[p.y][p.x] = MM.maps.MYROOM_PIECE_CHARS[p.t];
+      if (p.t === 'crack') cracks.push(p.x + ',' + p.y);
+    }
+    if (live && live.slabs) slabs0 = live.slabs.map(sl => ({ x: sl.x, y: sl.y }));
+    if (live && live.crumbled) {
+      for (const k of live.crumbled) {
+        const [cx, cy] = k.split(',').map(Number);
+        base[cy][cx] = '#';
+      }
+    }
+    const en = MM.maps.MYROOM_ENTRY, ped = MM.maps.MYROOM_PEDESTAL;
+    const at = (x, y) => (base[y] ? base[y][x] : null);
+    if (at(en.x, en.y) !== '.' || slabs0.some(sl => sl.x === en.x && sl.y === en.y)) {
+      return { solvable: false, steps: [] };   // the arch is bricked over
+    }
+    const plateAt = new Set();
+    for (let y = 0; y < base.length; y++) {
+      for (let x = 0; x < base[y].length; x++) if (base[y][x] === '+') plateAt.add(x + ',' + y);
+    }
+    const isGoal = (x, y) => Math.abs(x - ped.x) + Math.abs(y - ped.y) === 1;
+    const keyOf = st => st.x + ',' + st.y + '|' + st.slabs.map(sl => sl.x + ',' + sl.y).join(';') + '|' + st.used.join('');
+    const start = { x: en.x, y: en.y, slabs: slabs0, used: cracks.map(() => 0) };
+    if (isGoal(start.x, start.y)) return { solvable: true, steps: [] };
+    const seen = new Set([keyOf(start)]);
+    const q = [{ st: start, path: [] }];
+    let explored = 0;
+    while (q.length) {
+      if (++explored > E.MYROOM_SOLVER_CAP) return { solvable: false, steps: [], capped: true };
+      const { st, path } = q.shift();
+      const powered = st.slabs.some(sl => plateAt.has(sl.x + ',' + sl.y));
+      const onPlate = at(st.x, st.y) === '+';
+      const curCrack = cracks.indexOf(st.x + ',' + st.y);
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+        const nx = st.x + dx, ny = st.y + dy;
+        const ch = at(nx, ny);
+        if (ch == null) continue;
+        const si = st.slabs.findIndex(sl => sl.x === nx && sl.y === ny);
+        let nst = null;
+        if (si >= 0) {
+          // a push — sokoban rules, one slab one tile, no chain pushes
+          const bx = nx + dx, by = ny + dy;
+          const bch = at(bx, by);
+          if (!(bch === '.' || bch === '+')) continue;
+          if (st.slabs.some((sl, i2) => i2 !== si && sl.x === bx && sl.y === by)) continue;
+          if (!(ch === '.' || ch === '+')) continue;   // the vacated tile must hold the pupil
+          nst = { x: nx, y: ny, slabs: st.slabs.map((sl, i2) => (i2 === si ? { x: bx, y: by } : sl)), used: st.used };
+        } else {
+          let ok = ch === '.' || ch === '+';
+          if (ch === '!') {
+            const ci = cracks.indexOf(nx + ',' + ny);
+            ok = ci >= 0 && !st.used[ci];
+          }
+          // live rule mirrored: gates are checked before the step, so a
+          // pupil standing ON a plate may step straight through its gate
+          if (ch === '&') ok = powered || onPlate;
+          if (!ok) continue;
+          nst = { x: nx, y: ny, slabs: st.slabs, used: st.used };
+        }
+        if (curCrack >= 0 && !st.used[curCrack]) {
+          nst.used = st.used.slice();
+          nst.used[curCrack] = 1;   // stepping OFF a crack crumbles it
+        }
+        const k = keyOf(nst);
+        if (seen.has(k)) continue;
+        const npath = path.concat([[dx, dy]]);
+        if (isGoal(nst.x, nst.y)) return { solvable: true, steps: npath };
+        seen.add(k);
+        q.push({ st: nst, path: npath });
+      }
+    }
+    return { solvable: false, steps: [] };
+  };
+
+  // ---------- P2: the pupil's visit (the theater is in the pacing) ----------
+  E.myRoomInvite = function () {
+    if (E.pupil) return MM.ui.log('🐌 A pupil is already mid-attempt!');
+    MM.ui.dialogChoices(MM.data.MYROOM_CORD_TITLE, MM.data.MYROOM_CORD_BODY, [
+      { label: '🔔 Pull it', primary: true, onClick: () => E.pupilBegin() },
+      { label: 'Not yet', onClick: () => {} },
+    ]);
+  };
+  E.pupilBegin = function () {
+    const mr = E.ensureWing().myRoom;
+    mr.hand = null;
+    E.buildMyRoomGrid();   // the pupil gets the room as DESIGNED (fresh slabs/cracks)
+    MM.track('pupilInvite');
+    const plan = E.myRoomSolve(mr.pieces);
+    const arch = MM.maps.MYROOM_ARCH;
+    MM.ui.log(MM.data.MYROOM_PUPIL_ARRIVES);
+    const enterStep = [{ dx: 1, dy: 0 }];
+    if (plan.solvable) {
+      E.pupil = { x: arch.x, y: arch.y, state: 'solving', steps: enterStep.concat(plan.steps.map(([dx, dy]) => ({ dx, dy }))), i: 0, lastStep: 0 };
+    } else {
+      const t = E.myRoomTryWalk();
+      E.pupil = { x: arch.x, y: arch.y, state: 'trying', steps: enterStep.concat(t.out), back: t.back, i: 0, lastStep: 0 };
+    }
+    MM.ui.refresh();
+  };
+  // The visible "it really tried" walk for an unsolvable room: plain BFS to
+  // the reachable tile nearest the pedestal (deterministic, no pushes, no
+  // cracks — a failed attempt must not damage the room), then back.
+  E.myRoomTryWalk = function () {
+    const s = E.state;
+    const en = MM.maps.MYROOM_ENTRY, ped = MM.maps.MYROOM_PEDESTAL;
+    const powered = E.platePowered('myroom');
+    const pass = ch => ch === '.' || ch === '+' || (ch === '&' && powered);
+    const W = s.grid[0].length;
+    const keyOf = (x, y) => y * W + x;
+    const prev = new Map([[keyOf(en.x, en.y), -1]]);
+    const q = [[en.x, en.y]];
+    let best = { x: en.x, y: en.y, d: Math.abs(en.x - ped.x) + Math.abs(en.y - ped.y) };
+    while (q.length) {
+      const [x, y] = q.shift();
+      const d = Math.abs(x - ped.x) + Math.abs(y - ped.y);
+      if (d < best.d) best = { x, y, d };
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+        const nx = x + dx, ny = y + dy, k = keyOf(nx, ny);
+        const ch = s.grid[ny] && s.grid[ny][nx];
+        if (ch == null || prev.has(k) || !pass(ch)) continue;
+        prev.set(k, keyOf(x, y));
+        q.push([nx, ny]);
+      }
+    }
+    const cells = [];
+    for (let k = keyOf(best.x, best.y); k !== -1; k = prev.get(k)) cells.unshift({ x: k % W, y: (k / W) | 0 });
+    const out = [];
+    for (let i = 1; i < cells.length; i++) out.push({ dx: cells[i].x - cells[i - 1].x, dy: cells[i].y - cells[i - 1].y });
+    const back = out.slice().reverse().map(st => ({ dx: -st.dx, dy: -st.dy }));
+    back.push({ dx: -1, dy: 0 });   // the last step back under the arch
+    return { out, back };
+  };
+  E.PUPIL_STEP_MS = 250;
+  E.pupilPulse = function (now) {
+    const p = E.pupil;
+    if (!p) return;
+    if (MM.ui.modalOpen() || MM.battle.active()) return;
+    if (now - p.lastStep < E.PUPIL_STEP_MS) return;
+    p.lastStep = now;
+    E.pupilTick();
+  };
+  E.pupilTick = function () {
+    const s = E.state;
+    const p = E.pupil;
+    if (!p) return;
+    if (!s || s.mapId !== 'myroom') { E.pupil = null; return; }
+    if (p.state === 'joy') {
+      if (Date.now() > p.joyUntil) { E.pupil = null; MM.ui.refresh(); }
+      return;
+    }
+    if (p.state === 'stuck') return;   // holding for the modal
+    const steps = p.state === 'returning' ? p.back : p.steps;
+    if (p.i >= steps.length) {
+      if (p.state === 'solving') return E.pupilSolved();
+      if (p.state === 'trying') { p.state = 'returning'; p.i = 0; p.thoughtUntil = Date.now() + 1400; return; }
+      return E.pupilStuck();
+    }
+    const { dx, dy } = steps[p.i];
+    const nx = p.x + dx, ny = p.y + dy;
+    const list = E._myRoomSlabs || [];
+    const slab = list.find(sl => sl.x === nx && sl.y === ny);
+    if (slab) {
+      if (p.state !== 'solving') return E.pupilAbort();
+      const bx = nx + dx, by = ny + dy;
+      const destCh = s.grid[by] && s.grid[by][bx];
+      if (!(destCh === '.' || destCh === '+') || list.some(o => o !== slab && o.x === bx && o.y === by)) {
+        return E.pupilAbort();
+      }
+      s.grid[ny][nx] = slab.under || '.';
+      slab.x = bx; slab.y = by; slab.under = destCh;
+      s.grid[by][bx] = 'U';
+      MM.sound.thud();
+    }
+    const ch = s.grid[ny] && s.grid[ny][nx];
+    const powered = E.platePowered('myroom') || (s.grid[p.y] && s.grid[p.y][p.x] === '+');
+    const okTile = ch === '.' || ch === '+' || ch === 'X' || ch === '!' || (ch === '&' && powered);
+    if (!okTile) return E.pupilAbort();
+    const fromX = p.x, fromY = p.y;
+    p.x = nx; p.y = ny;
+    p.i++;
+    if (s.grid[fromY] && s.grid[fromY][fromX] === '!') {   // real movement, real physics
+      s.grid[fromY][fromX] = 'v';
+      MM.sound.creak();
+    }
+    // theater: one thoughtful pause beside a placed chest — is THAT the
+    // answer? (no. onward.) — pacing only, the path is the solver's own
+    if (!p.pausedAtChest && p.state === 'solving') {
+      const chestNear = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ax, ay]) => {
+        const c = s.grid[ny + ay] && s.grid[ny + ay][nx + ax];
+        return c === '*';
+      });
+      if (chestNear) { p.pausedAtChest = true; p.lastStep += 600; }
+    }
+    if (p.state === 'solving' && p.i >= p.steps.length) return E.pupilSolved();
+    if (p.state === 'trying' && p.i >= p.steps.length) { p.state = 'returning'; p.i = 0; p.thoughtUntil = Date.now() + 1400; }
+    else if (p.state === 'returning' && p.i >= p.back.length) return E.pupilStuck();
+  };
+  // Something changed under the pupil mid-plan — no failure state: it heads
+  // back to the arch and asks for a hint, exactly like an unsolvable room.
+  E.pupilAbort = function () {
+    const s = E.state;
+    const p = E.pupil;
+    if (!p) return;
+    const arch = MM.maps.MYROOM_ARCH;
+    const powered = E.platePowered('myroom');
+    const pass = ch => ch === '.' || ch === '+' || ch === 'X' || (ch === '&' && powered);
+    const W = s.grid[0].length;
+    const keyOf = (x, y) => y * W + x;
+    const prev = new Map([[keyOf(p.x, p.y), -1]]);
+    const q = [[p.x, p.y]];
+    let found = false;
+    while (q.length && !found) {
+      const [x, y] = q.shift();
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+        const nx = x + dx, ny = y + dy, k = keyOf(nx, ny);
+        const ch = s.grid[ny] && s.grid[ny][nx];
+        if (ch == null || prev.has(k) || !pass(ch)) continue;
+        prev.set(k, keyOf(x, y));
+        if (nx === arch.x && ny === arch.y) { found = true; break; }
+        q.push([nx, ny]);
+      }
+    }
+    if (!found) { E.pupil = null; MM.ui.refresh(); return; }
+    const cells = [];
+    for (let k = keyOf(arch.x, arch.y); k !== -1; k = prev.get(k)) cells.unshift({ x: k % W, y: (k / W) | 0 });
+    const back = [];
+    for (let i = 1; i < cells.length; i++) back.push({ dx: cells[i].x - cells[i - 1].x, dy: cells[i].y - cells[i - 1].y });
+    p.state = 'returning';
+    p.back = back;
+    p.i = 0;
+    p.thoughtUntil = Date.now() + 1400;
+  };
+  E.pupilSolved = function () {
+    const s = E.state;
+    const mr = E.ensureWing().myRoom;
+    const p = E.pupil;
+    p.state = 'joy';
+    p.joyUntil = Date.now() + 2400;
+    mr.solveCount = (mr.solveCount || 0) + 1;
+    MM.sound.fanfare();
+    const ped = MM.maps.MYROOM_PEDESTAL;
+    if (MM.ui.worldBurst && !s.calmMode) {
+      MM.ui.worldBurst(ped.x, ped.y, '#ffd94a', 16);
+      MM.ui.worldBurst(p.x, p.y, '#7ee0e8', 12);
+    }
+    if (!mr.seenFirstSolve) {
+      // once-ever: the celebration, then Miscount drops by — he of all
+      // people knows what it means to build a room that tests fairly
+      mr.seenFirstSolve = true;
+      E.save();
+      MM.ui.dialog(MM.data.MYROOM_FIRST_SOLVE.title, MM.data.MYROOM_FIRST_SOLVE.body, () => {
+        const cameo = MM.data.MYROOM_MISCOUNT_CAMEO(s.name);
+        MM.ui.dialog(cameo.title, cameo.body);
+      });
+    } else {
+      MM.ui.log(MM.data.MYROOM_SOLVE_AGAIN);
+      E.save();
+    }
+    MM.ui.refresh();
+  };
+  E.pupilStuck = function () {
+    const p = E.pupil;
+    if (!p) return;
+    p.state = 'stuck';
+    p.thoughtUntil = Date.now() + 3000;   // 💭, in the field
+    MM.sound.sigh();
+    MM.ui.dialog(MM.data.MYROOM_PUPIL_STUCK.title, MM.data.MYROOM_PUPIL_STUCK.body,
+      () => { E.pupil = null; MM.ui.refresh(); });
+    MM.ui.refresh();
+  };
+
+  // ---------- P3: the homesick staircase ----------
+  // State machine in s.spiral.staircase: 'lost' | 'following' |
+  // { waiting: {x,y} } | 'home'. Transient position rides E.stairPos.
+  E.stairStep = function (fromX, fromY) {
+    const s = E.state;
+    if (!s || !s.spiral || s.spiral.staircase !== 'following') return;
+    E._stairTrail.push({ x: fromX, y: fromY });
+    if (E._stairTrail.length > 3) E._stairTrail.shift();
+    const t = E._stairTrail;
+    E.stairPos = t.length >= 2 ? { x: t[t.length - 2].x, y: t[t.length - 2].y } : { x: t[0].x, y: t[0].y };
+  };
+  E.stairBumpAt = function (nx, ny) {
+    const s = E.state;
+    const st = s && s.spiral && s.spiral.staircase;
+    if (!st || st === 'home') return false;
+    const startFollowing = (x, y) => {
+      s.spiral.staircase = 'following';
+      E.stairPos = { x, y };
+      E._stairTrail = [];
+      E._stairPop = { until: Date.now() + 1600 };   // 🏠, in the field
+      MM.sound.chirp();
+      MM.ui.log(MM.data.STAIRCASE_FOLLOW_LINE);
+      E.save();
+      MM.ui.refresh();
+    };
+    if (st === 'lost') {
+      const spot = MM.maps.STAIRCASE_SPOT;
+      if (s.mapId !== 'd11' || !s.endingDone || nx !== spot.x || ny !== spot.y) return false;
+      startFollowing(nx, ny);
+      // monsters ignore it — code-level indifference is the joke; one log
+      // echo for parents, once per session, with a real monster's name
+      if (!E._stairEchoDone) {
+        const mon = (s.monsters || []).find(m => m.hp > 0);
+        if (mon) {
+          E._stairEchoDone = true;
+          MM.ui.log(MM.data.STAIRCASE_MONSTER_ECHO(MM.data.theMon(mon.name, true)));
+        }
+      }
+      return true;
+    }
+    if (st.waiting && s.mapId === 'world' && nx === st.waiting.x && ny === st.waiting.y) {
+      startFollowing(nx, ny);
+      return true;
+    }
+    return false;
+  };
+  // A following staircase waits at the door of wherever you go without it.
+  E.stairParkHere = function (line) {
+    const s = E.state;
+    if (!s || !s.spiral || s.spiral.staircase !== 'following') return;
+    s.spiral.staircase = { waiting: { x: s.px, y: s.py } };
+    E.stairPos = null;
+    MM.ui.log(line || MM.data.STAIRCASE_WAIT_LINE);
+  };
+  // Where to DRAW it right now (null = nowhere on this map).
+  E.staircaseDrawPos = function () {
+    const s = E.state;
+    const st = s && s.spiral && s.spiral.staircase;
+    if (!st || st === 'home') return null;
+    if (st === 'lost') return (s.mapId === 'd11' && s.endingDone) ? MM.maps.STAIRCASE_SPOT : null;
+    if (st === 'following') {
+      const p = E.stairPos;
+      if (!p || (p.x === s.px && p.y === s.py)) return null;
+      return p;
+    }
+    if (st.waiting) return s.mapId === 'world' ? st.waiting : null;
+    return null;
+  };
+  // Delivery: escort it to the Spiral Stair tower and bump the tower.
+  E.stairHomecoming = function () {
+    const s = E.state;
+    s.spiral.staircase = 'home';
+    E.stairPos = null;
+    MM.sound.fanfare();
+    if (MM.ui.worldBurst && !s.calmMode) MM.ui.worldBurst(s.px, s.py, '#ffd94a', 18);
+    E.save();
+    MM.ui.dialog(MM.data.STAIRCASE_HOMECOMING.title, MM.data.STAIRCASE_HOMECOMING.body,
+      () => E.spiralMenu());
   };
 
   // One-way drop chute: the floor gives way and you land at the SAME spot one
@@ -4890,6 +5674,11 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   E.spiralMenu = function () {
     const s = E.state;
+    // Wave 13 (P3): delivering the homesick staircase — once ever, and then
+    // the tower remembers (the ⤴ option below, permanently).
+    if (s.spiral && s.spiral.staircase === 'following' && s.mapId === 'world') {
+      return E.stairHomecoming();
+    }
     if (!E.spiralOpen()) {
       return MM.ui.dialog('🌀 The Spiral Stair', MM.data.SPIRAL_SEALED(s));
     }
@@ -4902,6 +5691,12 @@ var MM = globalThis.MM = globalThis.MM || {};
       buttons.push({
         label: `🏳 Return to your Landing (Floor ${s.spiral.landing})`, primary: true,
         onClick: () => E.enterSpiral(s.spiral.landing),
+      });
+    }
+    if (s.spiral.staircase === 'home') {
+      buttons.push({
+        label: '⤴ Start from floor 10 (it knows a shortcut)',
+        onClick: () => E.enterSpiral(10),
       });
     }
     buttons.push({ label: 'Not now', onClick: () => {} });
