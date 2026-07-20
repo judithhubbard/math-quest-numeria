@@ -1221,6 +1221,39 @@ var MM = globalThis.MM = globalThis.MM || {};
     return { skill, petitioner, complaint, settle, problem, heard: false, magistrate };
   }
 
+  // Wave 16 (the Kitchen Garden, P1): the array model — multiplication AS AREA,
+  // the one representation the dungeons skip. The kid plants a RECTANGLE of
+  // seedlings (rows × columns) and the garden asks how many that is. RECORDS
+  // under muldiv_facts (the array IS times-table fluency; a parent switch
+  // already governs it). The math text stays plain (the humor lives in the
+  // garden field, never the question). Answer is the exact product.
+  function gardenArray(rows, cols, tier) {
+    return {
+      kind: 'number', skill: 'muldiv_facts', tier: tier || 1,
+      text: `You planted ${rows} row${rows === 1 ? '' : 's'} with ${cols} seedling${cols === 1 ? '' : 's'} in each row.\nHow many seedlings did you plant in all?`,
+      answer: frac(rows * cols, 1),
+      solution: `${rows} rows of ${cols} is an array — count it as ${rows} × ${cols} = ${rows * cols} seedlings.`,
+      hint: null, rows, cols,
+    };
+  }
+
+  // Wave 16 (the Castle Kitchen, P2): wrap a real fraction problem (measuring /
+  // scaling by measure) with a recipe frame — the same idiom as courtCase. The
+  //   skill : 'fractions_as' (measuring / adding parts) or 'fractions_m'
+  //           (scaling by a factor) — recorded UNDER ITSELF (the pedagogical
+  //           point; parent switches govern both).
+  // The dish name + the sous-chef's request are the comedy; the problem text is
+  // the plain math. A serializable recipe (the generated problem persists).
+  function kitchenRecipe(skill, tier) {
+    const G = MM.data.GARDEN;
+    const problem = generate(skill, tier);
+    const pool = (G && G.recipes && G.recipes[skill]) || [];
+    const r = pool.length
+      ? pool[Math.floor(Math.random() * pool.length)]
+      : { dish: 'a plain good dish', frame: 'The sous-chef slides a recipe across the counter. "Measure carefully."' };
+    return { skill, dish: r.dish, frame: r.frame, problem, cooked: false };
+  }
+
   // Clock doors (Wave 3, the Clockwork Spire) always want an actual clock
   // FACE to read — not the plain-number "how many minutes" half of
   // time_reading(t), which never renders an svg. Exposed separately so
@@ -1746,5 +1779,5 @@ var MM = globalThis.MM = globalThis.MM || {};
     return num('2 + 2 = ?', 4, '2 + 2 = 4.'); // unknown card: a safe fallback
   }
 
-  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError, braveStep, tailStep, yardDrill, courtCase };
+  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError, braveStep, tailStep, yardDrill, courtCase, gardenArray, kitchenRecipe };
 })();
