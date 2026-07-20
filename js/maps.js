@@ -1161,6 +1161,12 @@ var MM = globalThis.MM = globalThis.MM || {};
   // free across every map + NPCS key (never a dungeon mechanic). The three
   // Faculty posts stand on the plain throne-room floor at (21,3)/(18,5)/(22,5)
   // and are drawn as live overlays (ui.js), never grid glyphs — see FACULTY_POSTS.
+  // Wave 17: 'M' (row 11, against the east wall) is the Menagerie door — a
+  // gate out to the nursery in the castle grounds, mirroring the Wing's 'H',
+  // Parlor's 'Z', and Garden's 'K'. 'M' is 'mountain' in the shared world case
+  // (returned far below), but the castle block returns first, so there is no
+  // collision (unit-guarded in test.js). The Keeper Faculty post stands on the
+  // plain throne-room floor at (21,11) as a live overlay (see FACULTY_POSTS).
   MM.maps.CASTLE = [
     '##########################',
     '##########################',
@@ -1173,7 +1179,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     '###########....###########',
     '##o......H#....#Z..VV..K##',
     '##..Q.J.................##',
-    '##.......##F..F#........##',
+    '##.......##F..F#.......M##',
     '##diklnwr##....#........##',
     '###########..P.###########',
     '############X#############',
@@ -1239,6 +1245,48 @@ var MM = globalThis.MM = globalThis.MM || {};
   // Bigger plots as the kid's tier rises (courtCaseTier-style, via
   // MM.mastery.tierFor). Never larger than the plot itself (8 wide, 6 tall).
   MM.maps.GARDEN_MAX = { 1: { rows: 4, cols: 5 }, 2: { rows: 5, cols: 7 }, 3: { rows: 6, cols: 8 } };
+
+  // ===== Wave 17: "The Menagerie" (Castle Expansion Wave D) =====
+  // A nursery in the castle grounds for the BEFRIENDED KINDS (s.bestiary.
+  // befriended). Combat-free overworld like the castle/Wing/Parlor/Garden (no
+  // monsters ever, no stamina), reached through the castle's 'M' door. Own
+  // tileSprite alphabet (none of these letters is an NPCS key, so the overworld
+  // NPC pass never draws them — the v1.7.9 'Y' lesson):
+  //   X back out to the castle     P arrival
+  //   B the Keeper's noticeboard (bump → the nursery signage / the empty-pen
+  //     "room for a friend" line)
+  //   , a soft grassy pen patch (walkable — creatures roam their own patch)
+  //   . open lawn (walkable)
+  // The befriended creatures themselves are drawn as LIVE OVERLAYS on the pen
+  // slots (ui.js), never grid glyphs — the roster is s.bestiary.befriended, so
+  // the pens fill in as the kid soothes more (see MENAGERIE_SLOTS below).
+  MM.maps.MENAGERIE = [
+    '######################',
+    '#....................#',
+    '#..,...,...,...,...,.#',
+    '#....................#',
+    '#....................#',
+    '#..,...,...,...,...,.#',
+    '#....................#',
+    '#....................#',
+    '#..,...,...,...,...,.#',
+    '#....................#',
+    '#....................#',
+    '#...B.....P..........#',
+    '##########X###########',
+  ];
+  // The pen slots a befriended kind can roam (a grassy ',' patch each). The
+  // roster (sorted befriended keys) fills these in order; extra kinds beyond
+  // the slots still persist in s.menagerie, just off-screen (a kid with 15+
+  // befriended is already a full house). An empty slot is just lawn — never
+  // "sparse-as-failure"; the noticeboard carries the "room for a friend" line.
+  MM.maps.MENAGERIE_SLOTS = [
+    { x: 3, y: 2 }, { x: 7, y: 2 }, { x: 11, y: 2 }, { x: 15, y: 2 }, { x: 19, y: 2 },
+    { x: 3, y: 5 }, { x: 7, y: 5 }, { x: 11, y: 5 }, { x: 15, y: 5 }, { x: 19, y: 5 },
+    { x: 3, y: 8 }, { x: 7, y: 8 }, { x: 11, y: 8 }, { x: 15, y: 8 }, { x: 19, y: 8 },
+  ];
+  MM.maps.MENAGERIE_SIGN = { x: 4, y: 11 };
+  MM.maps.MENAGERIE_ARRIVAL = { x: 10, y: 11 };
 
   // ===== Wave 12 (P3): the Workshop Wing — the castle's proving rooms =====
   // Combat-free (s.monsters = [] — the castle rule extends here), entered
@@ -1717,7 +1765,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   // NPC pass may run (its alphabet avoids every NPCS key), castle movement.
   // 'myroom' (Wave 13) is an overworld like the castle and the Wing: no
   // monsters ever, no stamina, its own alphabet block below.
-  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom', 'parlor', 'garden'];
+  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom', 'parlor', 'garden', 'menagerie'];
   MM.maps.isOverworld = mapId => MM.maps.OVERWORLD_IDS.includes(mapId);
 
   // Gear gates (Clockwork Spire): exactly one of A/B/C is open at a time, and
@@ -1880,6 +1928,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       // 'world' block below) and unused by any dungeon mechanic; the castle
       // block returns first, so there is no collision (unit-guarded in test.js).
       if (ch === 'K') return 'gardenDoor';
+      // Wave 17: the Menagerie door in the castle's east wall (row 11). 'M' is
+      // 'mountain' in the shared world case below, but the castle block returns
+      // first, so there is no collision (unit-guarded in test.js).
+      if (ch === 'M') return 'menagerieDoor';
       if (ch === 'o') {
         const wg = MM.engine && MM.engine.state && MM.engine.state.wing;
         return (wg && wg.wardrobeMoved) ? 'wardrobe' : 'hallFloor';
@@ -1975,6 +2027,20 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ch === 'S') return 'sousChef';      // the monster sous-chef in a toque
       if (ch === 'V') return 'carrot';        // a very serious carrot (bump → talk)
       return 'hallFloor';                      // '.', 'P'
+    }
+    // Wave 17 (P1): the Menagerie owns its whole alphabet, castle-style — a
+    // combat-free nursery in the castle grounds. 'B' is the workbench/seed
+    // bench elsewhere and 'M' is a mountain/mirror, but this overworld block
+    // sits before every shared case, and each collision has a unit guard in
+    // tests/test.js. None of B/',' is an NPCS key, so the overworld NPC pass
+    // never draws them. '.' and 'P' are open lawn (GRASS_OK in the render
+    // audit); the befriended creatures are LIVE OVERLAYS on the pen slots.
+    if (mapId === 'menagerie') {
+      if (ch === '#') return 'wall';
+      if (ch === 'X') return 'castleDoor';    // back out to the castle
+      if (ch === 'B') return 'nurserySign';   // the Keeper's noticeboard (bump → signage)
+      if (ch === ',') return 'penPatch';      // a soft grassy pen patch (walkable)
+      return 'grass';                          // '.', 'P' — open lawn
     }
     if (mapId === 'isles' && (ch === 'u' || ch === 'v' || ch === 'w')) return 'murk';
     if (mapId === 'isles' && ch === 'H') return 'lighthouse';
