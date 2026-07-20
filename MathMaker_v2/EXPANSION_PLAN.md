@@ -3479,3 +3479,103 @@ and waits there); pupil kind rotation (slime-only is fine for v1).
 May NOT cut: the polite-stuck flow (it is the feature), budget caps,
 the always-present reset cord, once-ever celebrations, wedge-nudge
 coverage inside the kid's room, the doorway prose swap.
+
+## Wave 14 order — "The Court" (Castle Expansion Wave A) (user directive 2026-07-20)
+
+First wave of CASTLE_EXPANSION_PLAN.md (read it for the full rationale and
+where this sits among the Parlor/Kitchen-Garden/Menagerie that follow).
+The castle content has been the most popular part of the game; this grows
+it into the renewable late-game heart. The Court re-establishes the kid as
+ruler-AND-teacher, fills the applied-word-problem gap the dungeons serve
+least, and stands up the FACULTY thread the later castle waves reuse. It
+is the cheapest of the four (reuses dialog + problem machinery + the
+day-keyed renewal pattern), which is why it's first.
+
+ALL standing rules apply and are review-blocking: combat-free castle
+(s.monsters = []); no timers; gentle failure (never a scold, never a
+loss); jokes on monsters/items never the kid; comedy channels
+field/glyph/sound/modal, never the log; new glyphs get tileSprite context
+guards + unit checks; doors gate never decorate. Post-ending content:
+everything below gates on s.endingDone.
+
+### P1 — Holding court (the core loop)
+A new HERALD NPC in the castle throne area (pick a free NPC letter; place
+it in the CASTLE map near the throne 'O' — do NOT overload 'O', which
+routes to E.throneRoom / the NG+ menu). Bump the herald post-ending →
+"Today's petitioners" → a day-keyed queue of 3 CASES.
+- Day-keyed renewal EXACTLY like E.refreshBounties (mirror it — E.todayStr,
+  a s.court = { date, cases:[...] } object, re-roll only when the date
+  turns AND the day's cases aren't all heard; migrate s.court in load()).
+- Each case = a PETITIONER (a named subject or a becalmed monster) + an
+  absurd complaint + one applied problem. Presented via MM.ui.showProblem;
+  a correct ruling settles the dispute, a wrong one leaves the court
+  politely baffled and RE-EXPLAINING (re-ask, no penalty, no scold — the
+  gentle-failure rule). The complaint is the comedy; the math is plain.
+- Cases draw from the APPLIED strands and RECORD to mastery UNDER THEIR
+  REAL SKILL (this is the point — distributed applied review the report
+  card already shows): fair-division / sharing → fractions_as; scaling a
+  recipe or wage → multidigit_mult; miscounted change / market money →
+  decimals_md; measuring a field / fence / banner → word_problems (area).
+  New generator MM.problems.courtCase(skill) wrapping the existing
+  applied generators with a petitioner + narrative frame; weakest-first
+  across those four skills so the Court auto-targets what's rusty
+  (reuse MM.mastery.weakestFirst like refreshBounties does).
+- Renewable, never mandatory; hearing all 3 is a full "session."
+
+### P2 — The Faculty (the connective thread; BUILD THE SYSTEM HERE)
+The castle visibly fills as the kid teaches — "teachers multiply" made
+literal, and the backbone the Parlor/Kitchen/Menagerie waves reuse.
+- s.faculty = [] (list of taken posts). A post is claimed at a MILESTONE
+  (e.g. every N full court sessions heard: a reformed monster becomes the
+  court's Clerk, then the Bailiff, then the Recorder…). Each appears as a
+  new NPC in the castle (spawned into CASTLE render, one bump-line each,
+  authored). Records nothing, gates nothing — pure visible cumulative
+  reward. Keep the milestone cadence gentle (a counter that only counts
+  UP, like s.daysTended — never resets, never shames).
+- Design the faculty roster + spawn slots so later waves can append their
+  own posts (the card dealer, the sous-chef, the menagerie-keeper) without
+  reworking this system. Document the extension point in-code.
+
+### P3 — Rewards (teacher-flavored, never a grind)
+- A "cases heard" counter (counts up only). Gratitude gifts on settling a
+  case: food/potions in small quantities (reuse the existing item grants),
+  and OCCASIONALLY a tiny hat (reuse the pet-hat / cosmetic path) — never
+  gold-grind, never a power reward. A full session (3/3) gives a small
+  celebration (worldBurst + fanfare + one authored line) per the "when
+  something is earned, show it" rule from v1.7.8.
+- Optional, if cheap: settling enough cases furnishes the court (a bench,
+  a rug) via the existing castleFurnish-style live-read tiles.
+
+### The recurring bit (comedy anchor)
+A very-serious recurring petitioner (a magistrate-shaped figure — the plan
+suggests a small dignified creature; author it) returns across sessions
+with escalating, absurd, impeccably-polite grievances. Field/glyph/sound
++ modal only. This is the Court's running gag, the way the enrolled slime
+is the Study's.
+
+### Evidence & prose discipline (unchanged, mandatory)
+Unit: herald tileSprite context guard; s.court day-keyed roll (re-rolls on
+date turn, NOT before; all-heard vs partial); courtCase generator produces
+a valid problem per skill and records under the RIGHT skill (assert the
+mastery key); faculty milestone fires at the cadence and spawns the NPC;
+migration of a pre-Wave-14 save (s.court/s.faculty default clean); NG+
+snapshot carries s.court/s.faculty/cases-heard through startGolden AND
+returnToFinishedKingdom. Drive drive-court.js (~18 checks): herald gated
+on endingDone; hear a case correct (settles, records, gift), hear one
+wrong (baffled re-ask, no scold, no loss), 3/3 session celebration, the
+day-keyed queue is stable within a day and re-rolls across days, a faculty
+post spawns at its milestone, the recurring petitioner returns. Full sweep
+(38 drives) + DETACHED marathon (nohup … & disown, logs in tests/logs/,
+paste final lines). SCREENSHOT AUDIT: the herald sprite, a petitioner
+mid-case, the 3/3 celebration, a spawned faculty NPC in the castle. NO
+COMMIT — stop and report with ALL new prose verbatim (herald lines, every
+authored case's complaint + settle line, faculty bump-lines, the recurring
+petitioner's grievances, session-celebration line). Do NOT bump sw.js /
+tracker.js versions — the design session ships.
+
+### Deviation authority
+May cut freely if hairy: the court-furnishing sub-feature (P3 optional);
+the recurring petitioner's escalation (a single fixed grievance is fine
+for v1). May NOT cut: recording under the real skill (the pedagogical
+point), gentle-failure re-ask, the Faculty system + its documented
+extension point (later waves depend on it), day-keyed renewal.
