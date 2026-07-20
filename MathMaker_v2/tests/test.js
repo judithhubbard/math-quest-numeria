@@ -4479,5 +4479,121 @@ for (const skill of skills) {
   E.state = null;
 }
 
+// ---------- Wave 18: "Choose Your Hero" (avatar selection) ----------
+{
+  require(path.join(ROOT, 'js/sprites.js'));
+  const E = MM.engine, S = MM.sprites;
+
+  // (a) the roster is exactly the five pickable forms + the knight (legacy /
+  // backward-compat default), and every frame name is a real, valid sprite.
+  const wantOrder = ['woman', 'man', 'dragon', 'fox', 'slug', 'knight'];
+  if (JSON.stringify(S.AVATAR_ORDER) !== JSON.stringify(wantOrder)) fail('W18: AVATAR_ORDER is not the locked roster');
+  for (const id of wantOrder) {
+    const def = S.AVATARS[id];
+    if (!def) { fail(`W18: avatar '${id}' missing from the registry`); continue; }
+    if (def.frames.length !== 2) fail(`W18: avatar '${id}' must have exactly 2 walk frames`);
+    for (const f of def.frames) {
+      const sd = S.DEFS[f];
+      if (!sd) { fail(`W18: avatar '${id}' frame '${f}' has no sprite def`); continue; }
+      if (sd.map.length !== 16) fail(`W18: avatar frame '${f}' must be 16 rows`);
+      if (sd.map[0].length !== 16) fail(`W18: avatar frame '${f}' must be 16 wide`);
+    }
+  }
+  // the slug hero is its OWN sprite, NEVER the enemy slime reskinned
+  if (S.AVATARS.slug.frames.includes('slime')) fail('W18: the slug hero must not reuse the enemy slime sprite');
+  // the sprite validator (rows/widths/colors) passes for every new avatar frame
+  for (const p of S.validate()) if (/^hero(Woman|Man|Dragon|Fox|Slug)/.test(p)) fail(`W18 sprite: ${p}`);
+
+  // (b) s.avatar drives the rendered frame set (a fixture per avatar).
+  if (JSON.stringify(S.avatarFrames('dragon')) !== JSON.stringify(['heroDragon', 'heroDragon2'])) fail('W18: dragon frames wrong');
+  if (JSON.stringify(S.avatarFrames('fox')) !== JSON.stringify(['heroFox', 'heroFox2'])) fail('W18: fox frames wrong');
+  if (JSON.stringify(S.avatarFrames('slug')) !== JSON.stringify(['heroSlug', 'heroSlug2'])) fail('W18: slug frames wrong');
+  if (JSON.stringify(S.avatarFrames('woman')) !== JSON.stringify(['heroWoman', 'heroWoman2'])) fail('W18: woman frames wrong');
+  if (JSON.stringify(S.avatarFrames('man')) !== JSON.stringify(['heroMan', 'heroMan2'])) fail('W18: man frames wrong');
+
+  // (c) DEFAULT-to-knight for a save with no avatar field — backward-compat is
+  // sacred: an existing player MUST render exactly today's hero/hero2 frames.
+  if (JSON.stringify(S.avatarFrames(undefined)) !== JSON.stringify(['hero', 'hero2'])) fail('W18: a no-avatar save must render the knight frames');
+  if (S.avatarDef('bogus') !== S.AVATARS.knight) fail('W18: an unknown avatar falls back to the knight');
+  if (Object.keys(S.avatarPalette({})).length) fail('W18: a no-avatar save must have an empty (default) palette');
+
+  // (d) s.avatarPalette applies on the human forms; is ignored on the bespoke
+  // non-human heroes; and the seaweed-green-hair easter egg still wins on P.
+  const humPal = S.avatarPalette({ avatar: 'woman', avatarPalette: { F: '#8d5524', P: '#2a1a10', A: '#2b8a8a' } });
+  if (humPal.F !== '#8d5524' || humPal.P !== '#2a1a10' || humPal.A !== '#2b8a8a') fail('W18: skin/hair/outfit must apply on a human avatar');
+  if (Object.keys(S.avatarPalette({ avatar: 'dragon', avatarPalette: { F: '#fff' } })).length) fail('W18: a palette must NOT apply to a bespoke non-human hero');
+  if (S.avatarPalette({ avatar: 'man', greenHair: true }).P !== '#4ec449') fail('W18: greenHair must still win on the hair channel, any form');
+  if (S.avatarPalette({ avatar: 'knight', greenHair: true }).P !== '#4ec449') fail('W18: greenHair on the knight must still work (backward-compat)');
+
+  // (e) new-game sets the picked avatar; a bare new-game defaults to knight.
+  E.newGame('W18Fox', 'fox');
+  if (E.state.avatar !== 'fox') fail('W18: newGame must set the picked avatar');
+  if (E.state.avatarPalette !== null || E.state.heroHat !== null) fail('W18: newGame seeds palette/hat empty');
+  E.newGame('W18Default');
+  if (E.state.avatar !== 'knight') fail('W18: a new game with no pick defaults to the knight');
+  E.newGame('W18Woman', 'woman', { F: '#f8d8b8', P: '#d8a03c', A: '#c65a7a' });
+  if (E.state.avatar !== 'woman' || !E.state.avatarPalette || E.state.avatarPalette.P !== '#d8a03c') fail('W18: newGame carries a human palette');
+
+  // (f) the Looking Glass and the Study wardrobe write the SAME state via
+  // E.setAvatar. Picking a non-human drops any human palette; picking a human
+  // keeps it. Both "doors" call this one function.
+  E.setAvatar('dragon');
+  if (E.state.avatar !== 'dragon' || E.state.avatarPalette !== null) fail('W18: setAvatar(dragon) must set form and drop the palette');
+  const prev = E.setAvatar('man', { F: '#e0a878', P: '#3a2a1a', A: '#3a5aa8' });
+  if (prev !== 'dragon') fail('W18: setAvatar returns the previous form (for the pet double-take)');
+  if (E.state.avatar !== 'man' || !E.state.avatarPalette) fail('W18: setAvatar(human, palette) keeps the palette');
+  E.setAvatar('bogus');
+  if (E.state.avatar !== 'knight') fail('W18: setAvatar clamps an unknown form to the knight');
+
+  // (g) the pet double-take (E.petEmote) only arms when a pet exists.
+  E.state.isles = { pet: { name: 'Biscuit' } };
+  E.petEmote = null;
+  E.petDoubleTake();
+  if (!E.petEmote || E.petEmote.ch !== '🤔') fail('W18: petDoubleTake arms the 🤔 emote when a pet exists');
+  E.state.isles = {};
+  E.petEmote = null;
+  E.petDoubleTake();
+  if (E.petEmote) fail('W18: petDoubleTake is a no-op with no pet (never crashes)');
+
+  // (h) the Adventurer's Passport round-trips s.avatar + s.avatarPalette + hat.
+  {
+    E.newGame('W18Passport', 'slug');
+    E.state.heroHat = 'graduate';
+    const json = E.exportSave();
+    const parsed = JSON.parse(json);
+    if (parsed.avatar !== 'slug' || parsed.heroHat !== 'graduate') fail('W18: export must include the avatar + hat');
+    const res = E.importSave(json.replace('W18Passport', 'W18Imported'));
+    if (res.error) fail('W18: a valid passport must import');
+    E.state = null;
+    E.load('W18Imported');
+    if (E.state.avatar !== 'slug' || E.state.heroHat !== 'graduate') fail('W18: import must preserve the avatar + hat');
+  }
+  // a legacy passport (no avatar field) imports and loads as the knight.
+  {
+    const legacy = { name: 'W18Legacy', taskIndex: 3 };
+    E.importSave(JSON.stringify(legacy));
+    E.state = null;
+    E.load('W18Legacy');
+    if (E.state.avatar !== 'knight') fail('W18: a legacy save (no avatar) migrates to the knight');
+    if (E.state.avatarPalette !== null || E.state.heroHat !== null) fail('W18: a legacy save seeds palette/hat empty');
+  }
+
+  // (i) NG+ carries the avatar + palette + hat through startGolden AND
+  // returnToFinishedKingdom (a KEPT field, like mastery/pet/parlor — snapshot
+  // and restore only ever touch the fixed KINGDOM fields).
+  {
+    E.newGame('W18Golden', 'dragon');
+    const s = E.state;
+    s.heroHat = 'graduate';
+    s.endingDone = true; s.titles = ['The New MathMaker'];
+    Object.assign(s, { opened: {}, bossesDefeated: {}, unsealed: {}, gearState: {}, repairSites: {}, freeSlabs: {} });
+    E.startGolden();
+    if (s.avatar !== 'dragon' || s.heroHat !== 'graduate') fail('W18: startGolden must carry the avatar + hat through untouched');
+    E.returnToFinishedKingdom();
+    if (s.avatar !== 'dragon' || s.heroHat !== 'graduate') fail('W18: returnToFinishedKingdom must carry the avatar + hat through untouched');
+  }
+  E.state = null;
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');
 process.exit(fails ? 1 : 0);

@@ -10,10 +10,17 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.todayStr = () => new Date().toISOString().slice(0, 10);
 
   // ---------- new game / save / load ----------
-  E.newGame = function (name) {
+  E.newGame = function (name, avatar, palette) {
     E.state = {
       version: 4,
       name,
+      // Wave 18: the chosen hero form (purely cosmetic). DEFAULT is 'knight',
+      // so a save with no avatar renders exactly today's hero. avatarPalette
+      // (skin/hair/outfit) only applies to the human forms; heroHat is an
+      // owned tiny-hat worn on ANY form (a dragon in a mortarboard).
+      avatar: avatar || 'knight',
+      avatarPalette: palette || null,
+      heroHat: null,
       hp: 24, maxhp: 24,
       stamina: 100, maxStamina: 100,
       items: { food: { bread: 1 }, treasures: [], charms: [], gems: [] },
@@ -331,6 +338,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.menagerie.kindsTended == null) s.menagerie.kindsTended = 0;
     if (s.menagerie.paradeSeen == null) s.menagerie.paradeSeen = false;
     if (s.menagerie.seen == null) s.menagerie.seen = false;
+    // Wave 18: the chosen avatar. A save with no s.avatar is an EXISTING
+    // player — it MUST render exactly today's knight, so the default is
+    // 'knight' and nothing force-writes another form. avatarPalette/heroHat
+    // missing = "never customized," not reset.
+    if (!s.avatar) s.avatar = 'knight';
+    if (s.avatarPalette === undefined) s.avatarPalette = null;
+    if (s.heroHat === undefined) s.heroHat = null;
     E.recalcMaxStamina(); // stamina now scales with level
     E.recalcMaxHp();      // max HP now scales with level + Tidewood Amulet
     // Session-shape pass (2026-07-13): resuming has ALWAYS pulled you to the
@@ -728,6 +742,31 @@ var MM = globalThis.MM = globalThis.MM || {};
     const existed = !!localStorage.getItem(SAVE_PREFIX + name);
     localStorage.setItem(SAVE_PREFIX + name, JSON.stringify(save));
     return { name, existed }; // E.load(name) runs it through every migration
+  };
+
+  // ---------- Wave 18: the avatar (one state, two doors) ----------
+  // The Looking Glass (Bag, day one) and the Study wardrobe (post-ending
+  // deluxe) both write the SAME fields through here. Purely cosmetic — this
+  // touches nothing but the look. Returns the previous form so a caller can
+  // tell whether the shape actually changed (for the pet's double-take).
+  E.setAvatar = function (avatar, palette) {
+    const s = E.state;
+    if (!s) return null;
+    const prev = s.avatar || 'knight';
+    if (!MM.sprites.AVATARS[avatar]) avatar = 'knight';
+    s.avatar = avatar;
+    // a palette only lives on the human forms; drop it on the non-human ones
+    // so a later human pick starts from its own defaults, not a stale swatch
+    s.avatarPalette = (MM.sprites.avatarDef(avatar).human && palette) ? palette : null;
+    E.save();
+    return prev;
+  };
+  // The pet's double-take (Wave 16's E.petEmote), fired when the kid changes
+  // INTO a creature form — the pet looks at you, then at itself, then at you.
+  E.petDoubleTake = function () {
+    if (E.state && E.state.isles && E.state.isles.pet) {
+      E.petEmote = { ch: '🤔', until: Date.now() + 2800 };
+    }
   };
 
   // ---------- map handling ----------
@@ -1779,7 +1818,11 @@ var MM = globalThis.MM = globalThis.MM || {};
         if (ch === 'K') return E.gardenDoor();   // Wave 16: the Kitchen Garden
         if (ch === 'M') return E.menagerieDoor(); // Wave 17: the Menagerie
         if (ch === 'o' && s.wing && s.wing.wardrobeMoved) {
-          return MM.ui.dialog('🚪 The wardrobe, at home', MM.data.WING_WARDROBE_HOME);
+          // Wave 18: the confessed wardrobe is the DELUXE avatar picker — it
+          // resigned from being furniture, so it deeply understands choosing
+          // a form. Same state the Bag's Looking Glass writes; wrapped in its
+          // personality.
+          return MM.ui.studyWardrobe();
         }
         if (MM.data.NPCS[ch]) return E.talkNpc(ch);
         // Wave 14: a claimed Faculty post stands on plain floor — bump it to

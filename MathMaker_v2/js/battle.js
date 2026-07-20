@@ -29,9 +29,14 @@ var MM = globalThis.MM = globalThis.MM || {};
   function el(id) { return document.getElementById(id); }
   function ease(p) { return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; }
 
-  // seaweed-green hair from a dud mystery potion carries into battle. It's a look.
+  // Wave 18: the battle portrait wears the SAME chosen avatar (form + palette)
+  // as the overworld hero — one state, everywhere. Also carries the seaweed-
+  // green-hair easter egg through S.avatarPalette (it applies to any form).
   function heroPal() {
-    return MM.engine.state && MM.engine.state.greenHair ? { P: '#4ec449' } : {};
+    return MM.sprites.avatarPalette(MM.engine.state);
+  }
+  function heroFrames() {
+    return MM.sprites.avatarFrames(MM.engine.state && MM.engine.state.avatar);
   }
 
   function silhouette(cv, color) {
@@ -77,9 +82,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       monCalm: calmCv,
       monWhite: silhouette(spriteCv, '#ffffff'),
       monTeal: silhouette(spriteCv, '#7ee0e8'),
-      heroCv: MM.sprites.get('hero', { scale: HERO.scale, palette: heroPal() }),
-      heroCv2: MM.sprites.get('hero2', { scale: HERO.scale, palette: heroPal() }),
-      heroRed: silhouette(MM.sprites.get('hero', { scale: HERO.scale, palette: heroPal() }), '#ff6b6b'),
+      heroCv: MM.sprites.get(heroFrames()[0], { scale: HERO.scale, palette: heroPal() }),
+      heroCv2: MM.sprites.get(heroFrames()[1], { scale: HERO.scale, palette: heroPal() }),
+      heroRed: silhouette(MM.sprites.get(heroFrames()[0], { scale: HERO.scale, palette: heroPal() }), '#ff6b6b'),
       crownCv: MM.sprites.get('crown', { scale: Math.round(scale / 2) }),
       heroOx: -240, heroOy: 0, monOx: 240, monOy: 0,
       monFlash: 0, heroFlash: 0, monAlpha: 1,

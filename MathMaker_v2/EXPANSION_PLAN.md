@@ -4216,7 +4216,55 @@ once-ever Parade capstone, the Keeper Faculty post via the extension
 point. This is the last castle wave — after it, the Faculty is full and
 the castle is a living place; note that in the ship report.
 
-## Wave 18 order — "Choose Your Hero" (avatar selection) (user directive 2026-07-20)
+## Wave 18 order — "Choose Your Hero" (avatar selection) (user directive 2026-07-20) — ✅ SHIPPED v1.14.0 2026-07-20 (design-reviewed; prose approved; recovered clean from a mid-run machine-close)
+
+**Shipped (per ROSTER LOCKED):** five pickable avatars — **woman, man, dragon,
+fox, slug** — plus the **knight** as the backward-compat DEFAULT and a selectable
+legacy form. `s.avatar` (default `'knight'`) drives the ONE hero render site
+(ui.js) AND the battle portrait (battle.js); `s.avatarPalette {F,P,A}` recolors
+skin/hair/outfit on the two HUMAN forms only (the `s.greenHair` swap generalized
+into `MM.sprites.avatarPalette`); `s.heroHat` is an earned tiny-hat worn on ANY
+form (a dragon in a mortarboard — reuses the owned pet-hat collection). New
+bespoke sprites (2 frames each, 16×16, validator-clean, screenshot-audited as
+heroes distinct from enemies + the pet): `heroWoman/heroMan` (customizable
+plainclothes adventurers), `heroDragon` (horned, winged, belly), `heroFox`
+(eared, tailed, white bib), `heroSlug` (its OWN hero — tall, upright, two
+eyestalks, a dignified gold collar — NEVER the enemy slime reskinned). Every form
+holds the tool + mirrors for facing (inherited from the render site). ONE state,
+TWO doors that write it: the **Looking Glass** in the Bag (day one, no gate) and
+the **Study wardrobe** (the confessed Wave-12 wardrobe, bumped in the castle,
+post-ending deluxe front-end) — plus the **profile / new-game screen** picker
+(`E.newGame(name, avatar, palette)`). Migration in `E.load` (`s.avatar ||=
+'knight'`). The Passport round-trips it; NG+ carries it (a KEPT field, untouched
+by snapshot/restore — like the pet/parlor/garden/menagerie). Comedy lands ONLY on
+the WORLD (deadpan world-reaction pools per non-human form; the deadpan Looking
+Glass; the pet's 🤔 double-take) — NEVER on the kid or the choice; the humans stay
+neutral (they ARE the kid). Purely cosmetic — no stats.
+
+**Deviations (all within stated authority):** (1) the hat picker draws from the
+kid's OWN earned pet-hat collection (`s.petHats`) rather than a new cosmetic
+economy — honest reuse, keeps "earned hats" real with zero new sinks; (2) the
+world-reaction + pet double-take fire at the change beat inside the picker modal
+(kid-initiated, per the comedy-channel standing rule: modals only, never the log)
+rather than as ambient overworld narration; (3) the new-game DEFAULT is the
+knight (unblocked Start + unchanged classic look for anyone who ignores the
+picker) — the picker invites the five. **Nothing on the may-NOT-cut list was
+cut:** customizable woman AND man, DEFAULT-to-knight backward-compat,
+change-anytime from day one, stat-free cosmetics, Passport carry, the slug as its
+own hero, jokes never on the kid.
+
+**Evidence:** `node tests/test.js` PASSES (Wave 18 unit block: frames per avatar,
+DEFAULT-to-knight, human palette applies / non-human ignores / greenHair still
+wins, newGame + setAvatar one-state, Passport round-trip, NG+ both directions,
+every new sprite validator-clean). Full sweep 41/41 drives PASS incl. new
+`drive-avatar.js` (19 checks, 0 JS errors); `drive-wing.js` updated for the
+wardrobe-now-a-picker behavior (the one assertion this wave affected). Marathon:
+`MARATHON COMPLETE: level 18, 1797 gold` — 0 fails, 0 JS errors. Logs in
+tests/logs/*-wave18.log. NOT committed; sw.js / tracker.js versions NOT bumped
+(the design session ships).
+
+**Original order below (unchanged):**
+
 
 A focused feature, NOT part of the castle-expansion line (Waves 14-17) —
 orthogonal, ships AFTER the Menagerie. Origin: a kid asked to choose her

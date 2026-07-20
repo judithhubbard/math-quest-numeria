@@ -1469,6 +1469,58 @@ var MM = globalThis.MM = globalThis.MM || {};
   };
   MM.data.WING_WARDROBE_HOME = 'The wardrobe stands in the Study\'s corner, wearing its tiny hat at what can only be called a jaunty angle. It is not pretending to be anything anymore.<br><br>Now and then its doors open a crack to watch the slates being marked. <i>The enrolled slime waves at it. It waves a door back.</i>';
 
+  // ===== Wave 18: "Choose Your Hero" (the avatar picker) =====
+  // Purely cosmetic. Every joke lands on the WORLD (the courtyard, the
+  // chickens, the ledgers, the glass) — NEVER on the kid or the choice. Every
+  // form is treated as an unimpeachably excellent decision. The human forms
+  // stay neutral: they ARE the kid, so no world-reaction line fires for them.
+  MM.data.AVATAR = {
+    // signage shown atop every picker
+    pickerHeading: 'Choose your hero',
+    pickerHint: 'Pick any look — you can change it any time, so there is no wrong choice and no rush.',
+    swatchLabels: { F: 'Skin', P: 'Hair', A: 'Outfit' },
+    // the deadpan Looking Glass (Bag, from day one)
+    lookingGlass: {
+      title: '🔍 The Looking Glass',
+      intro: 'A plain glass in a plain frame. It shows you whoever you are today — and is quietly certain you have always been exactly this.',
+      reflect: {
+        dragon: 'The glass shows you as a dragon. As far as the glass is concerned, you have always been a dragon. The glass is not a reliable historian.',
+        fox: 'The glass shows you as a fox. It nods, confirming something it clearly knew all along. It knew nothing. It is a glass.',
+        slug: 'The glass shows you as a slug. It regards this with total, unshakeable respect. The glass has excellent judgment and no memory whatsoever.',
+        woman: 'The glass shows you as you. It always does — that is the one thing it is truly good at.',
+        man: 'The glass shows you as you. It always does — that is the one thing it is truly good at.',
+        knight: 'The glass shows you in your old armor, fitting exactly as it always did. Some things a glass gets right.',
+      },
+    },
+    // the Study wardrobe — the deluxe post-ending front-end (it resigned from
+    // being furniture, so it deeply understands choosing a form)
+    wardrobe: {
+      title: '🚪 The Wardrobe',
+      intro: 'The wardrobe\'s doors swing wide, in the manner of a thing delighted to help. "Ah — choosing a form again. I understand the impulse <i>deeply.</i> I once chose \'not a wardrobe.\' Best decision of my life." <i>Its tiny hat sits at a jaunty angle.</i> "So. Who would you like to be today?"',
+      done: 'The wardrobe closes its doors with immense satisfaction. "Wonderful. Wear it as long as it suits you — and not one moment longer."',
+    },
+    // the world reacts to a novel hero, deadpan — one SHARED pool per non-human
+    // form, fired only at the change (a kid-initiated beat, never the log). The
+    // reaction is admiring, never mocking: the new hero is running the kingdom.
+    worldReaction: {
+      dragon: [
+        'There is a dragon in the courtyard. It appears to be running the kingdom. Nobody is discussing this.',
+        'A dragon now keeps the kingdom\'s ledgers. They have never been so neat, nor so faintly warm to the touch.',
+      ],
+      fox: [
+        'A fox is doing the kingdom\'s sums. The chickens have filed no complaint. The chickens are, if anything, impressed.',
+        'The fox has taken up the crown\'s work and is extremely good at it, and only a little smug about the tail.',
+      ],
+      slug: [
+        'A slug is now in charge of the numbers. It is unhurried. It is, in fact, magnificently unhurried — and every sum is flawless.',
+        'There is a slug at the head of the kingdom. It arrives everywhere precisely when it means to. The math is impeccable.',
+      ],
+    },
+    // the pet's double-take (E.petEmote fires the 🤔 glyph in the field; this is
+    // the one line, shown in the change beat — never the log)
+    petDoubleTake: 'Your pet looks at you. Then at itself. Then at you again. It decides, generously, to allow it.',
+  };
+
   // ===== Wave 14 (P1-P3): "The Court" — holding audiences in the throne room =====
   // Post-ending, renewable, combat-free. The Herald ('Z' in the CASTLE map,
   // an NPCS entry that dispatches to E.holdCourt) opens a day-keyed queue of

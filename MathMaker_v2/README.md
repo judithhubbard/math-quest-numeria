@@ -827,6 +827,32 @@ never an empty scoreboard.)
   castle's Faculty is **full** — the throne room is a living, crowded, happy
   place, staffed entirely by monsters who found something better to do.
 
+### 🧑‍🎤 Choose your hero
+
+*The hero is you* — so **you pick what the hero looks like.** When you start a
+new adventure you choose your form right on the name screen, and you can **change
+it any time, from the very first minute, without ever losing a single thing**
+(no accounts, so switching costs nothing but a moment).
+
+- **Five heroes plus the classic knight.** Be an **adventurer** — a woman or a
+  man whose **skin tone, hair color, and outfit** you dial in yourself, so they
+  can look like *you* — or be a **dragon**, a **fox**, or a wonderfully dignified
+  **slug**. The original **knight** is always there too. Every choice is a good
+  one; the game treats each as an unimpeachably excellent decision.
+- **It's purely for fun — never stats.** No form is stronger or weaker. Your
+  hero holds their tool, turns to face where they walk, and can wear any tiny
+  **hat** you've earned on *any* body (yes, a dragon in a mortarboard).
+- **Two ways to change.** From day one, open your 🎒 **Bag → the Looking Glass**
+  (a plain glass that is quietly certain you have always looked exactly like
+  this). After the story, the **wardrobe in the Study** — the one that resigned
+  from being furniture — offers the same choice with rather more opinions about
+  it. Your choice rides along in your **Adventurer's Passport**, so you stay
+  yourself (or the dragon) on any computer.
+- **The world notices, deadpan.** Turn up as a dragon and the courtyard simply
+  gets on with it: *"There is a dragon in the courtyard. It appears to be running
+  the kingdom. Nobody is discussing this."* Your pet gives you exactly one long,
+  thoughtful look — then decides to allow it.
+
 ### A few playtest fixes
 
 A real play session turned up some friction, since fixed: every locked door

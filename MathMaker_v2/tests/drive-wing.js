@@ -352,10 +352,16 @@ async function drainDialogs(page) {
   await ev(() => { const s = MM.engine.state; s.px = 4; s.py = 10; });
   await page.waitForTimeout(250);
   await page.screenshot({ path: SHOTS + '/13-castle-wardrobe.png' });
+  // Wave 18: the confessed wardrobe is now the DELUXE avatar picker — bumping it
+  // at home opens the Study wardrobe (same state the Bag's Looking Glass writes),
+  // wrapped in its personality, instead of the old flavor-only dialog.
   await ev(() => { const s = MM.engine.state; s.px = 3; s.py = 9; MM.engine.tryMove(-1, 0); });
-  await page.waitForSelector('#modalBox h2');
-  check(/jaunty angle/.test(await page.textContent('#modalBox')) && /waves a door back/.test(await page.textContent('#modalBox')),
-    'bumping it at home: the tiny hat at a jaunty angle, and it waves a door back');
+  await page.waitForSelector('#avatarPickMount');
+  check(/choosing a form|not a wardrobe|jaunty angle/.test(await page.textContent('#modalBox'))
+    && await ev(() => !!document.getElementById('avatarPickMount')),
+    'bumping the wardrobe at home opens the Study wardrobe avatar picker (Wave 18)');
+  await ev(() => { const b = document.getElementById('avatarDone'); if (b) b.click(); });
+  await page.waitForTimeout(150);
   await drainDialogs(page);
 
   // ---------- save/load round-trip ----------
