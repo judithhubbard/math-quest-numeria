@@ -1146,6 +1146,64 @@ var MM = globalThis.MM = globalThis.MM || {};
       (m, art) => art ? MM.data.theMon(name, art[0] === 'T') : name);
   };
 
+  // ---------- Wave 21 (Looking Glass P2): mirror-world content ----------
+  // Read ONLY when E.inMirror() is true (js/engine.js, js/battle.js). Bounded
+  // pools, deadpan register — the reflection is the joke, never the kid.
+
+  // P2.2 — the Cheshire Cat's cryptic-but-kind lines. GENERAL mirror
+  // guidance only: negatives don't exist until P3, so nothing here hints at
+  // signed numbers. Cycled by a counter (E.armCheshire), never Math.random.
+  MM.data.CHESHIRE_LINES = [
+    'Everything here is the same, only turned the other way. You\'ll get used to it. Or you won\'t — both are fine.',
+    'A reflection never lies about the shape. Only about which hand it favors.',
+    'You are still you. The kingdom only turned around to look at itself.',
+    'Lost is just a place you haven\'t recognized yet.',
+    'I go where I\'m needed, which is a roundabout way of saying I go everywhere, eventually.',
+  ];
+
+  // P2.1 — reversed NPC greetings (a curated, occasional aside, not every
+  // line — see js/engine.js E.MIRROR_GREETING_CHANCE). {name} is the NPC's
+  // plain name, no emoji.
+  MM.data.MIRROR_GREETINGS = [
+    '"Goodbye!" {name} says warmly, tipping a hat the moment they see you. "Lovely running into you first thing." The mirror has never once said hello when it could say goodbye instead.',
+    '"Farewell, dear!" {name} calls out the moment you arrive. "So glad you\'re—" a pause, a small frown. "I\'ve just wished someone well on a trip they haven\'t taken yet. This kingdom does that to a person."',
+  ];
+  MM.data.mirrorGreeting = function (npcName, idx) {
+    const pool = MM.data.MIRROR_GREETINGS;
+    return pool[((idx % pool.length) + pool.length) % pool.length].replace(/\{name\}/g, npcName);
+  };
+
+  // P2.1 — reflected-monster enter-flavor (battle.js B.start), general and
+  // non-negative, same idiom as the golem battle cries.
+  MM.data.MIRROR_ENTER_LINES = [
+    'It looks at you exactly the way you\'re looking at it. Neither of you blinks first.',
+    'Somewhere, right now, its ordinary twin has no idea any of this is happening.',
+    'It already knows how this ends. It came anyway — that\'s either very brave or very silly.',
+    'It tilts its head. You tilt yours. Neither of you meant to.',
+  ];
+
+  // P2.3 — "Recognize": the mirror reflavor of the Soothe victory line. Same
+  // physical settling (MM.data.sootheLine is reused, unchanged) — only the
+  // FRAMING differs, and it differs by whether this KIND was already
+  // befriended (a reunion) or not (met for the first time, in this
+  // reflection). Mechanic is identical either way (js/engine.js E.grantVictory).
+  MM.data.RECOGNIZE_REUNION_LINES = [
+    'You know this one.',
+    'Oh — it\'s you.',
+    'You\'d know that shape anywhere.',
+    'The reflection remembers you remembering it.',
+  ];
+  MM.data.RECOGNIZE_NEW_LINES = [
+    'You don\'t know this one yet. You will.',
+    'A stranger\'s reflection is still, somehow, a little familiar.',
+    'Not one you\'ve met. Not one who stays a stranger for long, either.',
+  ];
+  MM.data.recognizeLine = function (mon, alreadyKnown) {
+    const base = MM.data.sootheLine(mon); // the settling itself never changes
+    const pool = alreadyKnown ? MM.data.RECOGNIZE_REUNION_LINES : MM.data.RECOGNIZE_NEW_LINES;
+    return `${MM.data.pick(pool)} ${base}`;
+  };
+
   // Rotating flavor for the inn, defeat screen, and the MathMaker's asides.
   MM.data.INN_DREAMS = [
     'You dream of remainders. They\'re friendly.',
@@ -2290,6 +2348,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     a: {
       name: '🧑‍🌾 Farmer Fenwick', sprite: 'villager', pal: null,
       talk(s) {
+        // Wave 21 (Looking Glass P2.1): a BOUNDED, occasional reversal-comedy
+        // aside — gated on inMirror(), and on a chance (not every bump) so
+        // the reflected replay's real story dialogue below still plays out
+        // normally most of the time.
+        if (MM.engine.inMirror && MM.engine.inMirror()
+          && Math.random() < (MM.engine.MIRROR_GREETING_CHANCE != null ? MM.engine.MIRROR_GREETING_CHANCE : 0.4)) {
+          return MM.data.mirrorGreeting('Farmer Fenwick', 0);
+        }
         // Wave 10 (P3, the mid-game event): the fence east of the farm gets
         // its own bump dialog (E.fencePost) — this is just Fenwick's own
         // small-talk acknowledging it, above the older boar-related lines.
@@ -2352,6 +2418,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     j: {
       name: '🧳 Trader Tessa', sprite: 'villager', pal: { A: '#8a4a8a', a: '#6b3a6b', H: '#2a2438' },
       talk(s) {
+        // Wave 21 (Looking Glass P2.1): see Farmer Fenwick's note above —
+        // same bounded, occasional aside.
+        if (MM.engine.inMirror && MM.engine.inMirror()
+          && Math.random() < (MM.engine.MIRROR_GREETING_CHANCE != null ? MM.engine.MIRROR_GREETING_CHANCE : 0.4)) {
+          return MM.data.mirrorGreeting('Trader Tessa', 1);
+        }
         const def = MM.engine.totalDef();
         if (def <= 0) return '"Traveling clothes? In monster country?? Get yourself to the shop, dear — <b>armor blocks part of every hit you take</b>. Even leather is better than laundry. And if the shopkeeper quizzes you, answer right for a discount!"';
         if (def < 4) return '"Good start on the armor, dear — but don\'t forget your <b>head and feet</b>! A helmet and boots each block a bit more. It all adds up."';
@@ -2407,6 +2479,15 @@ var MM = globalThis.MM = globalThis.MM || {};
     p: {
       name: '⚓ Old Salt Percy', sprite: 'villager', pal: { A: '#4a6b3a', a: '#38522c', H: '#d8d4c4' },
       talk(s) {
+        // Wave 21 (Looking Glass P2.1): the compass gag — Percy's own
+        // 🧭, through the glass, points confidently the wrong way, and he
+        // has never once noticed. A standing bit for as long as the kid is
+        // through the glass, not an occasional aside (unlike Fenwick/Tessa
+        // above) — it doesn't compete with story-progression dialogue, since
+        // Percy has no quest-critical lines of his own.
+        if (MM.engine.inMirror && MM.engine.inMirror()) {
+          return 'Old Salt Percy taps his 🧭 compass twice, squints at the horizon, and announces "North!" — pointing, with total confidence, due south. He has never once, in this reflection, been wrong. By his own count.';
+        }
         const pet = s.isles.pet;
         // Wave 7 epilogue: Percy gets the sequel door, because of course he does.
         if (s.endingDone) return '"So the charts DID know something." Old Salt Percy is enormously pleased with himself, and has clearly been waiting weeks to be.<br><br>"Past the spiral\'s edge, they curl right off the paper. There\'s a sea out there nobody\'s finished drawing."<br><br><i>He taps the blank corner of the map, twice.</i> "Needs someone good at working things out."';
@@ -2425,6 +2506,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     q: {
       name: '🎵 Bard Barnaby', sprite: 'bard', pal: null,
       talk(s) {
+        // Wave 21 (Looking Glass P2.1): Barnaby's ballad, sung backwards —
+        // literally the same verse (the first one, hero-in-the-meadow) with
+        // every word in reverse order. A standing bit through the whole
+        // reflection, like Percy's compass — Barnaby's lines are flavor, not
+        // quest-critical, so nothing story-relevant is lost by it.
+        if (MM.engine.inMirror && MM.engine.inMirror()) {
+          return '🎵 <i>"...gone! All were slimes the, nonny-nonny-hey and — dawn at meadow the to down went hero the."</i> 🎵<br><br>' +
+            '"I\'m singing it backwards," says Bard Barnaby, with enormous dignity. "It\'s the very same ballad — every word\'s ' +
+            'exactly where it was. Only the <b>order</b>\'s changed. Try it. It\'s harder than it looks."';
+        }
         const n = s.tasksDone.length;
         // Wave 7 epilogue: the ballad is finished, and it does not rhyme.
         if (s.endingDone) return '🎵 <i>"Sing of the one who untangled it all — not with a sword, but with chalk on a wall! Not with a blow, but by showing the way — the MathMaker learns, and the MathMaker <b>stays</b>!"</i> 🎵<br><br>"That last line doesn\'t scan and I don\'t care," says Bard Barnaby, with feeling. "It\'s the <b>true</b> one."';

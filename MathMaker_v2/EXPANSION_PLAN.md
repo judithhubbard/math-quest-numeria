@@ -4605,6 +4605,46 @@ This is the phase that must NEVER lose a kid's kingdom — test it hardest.
 
 ## Wave 21 order — Through the Looking Glass, P2: aesthetic + the Cheshire Cat + "Recognize" (Looking Glass P2) (user directive 2026-07-21)
 
+✅ SHIPPED v1.16.0 2026-07-21 (design-reviewed; grin touched up in review). Shipped (all gated on
+E.inMirror(); normal play byte-for-byte unchanged, asserted both ways in
+unit + drive):
+- **P2.1 reversal-comedy pass** — `MM.data.MIRROR_GREETINGS` (reversed
+  "Goodbye!"-as-hello pool) surfaces as an OCCASIONAL aside on two curated
+  townsfolk (Farmer Fenwick, Trader Tessa) via `E.MIRROR_GREETING_CHANCE`
+  (0.4, drive-pinned to 1) so the reflected replay's real story dialogue
+  still plays; Old Salt Percy's **compass gag** and **Bard Barnaby's
+  ballad-backwards** are standing bits (their lines are flavor, not
+  quest-critical); the **mirror Study** (`E.studyAfterMirror`) plays the
+  MathMaker's-reflection-never-needs-correcting + mirror-Miscount-the-guesser
+  scene as ONE beat; reflected-monster enter-flavor (`MM.data.MIRROR_ENTER_LINES`).
+- **P2.2 the Cheshire Cat** — `E.armCheshire()` materializes it at TWO
+  thresholds (stepping through the glass; first entry per dungeon per
+  reflection, tracked in `s.mirrorDungeonsSeen`), a cryptic-KIND line cycled
+  by `s.mirrorCheshireCount` (never Math.random), the `mew` sound; the
+  disappearing-smile **FADE** is `E.cheshireAlphas(now)` — a PURE function of
+  elapsed time (body fades over 1.3s while a drawn crescent smile holds full,
+  then the smile lingers 0.7s and fades last; Calm Mode = a brief held smile,
+  instant, no body), rendered in js/ui.js drawWorld with the fx armed on
+  dialog CLOSE (never behind the modal).
+- **P2.3 "Recognize"** — a pure WORDING reflavor of Soothe when inMirror()
+  (`recognizing()` in js/battle.js): banner "Reflected X", the round prompt,
+  the calm-bar label, the crit/victory banners, `MM.data.recognizeLine`
+  (reunion-vs-new by whether the kind was already befriended), the ⚙️
+  Settings "Your way" label and its log line. The soothe/befriend MECHANIC
+  is byte-identical (becalm + befriended axis), asserted in drive-mirror2.
+
+DEVIATIONS: mirror-MathMaker + mirror-Miscount folded into ONE Study scene
+(reads better paired; budget stays tight). Reversal greetings kept to a
+tight pool on two NPCs + Percy/Barnaby standing bits (comedy budget TIGHT,
+as ordered). The map-geometry flip was NOT attempted (already deferred).
+P3 STILL DEFERS: negatives, the number-line walk, the zero-meridian, the
+Tweedle/reciprocal puzzles, signed combat, and the completed mirror spiral —
+the Cheshire gives GENERAL mirror guidance only (no negative-number hints
+yet). Evidence: unit exit 0 (Wave 21 block added), drive-mirror2.js 22/22 +
+0 JS errors, full sweep green (drive-spire's parallel timeout re-ran green
+SOLO — contention, not Wave 21), MARATHON COMPLETE (56 ok, 0 fail). NOT
+COMMITTED — the design session ships (sw.js / tracker.js VERSION unbumped).
+
 Third phase of LOOKING_GLASS_SCOPING.md (P0 parser + P1 reversible mirror
 portal shipped, v1.14.1 / v1.15.0). This is the CONTENT phase — it makes the
 mirror world FEEL like a reflection (reversal comedy + the Cheshire guide +

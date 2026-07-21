@@ -557,6 +557,11 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.CAT_ESCORT_CHANCE = 0.3;     // per non-pat inn visit, appended to the moment
   E.GUESS_TALE_CHANCE = 0.35;    // per post-ending Academy visit, before the slates
   E.WRONG_ATTACK_CHANCE = 0.5;   // per boss counterattack (roughly half, for variety)
+  // Wave 21 (Looking Glass P2.1): how often a curated NPC opens with a
+  // reversed-greeting aside INSTEAD of overriding their whole conversation —
+  // a bounded, occasional touch, not a permanent replacement of the reflected
+  // replay's real story dialogue. Same pin-for-drives idiom as the rest.
+  E.MIRROR_GREETING_CHANCE = 0.4;
 
   E.toggleCharm = function (id) {
     MM.track('toggleCharm ' + id);
@@ -1167,7 +1172,10 @@ var MM = globalThis.MM = globalThis.MM || {};
   // no jokes land in this room (STORY_BIBLE hard rule 4).
   E.studyReveal = function () {
     const s = E.state;
-    if (s.endingDone) return E.studyAfter();
+    // Wave 21 (Looking Glass P2.1): through the glass, the Study scene is a
+    // reflection too — gated on inMirror() exactly like everything else in
+    // this wave; the real post-ending scene (E.studyAfter) is untouched.
+    if (s.endingDone) return E.inMirror() ? E.studyAfterMirror() : E.studyAfter();
     const step3 = () => MM.ui.dialogChoices('🧙 The MathMaker',
       `"So." He folds his hands. "You have put every wrong thing right, and you did it the only way it can be done — ` +
       `<b>one careful step at a time</b>."<br><br>` +
@@ -1210,6 +1218,28 @@ var MM = globalThis.MM = globalThis.MM || {};
       `"Ah — the <b>MathMaker</b>," says the MathMaker, and stands aside to give you the chalk. He says the title without ` +
       `a flicker of irony, because it is simply your name now.<br><br>` +
       `<span class="dim">"Settle this for us, would you?"</span>`);
+  };
+
+  // Wave 21 (Looking Glass P2.1): the mirror Study. Per LOOKING_GLASS_SCOPING
+  // ("the redeemed guesser's reflection is the guesser he used to be, OR an
+  // eerily perfect worker-out"), this scene plays BOTH: the MathMaker's
+  // reflection never needs correcting (which is its own kind of lonely), and
+  // Miscount's reflection is the guesser the real one left behind. One
+  // authored scene stands in for both the mirror-MathMaker and mirror-
+  // Miscount lines (deviation: cut from two separate beats to one — the
+  // pairing reads better together, and the budget stays tight).
+  E.studyAfterMirror = function () {
+    MM.ui.dialog('🪞 The Study, reflected',
+      `The Study looks the same — chalk dust, two chairs — but the MathMaker across the table checks every step
+       twice before he sets the chalk down, and never once needs to.<br><br>
+       "Yes," he says, before you've asked anything. "That's right. I already know it's right — I checked." He
+       does not look up. He has never once, in this reflection, been wrong. It is, somehow, the loneliest thing
+       you've seen all day.<br><br>
+       Beside him, Miscount's reflection guesses instead of works — fast, and wrong, and utterly delighted about
+       it every single time. The real Miscount, across the table, winces on his own behalf and says nothing at
+       all.<br><br>
+       <span class="dim">"Come back and see us," the MathMaker's reflection says, checking that sentence too.
+       "Being right isn't as good, alone."</span>`);
   };
 
   // ---------- The Final Exam, inverted ----------
@@ -1466,6 +1496,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     s.enrollSeen = false;
     s.continent = 'west';
     s.worldPos = null;
+    // Wave 21 (Looking Glass P2.2): which dungeons the Cheshire Cat has
+    // already materialized for THIS reflection — reset every fresh step
+    // through the glass, exactly like the other per-run trackers above.
+    s.mirrorDungeonsSeen = {};
     // KEPT, deliberately: level/xp, gear/equipped/enchants, items (charms,
     // gems, treasures), charmsOn, mastery, badges, bestiary, totals, the pet,
     // parent settings, difficulty, calmMode, spellsCelebrated, metMiscount,
@@ -1498,8 +1532,59 @@ var MM = globalThis.MM = globalThis.MM || {};
       `Everything you learned came with you.<br><br>` +
       `<span class="dim">Your finished kingdom is safe on the other side of the glass. Step back any time — from the ` +
       `🪞 mirror in your sidebar, or a grown-up can bring it back from 👪 Parent Settings.<br>` +
-      `Through the looking glass — reflection ${s.ngPlus}. One careful step at a time.</span>`);
+      `Through the looking glass — reflection ${s.ngPlus}. One careful step at a time.</span>`,
+      () => E.armCheshire()); // Wave 21 (P2.2): the guide materializes at the FIRST threshold
   };
+
+  // ---------- Wave 21 (Looking Glass P2.2): the Cheshire Cat ----------
+  // A recurring mirror-world guide. Materializes at thresholds (stepping
+  // through for the first time; entering a mirror dungeon for the first time
+  // this reflection) and occasionally otherwise, drops ONE cryptic-but-kind
+  // line of GENERAL mirror guidance (negatives don't exist until P3 — no
+  // negative-number hints yet), then fades smile-last. Warm-cryptic, never
+  // at the kid's expense. Gated on E.inMirror() so it can never appear, or
+  // even advance its own counter, outside the mirror.
+  E.armCheshire = function () {
+    const s = E.state;
+    if (!s || !E.inMirror()) return;
+    s.mirrorCheshireCount = (s.mirrorCheshireCount || 0) + 1;
+    const line = MM.data.CHESHIRE_LINES[(s.mirrorCheshireCount - 1) % MM.data.CHESHIRE_LINES.length];
+    E.save();
+    MM.sound.mew();
+    MM.ui.dialog('🐱 A cat, or the memory of one',
+      `<div style="text-align:center;font-size:44px">🐱</div>` +
+      `<p style="text-align:center;font-size:16px"><i>"${line}"</i></p>` +
+      `<p style="text-align:center" class="dim">And then, slowly — smile last — it isn't there any more.</p>`,
+      // the fade's clock starts the moment the kid can actually SEE the
+      // world again (on dialog close), never while it's hidden behind the
+      // modal — a timer nobody can watch would defeat the whole animation.
+      () => { E.cheshireFx = { start: performance.now(), calm: !!s.calmMode }; });
+  };
+
+  // THE FADE — the one novel-render bit, and a PURE function of elapsed time
+  // (no Math.random anywhere in the timing; line selection above cycles by a
+  // counter, not chance, for the same reason). Body fades over ~1.3s while a
+  // crescent smile holds at full alpha; the smile then lingers and fades out
+  // LAST. Calm Mode gets a gentler/instant cut: no materializing body, just
+  // a brief held smile, then gone — same idiom, shorter and stiller.
+  const CHESHIRE_BODY_MS = 1300, CHESHIRE_LINGER_MS = 700, CHESHIRE_SMILE_FADE_MS = 700;
+  const CHESHIRE_CALM_MS = 900;
+  E.cheshireAlphas = function (now) {
+    const fx = E.cheshireFx;
+    if (!fx) return null;
+    const t = now - fx.start;
+    if (fx.calm) {
+      if (t >= CHESHIRE_CALM_MS) return null;
+      return { body: 0, smile: 1, t, total: CHESHIRE_CALM_MS };
+    }
+    const fadeStart = CHESHIRE_BODY_MS + CHESHIRE_LINGER_MS;
+    const total = fadeStart + CHESHIRE_SMILE_FADE_MS;
+    if (t >= total) return null;
+    const body = t >= CHESHIRE_BODY_MS ? 0 : 1 - t / CHESHIRE_BODY_MS;
+    const smile = t <= fadeStart ? 1 : Math.max(0, 1 - (t - fadeStart) / CHESHIRE_SMILE_FADE_MS);
+    return { body, smile, t, total };
+  };
+  E.cheshireActive = function (now) { return !!E.cheshireAlphas(now == null ? performance.now() : now); };
 
   // Sailing between continents (the Compass Rose) — with the voyage scene.
   E.sail = function (dest) {
@@ -1776,6 +1861,17 @@ var MM = globalThis.MM = globalThis.MM || {};
             MM.ui.log(`📌 <b>Bounty active here:</b> ${it.have}/${it.need} ${it.type === 'hunt' ? 'monsters defeated' : 'problems answered'} — reward ${it.reward} gold!`);
           }
         }
+      }
+    }
+    // Wave 21 (Looking Glass P2.2): the Cheshire Cat materializes the FIRST
+    // time this reflection the kid enters a given dungeon — a threshold, not
+    // every visit (floor changes within the same dungeon don't re-trigger).
+    // armCheshire() itself no-ops entirely outside the mirror.
+    if (floor === 0 && E.inMirror()) {
+      s.mirrorDungeonsSeen = s.mirrorDungeonsSeen || {};
+      if (!s.mirrorDungeonsSeen[idx]) {
+        s.mirrorDungeonsSeen[idx] = true;
+        E.armCheshire();
       }
     }
     MM.ui.refresh();
@@ -5599,11 +5695,26 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Wave 8b: the calmed monster's own send-off, and the friendship, spelled
     // out. Bosses keep their existing sincere endings — they were always being
     // soothed; the story just never had a word for it until now.
+    // Wave 21 (Looking Glass P2.3): "Recognize" — through the glass, this is
+    // the SAME machinery (soothed/firstFriend/becalmed/befriended, above, are
+    // all untouched), only the WORDING changes. A mirror monster is a
+    // reflection of a friend already made, so `firstFriend === false` reads
+    // as a REUNION (the kind was already befriended, in the real kingdom or
+    // an earlier reflection) rather than a first meeting.
     if (soothed) {
-      if (!m.boss) lines.push(`🕊 <i>${MM.data.sootheLine(m)}</i>`);
-      lines.push(firstFriend
-        ? `🤍 <b>This ${E.beastKey(m)} is your friend now.</b> Its kind's card is marked in your 📕 Monster Book.`
-        : `🤍 This ${E.beastKey(m)} is your friend now — it'll stay right here, at peace.`);
+      const mirror = E.inMirror();
+      if (!m.boss) {
+        lines.push(mirror
+          ? `🪞 <i>${MM.data.recognizeLine(m, !firstFriend)}</i>`
+          : `🕊 <i>${MM.data.sootheLine(m)}</i>`);
+      }
+      lines.push(mirror
+        ? (firstFriend
+          ? `🪞 <b>You recognize this ${E.beastKey(m)}.</b> Its kind's card is marked in your 📕 Monster Book.`
+          : `🪞 You recognize this ${E.beastKey(m)} — it'll stay right here, glad to be seen.`)
+        : (firstFriend
+          ? `🤍 <b>This ${E.beastKey(m)} is your friend now.</b> Its kind's card is marked in your 📕 Monster Book.`
+          : `🤍 This ${E.beastKey(m)} is your friend now — it'll stay right here, at peace.`));
     }
     // Wave 8a (P8, delight catalog): "post-boss high-five hop" — one small
     // pet cheer on any boss win, zero design weight, no state to track.

@@ -15,7 +15,7 @@ function fail(msg) { fails++; console.log('FAIL: ' + msg); }
 // This suite runs headless (no DOM) — stub the browser-only bits any engine
 // function might touch (sound effects, UI logging/refresh) so a call like
 // MM.engine.resetSite doesn't crash just because there's no <audio> tag here.
-MM.sound = { fanfare() {}, thud() {}, coin() {}, correct() {}, wrong() {}, levelup() {}, tone() {}, whoosh() {}, dodge() {}, splash() {}, sigh() {}, chirp() {}, creak() {}, toot() {}, soothe() {}, fret() {}, purr() {}, tada() {} };
+MM.sound = { fanfare() {}, thud() {}, coin() {}, correct() {}, wrong() {}, levelup() {}, tone() {}, whoosh() {}, dodge() {}, splash() {}, sigh() {}, chirp() {}, creak() {}, toot() {}, soothe() {}, fret() {}, purr() {}, tada() {}, mew() {} };
 MM.ui = { log() {}, refresh() {}, modalOpen: () => false, dialog() {}, dialogChoices() {}, showProblem() {}, playerMoved() {} };
 MM.battle = MM.battle || { active: () => false, start() {} };   // Wave 12: tryMove is exercised headlessly now
 MM.track = MM.track || function () {};   // tracker.js isn't loaded headlessly
@@ -4693,6 +4693,101 @@ for (const skill of skills) {
     E.returnToFinishedKingdom();
     if (s.avatar !== 'dragon' || s.heroHat !== 'graduate') fail('W18: returnToFinishedKingdom must carry the avatar + hat through untouched');
   }
+  E.state = null;
+}
+
+// ---------- Wave 21 (Looking Glass P2): aesthetic + Cheshire + "Recognize" ----------
+// Everything below is gated on E.inMirror() — normal play must be
+// byte-for-byte unchanged (no reversal prose, no Cheshire, no "Recognize"
+// wording leaks). The Cheshire fade is a pure function of elapsed time.
+{
+  const E = MM.engine;
+  const realEW = E.enterWorld; E.enterWorld = () => {}; // skip the world rebuild
+  E.state = {
+    name: 'w21', ngPlus: 0, goldenSnapshot: null, endingDone: true,
+    taskIndex: 14, tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], haveItem: false,
+    opened: {}, bossesDefeated: {}, defeatedAt: {}, unsealed: {}, gearState: {}, repairSites: {}, freeSlabs: {},
+    enrollSeen: true, continent: 'west', worldPos: null,
+    isles: { keys: {}, lenses: {} },
+    level: 10, xp: 0, maxhp: 100, hp: 100, maxStamina: 100, stamina: 100,
+    badges: {}, bestiary: { seen: {}, kills: {}, gauntlet: {}, befriended: {} }, monsters: [],
+  };
+  const s = E.state;
+
+  // (a) OUTSIDE the mirror: nothing Wave 21 adds is reachable.
+  if (E.inMirror()) fail('W21 setup: fixture must start outside the mirror');
+  E.armCheshire();
+  if (E.cheshireFx) fail('W21: armCheshire must be a no-op OUTSIDE the mirror');
+  if (s.mirrorCheshireCount) fail('W21: the Cheshire counter must not advance outside the mirror');
+  if (/Goodbye/.test(MM.data.NPCS.a.talk(s))) fail('W21: Fenwick must never open with the mirror-reversed greeting outside the mirror');
+  if (MM.data.NPCS.p.talk(s).includes('due south')) fail('W21: Percy\'s compass gag must not leak outside the mirror');
+  if (MM.data.NPCS.q.talk(s).includes('singing it backwards')) fail('W21: Barnaby must sing forwards outside the mirror');
+
+  // (b) step through the glass — the thresholds/pools become reachable.
+  E.startGolden();
+  if (!E.inMirror()) fail('W21 setup: startGolden must open the mirror');
+  if (!s.mirrorDungeonsSeen || Object.keys(s.mirrorDungeonsSeen).length) fail('W21: mirrorDungeonsSeen must start empty each reflection');
+
+  E.armCheshire();
+  if (s.mirrorCheshireCount !== 1) fail('W21: armCheshire must advance the counter once armed inside the mirror');
+
+  // The fade: a PURE function of elapsed time (E.cheshireAlphas). The test
+  // stub's MM.ui.dialog() never fires armCheshire's onClose, so the timing
+  // is exercised directly, independent of the modal.
+  E.cheshireFx = { start: 1000, calm: false };
+  const a0 = E.cheshireAlphas(1000);
+  if (!a0 || a0.body !== 1 || a0.smile !== 1) fail('W21 cheshire: at t=0 the body and smile are both full');
+  const midFade = E.cheshireAlphas(1000 + 700);
+  if (!midFade || midFade.body <= 0 || midFade.body >= 1 || midFade.smile !== 1) fail('W21 cheshire: mid-fade the body is fading but the smile still holds full');
+  const bodyGone = E.cheshireAlphas(1000 + 1300);
+  if (!bodyGone || bodyGone.body !== 0 || bodyGone.smile !== 1) fail('W21 cheshire: once the body is gone the smile still lingers');
+  const smileFading = E.cheshireAlphas(1000 + 1300 + 700 + 350);
+  if (!smileFading || smileFading.smile <= 0 || smileFading.smile >= 1) fail('W21 cheshire: the smile itself fades, last');
+  const done = E.cheshireAlphas(1000 + 1300 + 700 + 700 + 1);
+  if (done !== null) fail('W21 cheshire: the effect must expire (null) once its total duration has passed');
+  // purity: identical inputs -> identical outputs (no Math.random in the timing)
+  const r1 = E.cheshireAlphas(1700), r2 = E.cheshireAlphas(1700);
+  if (JSON.stringify(r1) !== JSON.stringify(r2)) fail('W21 cheshire: the fade must be a PURE function of elapsed time');
+
+  // Calm Mode: gentler/instant — no materializing body, a brief smile, then gone.
+  E.cheshireFx = { start: 2000, calm: true };
+  const calmMid = E.cheshireAlphas(2000 + 100);
+  if (!calmMid || calmMid.body !== 0 || !(calmMid.smile > 0)) fail('W21 cheshire: Calm Mode skips the body and still shows the smile');
+  if (E.cheshireAlphas(2000 + 5000) !== null) fail('W21 cheshire: the Calm Mode version must also expire');
+
+  // the reversal pool / compass gag / backwards ballad now read INSIDE the mirror
+  const priorChance = E.MIRROR_GREETING_CHANCE;
+  E.MIRROR_GREETING_CHANCE = 1; // pin for a deterministic check (same idiom as B.GOLEM_CRY_CHANCE)
+  if (!/Goodbye/.test(MM.data.NPCS.a.talk(s))) fail('W21: Fenwick must offer the reversed greeting inside the mirror (chance pinned to 1)');
+  E.MIRROR_GREETING_CHANCE = priorChance;
+  if (!MM.data.NPCS.p.talk(s).includes('due south')) fail('W21: Percy\'s compass gag must fire inside the mirror');
+  if (!MM.data.NPCS.q.talk(s).includes('backwards')) fail('W21: Barnaby must sing backwards inside the mirror');
+
+  // the Study reflection is gated the same way the real post-ending scene is
+  let dlgTitle = null;
+  const realDialog = MM.ui.dialog;
+  MM.ui.dialog = (title) => { dlgTitle = title; };
+  E.studyReveal();
+  if (dlgTitle !== '🪞 The Study, reflected') fail('W21: studyReveal must show the mirror Study scene while through the glass');
+  MM.ui.dialog = realDialog;
+
+  // "Recognize" — mechanically identical to Soothe: it only reflavors the
+  // WORDING (recognizeLine), and reads differently for a reunion vs. a new
+  // friend; sootheLine (the real machinery) is reused, not replaced.
+  const mon = { name: 'Slime', sprite: 'slime', pal: null };
+  const newLine = MM.data.recognizeLine(mon, false);
+  const reunionLine = MM.data.recognizeLine(mon, true);
+  if (newLine === reunionLine) fail('W21: recognizeLine must read differently for a new friend vs. a reunion');
+  if (typeof MM.data.sootheLine !== 'function') fail('W21 sanity: sootheLine must still exist (Recognize reuses it, never replaces it)');
+
+  // (c) stepping back closes the mirror; Wave 21 content stops being reachable.
+  E.returnToFinishedKingdom();
+  if (E.inMirror()) fail('W21: returning must close the mirror');
+  E.armCheshire();
+  if (s.mirrorCheshireCount !== 1) fail('W21: armCheshire must stop advancing once back in the finished kingdom');
+  if (/Goodbye/.test(MM.data.NPCS.a.talk(s))) fail('W21: Fenwick must not offer the reversed greeting once back in the finished kingdom');
+
+  E.enterWorld = realEW;
   E.state = null;
 }
 

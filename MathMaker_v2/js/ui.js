@@ -122,6 +122,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     // Wave 13 — the Understudy's tiny ta-da: two bright notes, curtain-up.
     // (New sounds also go in the fixed stub list at tests/test.js ~line 17.)
     tada() { beep(659, 0.1, 'triangle', 0, 0.09); beep(988, 0.22, 'triangle', 0.1, 0.09); },
+    // Wave 21 (Looking Glass P2.2) — the Cheshire Cat's materialize: two
+    // soft, high, slightly odd notes (never a fanfare — it's a guide
+    // arriving, not a reward).
+    mew() { beep(1568, 0.07, 'sine', 0, 0.05); beep(1319, 0.16, 'sine', 0.08, 0.045); },
   };
   const TONE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00]; // C4 D4 E4 F4 G4
   const TONE_COLORS = ['#e05252', '#e0a952', '#ffd94a', '#68c470', '#52a8e0'];
@@ -1485,6 +1489,52 @@ var MM = globalThis.MM = globalThis.MM || {};
       }
     }
 
+    // Wave 21 (Looking Glass P2.2): the Cheshire Cat's disappearing-smile
+    // fade — a pure function of elapsed time (MM.engine.cheshireAlphas), so
+    // it only ever draws while E.cheshireFx is armed (which itself only ever
+    // arms through the glass — see E.armCheshire). Drawn near the hero: the
+    // BODY is the cat glyph, fading; the SMILE is a drawn grin (never a
+    // glyph/numeral, so it can never be mistaken for one), held at full
+    // alpha and fading out LAST.
+    const chesh = MM.engine.cheshireAlphas && MM.engine.cheshireAlphas(now);
+    if (chesh) {
+      const ccx = (s.px - camX) * TILE + TILE / 2, ccy = (s.py - camY) * TILE - 30;
+      if (chesh.body > 0.01) {
+        ctx.save();
+        ctx.globalAlpha = chesh.body;
+        ctx.font = '30px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🐱', ccx, ccy);
+        ctx.restore();
+      }
+      if (chesh.smile > 0.01) {
+        // v1.16.0 review touch-up: the disappearing grin is the iconic beat
+        // the user asked for, so it reads BOLD — a wide, warm-glowing crescent
+        // (was a small pale arc that got lost). Bigger radius, thicker stroke,
+        // a soft golden glow, and a brighter inner shine on top.
+        ctx.save();
+        ctx.globalAlpha = chesh.smile;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = '#ffe08a';
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = '#ffe680';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(ccx, ccy + 5, 16, 0.06 * Math.PI, 0.94 * Math.PI);
+        ctx.stroke();
+        // a brighter shine on the grin so it truly floats there, last of all
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#fff8e0';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(ccx, ccy + 5, 16, 0.14 * Math.PI, 0.86 * Math.PI);
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else if (MM.engine.cheshireFx) {
+      MM.engine.cheshireFx = null; // the fade finished — pure cleanup, no re-arm
+    }
+
     // Wave 20 (Looking Glass P1): through the glass, wash the whole scene
     // cool — a world-wide render-layer tint, a pure function of s.ngPlus, so
     // normal play is byte-for-byte unchanged and the mirror always LOOKS like
@@ -2186,7 +2236,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       <button class="set-choice${s.difficulty === d ? ' primary' : ''}" data-diff="${d}" data-label="${label}">
         ${emoji} ${label}${s.difficulty === d ? ' ✓' : ''}<span class="quip">${blurb}</span>
       </button>`;
-    const way = s.stance === 'soothe' ? 'gently 🕊' : 'boldly ⚔️';
+    // Wave 21 (Looking Glass P2.3): "Recognize" reflavors this label through
+    // the glass — wording only, the stance value itself is still 'soothe'.
+    const mirror = MM.engine.inMirror && MM.engine.inMirror();
+    const way = s.stance === 'soothe' ? (mirror ? 'recognizing 🪞' : 'gently 🕊') : 'boldly ⚔️';
     openModal(`
       <h2>⚙️ Settings</h2>
       <div class="dialog-body">
@@ -2200,11 +2253,12 @@ var MM = globalThis.MM = globalThis.MM || {};
           </div>
         </div>
         <div class="shop-sec shop-sec-gentle">
-          <h3>${s.stance === 'soothe' ? '🕊' : '⚔️'} Your way</h3>
-          <p>You face the tangles <b>${way}</b>. <span class="dim">Most heroes change their way eventually — it costs
-          nothing, and everything you've befriended stays befriended.</span></p>
+          <h3>${s.stance === 'soothe' ? (mirror ? '🪞' : '🕊') : '⚔️'} Your way</h3>
+          <p>You face the tangles <b>${way}</b>. <span class="dim">${mirror && s.stance === 'soothe'
+            ? 'A reflection isn\'t a stranger — you just have to look. Everything you\'ve befriended stays befriended.'
+            : 'Most heroes change their way eventually — it costs nothing, and everything you\'ve befriended stays befriended.'}</span></p>
           <div class="set-row">
-            <button id="setWay">${s.stance === 'soothe' ? '⚔️ Change my way: boldly' : '🕊 Change my way: gently'}</button>
+            <button id="setWay">${s.stance === 'soothe' ? '⚔️ Change my way: boldly' : (mirror ? '🪞 Change my way: recognizing' : '🕊 Change my way: gently')}</button>
           </div>
         </div>
         <div class="shop-sec shop-sec-ring">
@@ -2239,7 +2293,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       const other = s.stance === 'soothe' ? 'strike' : 'soothe';
       MM.engine.setStance(other);
       UI.log(other === 'soothe'
-        ? `🕊 <b>Gently, then.</b> The MathMaker's voice, from memory: "A tangle comes loose exactly as well as it comes apart."`
+        ? (mirror
+          ? `🪞 <b>Recognizing, then.</b> A reflection isn't a stranger — you just have to look.`
+          : `🕊 <b>Gently, then.</b> The MathMaker's voice, from memory: "A tangle comes loose exactly as well as it comes apart."`)
         : `⚔️ <b>Boldly, then.</b> The MathMaker's voice, from memory: "Go and meet it."`);
       rerender();
     };

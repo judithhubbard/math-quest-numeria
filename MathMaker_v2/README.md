@@ -443,6 +443,19 @@ switched off.)
   Settings) to find your finished kingdom exactly as you left it — nothing
   lost. (This replaces the old "Golden Numeria," and any in-progress Golden
   Numeria save steps straight into the mirror framing.)
+- **The reflection has its own flavor.** Some townsfolk greet you backwards
+  ("Goodbye!" as a hello) — the mirror has never once gotten this the right
+  way round. Bard Barnaby sings his ballad backwards (same words, reverse
+  order — "harder than it looks," by his own account). Old Salt Percy's
+  compass points confidently the wrong way and he's never once noticed. And
+  in the Study, the MathMaker's reflection never needs correcting — which
+  turns out to be a little lonely. **The Cheshire Cat** appears now and
+  then to guide you through the glass: a warm, cryptic creature that
+  materializes with one riddling-but-kind line, then fades away — body
+  first, smile last. And the monsters in the mirror are reflections of
+  friends you already made: soothing one here is called **"Recognize"** —
+  you're not taming a stranger, you're looking past the reflection and
+  seeing the friend you know.
 
 ### 🌀 The Tending — life after the ending
 
