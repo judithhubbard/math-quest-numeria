@@ -4602,3 +4602,92 @@ cut: lossless round-trip reversibility, the explicit entry prompt + safe
 default, the in-mirror exit, the parent-panel recovery, the Golden-Numeria
 save migration, the visible in-mirror indicator, no-change to normal play.
 This is the phase that must NEVER lose a kid's kingdom — test it hardest.
+
+## Wave 21 order — Through the Looking Glass, P2: aesthetic + the Cheshire Cat + "Recognize" (Looking Glass P2) (user directive 2026-07-21)
+
+Third phase of LOOKING_GLASS_SCOPING.md (P0 parser + P1 reversible mirror
+portal shipped, v1.14.1 / v1.15.0). This is the CONTENT phase — it makes the
+mirror world FEEL like a reflection (reversal comedy + the Cheshire guide +
+the "Recognize" reflavor), on top of P1's cool tint. CONTENT-HEAVY, engine-
+light (Sonnet-appropriate). NEGATIVES do NOT exist until P3 — so P2's
+Cheshire gives GENERAL mirror guidance/flavor, not negative-number hints
+(those wire in at P3). DEFER to P3: the number-line walk, zero-meridian,
+Tweedle/reciprocal puzzles, signed combat, the completed spiral.
+
+ALL standing rules apply and are review-blocking: no timers; gentle; JOKES
+ON THE WORLD, NEVER THE KID (a reflection is funny; the kid is never the
+punchline); comedy channels field/glyph/sound/modal, never the log; new
+glyphs get tileSprite context guards + unit checks. Everything below is
+gated on E.inMirror() (= ngPlus>0) so NORMAL play is byte-for-byte
+unchanged. Do NOT bump sw.js / tracker.js versions — the design session
+ships.
+
+### P2.1 — The reversal-comedy pass (prose, gated on inMirror)
+Make the mirror world SOUND reflected, in the deadpan register. A BOUNDED
+set (not every line — a curated pool): NPC greetings reversed ("Goodbye!"
+as hello; farewells as greetings); Barnaby's ballad sung backwards; the
+compass points the wrong way and is very confident about it; a few key
+NPCs (the MathMaker's reflection, mirror-Miscount — the redeemed guesser's
+reflection is the guesser he used to be, OR an eerily perfect worker-out;
+author one, paste for review) get a mirror-flavored line; reflected-monster
+enter-flavor. Do NOT flip the map GEOMETRY (risky — breaks reachability,
+the spiral, bridges; P1's tint is the visual). Author the pools; keep the
+comedy budget TIGHT.
+
+### P2.2 — The Cheshire Cat (guide + the disappearing-smile animation)
+A recurring guide creature that MATERIALIZES at thresholds (first entering
+the mirror world; entering a mirror dungeon) and occasionally otherwise,
+drops ONE cryptic-but-KIND line of mirror-world guidance, then FADES OUT
+SMILE-LAST. Warm-cryptic (tune OUT Carroll's smugness — a friend who talks
+in riddles, never at the kid's expense). Sample voice (general, non-
+negative — negatives don't exist yet): "Everything here is the same, only
+turned the other way. You'll get used to it. Or you won't — both are fine."
+THE ANIMATION (the one novel-render bit — reuse the timed-field-fx idiom:
+UI.worldBurst / E._slabPop / gateGlint all draw timed effects with expiry):
+draw the cat body at DECREASING alpha over ~2s while holding a crescent
+SMILE at full alpha, then let the smile linger and fade LAST. A pure timed
+effect keyed off a start timestamp; Calm Mode gets a gentler/instant
+version. (If the fade timing/look needs a touch-up, the design-session
+review will catch it — get it close.)
+
+### P2.3 — "Recognize" (the mirror reflavor of Soothe/befriend)
+In the mirror world ONLY, the Soothe/befriend verb is reflavored: the mirror
+monsters are REFLECTIONS of the friends you already made, so you don't
+"tame" them — you RECOGNIZE them. Reuse the existing soothe/befriend
+machinery UNCHANGED (js/battle.js soothing() path, the befriended axis);
+only the mirror-world WORDING changes (the stance label / button / flavor
+when inMirror()). It should feel like a reunion — reward the befriended-
+kinds the kid already collected. Author the reflavored lines; paste for
+review.
+
+### Evidence & discipline
+Unit: the reversal pools / Cheshire lines / Recognize wording are only
+reachable when inMirror() (a normal-play assertion that none leak into the
+non-mirror world); the Cheshire fade is a pure timed function (no
+Math.random in its core timing — vary flavor by a counter/context if
+needed); new-glyph context guards if the Cheshire uses a tile (it may be an
+overlay like the faculty NPCs — no new tile needed); any new MM.sound added
+to the stub list (~test.js:17). Capture the unit exit code directly. Drive
+drive-mirror2.js (~14 checks, copy drive-mirror.js structure): in the mirror
+world, a reversed-greeting NPC line appears; the Cheshire materializes at a
+threshold and its fade runs (assert the effect is armed + expires); Soothe
+reads as "Recognize" in the mirror and is UNCHANGED mechanically (a
+recognized mirror-monster still becalms + joins the befriended axis); NONE
+of this appears in normal (non-mirror) play. Full sweep. DETACHED marathon
+(poll IN-TURN to MARATHON COMPLETE — do NOT end the turn to wait). SCREENSHOT
+AUDIT: the Cheshire mid-fade (body faint, smile bright) AND smile-lingering
+(body gone, smile alone), a reversed-NPC modal, the "Recognize" stance
+label in a mirror battle. Confirm the Cheshire reads as a cat/smile and
+never as a numeral or an enemy. NO COMMIT — stop and report with ALL new
+prose verbatim (reversal pool, the Cheshire lines, mirror-Miscount/
+MathMaker-reflection line, the Recognize reflavor), unit exit code, drive +
+marathon results with tests/logs/ paths, screenshots audited.
+
+### Deviation authority
+May cut freely if hairy: the map-geometry flip (already deferred — DO NOT
+attempt); the reversal pool down to a handful of the best lines; mirror-
+Miscount to a single line. May NOT cut: the Cheshire's disappearing-smile
+FADE (the user asked for it specifically — get it working even if simple),
+the "Recognize" reflavor being mechanically identical to Soothe, everything
+gated on inMirror() so normal play is unchanged, jokes never on the kid.
+The Cheshire's NEGATIVE-number hint role is P3 (negatives don't exist yet).
