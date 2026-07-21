@@ -65,6 +65,26 @@ header .subtitle { color: #9d92c9; font-size: 14px; margin-top: 4px; }
 #sidebar .stat { line-height: 1.35; }
 #sidebar .stat.combat { font-size: 13.5px; }
 #sidebar .dim { color: #9d92c9; font-size: 12px; }
+/* Wave 20 (Looking Glass P1): the persistent "you are through the glass"
+   indicator — a cool-tinted banner + a mirror-side step-back button, so the
+   sticky mirror state is always visible AND always reversible from inside. */
+#mirrorBanner {
+  background: linear-gradient(180deg, #23405e, #1b3350);
+  border: 2px solid #6fb2d8;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: #d6ecff;
+}
+#mirrorBanner b { color: #bfe4ff; }
+#mirrorBanner button {
+  margin-top: 6px; width: 100%;
+  background: #2e5578; color: #eaf6ff;
+  border: 1px solid #7cc0e4; border-radius: 6px;
+  padding: 5px 8px; font-size: 12px; cursor: pointer;
+}
+#mirrorBanner button:hover { background: #3a678f; }
 .hpbar {
   height: 12px; background: #171331; border-radius: 6px;
   overflow: hidden; margin-bottom: 4px;
