@@ -4731,3 +4731,100 @@ FADE (the user asked for it specifically — get it working even if simple),
 the "Recognize" reflavor being mechanically identical to Soothe, everything
 gated on inMirror() so normal play is unchanged, jokes never on the kid.
 The Cheshire's NEGATIVE-number hint role is P3 (negatives don't exist yet).
+
+## Wave 22 order — Through the Looking Glass, P3: negatives enter the mirror (Looking Glass P3) (user directive 2026-07-21)
+
+Fourth phase of LOOKING_GLASS_SCOPING.md (P0 parser + P1 portal + P2
+aesthetic shipped: v1.14.1/v1.15.0/v1.16.0). This is the CORRECTNESS-
+CRITICAL phase — negatives finally enter GAMEPLAY. The math must be EXACT
+and the parent gate must be respected. Scoped to three high-value pieces:
+signed combat (the backbone), the Tweedle additive-inverse flagship puzzle,
+and waking the Cheshire's negative hints. DEFER to a follow-up order (P3.5):
+the number-line WALK + zero-meridian (B); DEFER to P4: reciprocal pairing
+(C2), reflection/absolute-value wonder (G), the completed mirror spiral.
+
+ALL standing rules apply: no timers; gentle failure (wrong signed answer
+re-asks, never punishes); jokes on the world never the kid; new glyphs get
+context guards. EVERYTHING negative is gated on BOTH E.inMirror() AND a new
+PARENT SWITCH (some kids aren't ready for integers) — so a mirror run with
+negatives OFF has zero negatives, and normal (non-mirror) play NEVER has
+them. Do NOT bump sw.js / tracker.js versions — the design session ships.
+
+### P3.1 — The negatives parent switch (prerequisite for everything below)
+A new parent-panel toggle "Negative numbers (Looking Glass)" — DEFAULT OFF
+(integers are ~6th grade, the top of Numeria's range; families opt in).
+Follow the PARENT_TOPICS / parentSettings pattern (js/data.js ~55,
+js/ui.js). Expose E.negativesOn(s) = inMirror() && the switch is on. NOTHING
+below generates a negative unless negativesOn() — unit-assert that
+negatives never appear when the switch is off OR when not in the mirror.
+
+### P3.2 — Signed combat/doors (A — the backbone)
+When negativesOn(), the mirror world's combat/gate problems MAY include
+signed values — 7 + (−3), −4 × 2, −5 + 8, etc. Add signed variants to the
+generators (js/problems.js) — the parser already accepts negative INPUT
+(P0, shipped) and frac/feq already handle negative numerators, so
+checkAnswer works as-is. IMPORTANT GENTLENESS + PEDAGOGY: keep the FIRST
+negatives easy and well-scaffolded (small magnitudes; adaptive tier still
+applies); a wrong signed answer re-asks with the worked solution, never
+punishes. The math must be EXACT — unit-test a broad table of signed
+problems (answer correctness for +/− across add/sub/mult). Negatives appear
+only in the mirror, only with the switch on.
+
+### P3.3 — Tweedledum & Tweedledee: the additive-inverse flagship (C)
+THE distinctive puzzle. A mirror-dungeon room (or a Wing-annex-style room in
+the mirror) with pushable numbered slabs — one carries +n, its twin −n —
+and a socket "▢ + ▢ = 0". Push any inverse pair in and they CANCEL to zero
+(the "Contrariwise" cancel-to-nothing click). REUSE the Wave 12 Numberling
+machinery almost directly: E.wingEquationOk / wingCheckSockets pattern
+(js/engine.js ~2822), but the predicate is a + b === 0 (additive inverse)
+instead of a × b === target. Accept EVERY valid inverse pair (like the
+Numberlings accept every true filling — unit-prove with two distinct pairs).
+The twins argue in contradictions ("Contrariwise!"); comedy on them, never
+the kid. Gated on negativesOn() (a room that needs negatives). If negatives
+are off, the room presents a gentle "not yet — a grown-up can open the
+negative numbers in Parent Settings" note (never a locked wall).
+
+### P3.4 — Wake the Cheshire's negative hints
+The P2 Cheshire gives general mirror guidance; now that negatives exist, add
+negative-number HINT lines it can give (still cryptic-KIND, still fading
+smile-last), surfacing especially when the kid is near a Tweedle room or
+struggling with a signed problem (reuse the existing hint/struggle signals).
+E.g. "To get to zero from below, you go up. From above, you go down.
+Everyone arrives eventually." / "A number and its opposite are the same
+distance from nothing — one east, one west." Author the pool; paste for
+review. Only when negativesOn().
+
+### Evidence & discipline (math must be EXACT — test hardest)
+Unit: negativesOn() gating (no negative EVER when the switch is off or not
+in the mirror — assert both); a BROAD signed-arithmetic correctness table
+(add/sub/mult, both signs, spot ~20 cases — the generated answer must equal
+the true signed result); the Tweedle socket accepts a + b === 0 for at
+least two distinct inverse pairs and REJECTS a non-zero sum; the parent
+switch persists + migrates (pre-Wave-22 save defaults negatives OFF); NG+/
+mirror round-trip still lossless with the switch state carried. Capture the
+unit exit code directly. Drive drive-negatives.js (~18 checks): with the
+switch ON in the mirror, a signed combat problem appears and grades
+correctly (type a negative answer, accepted); a wrong sign re-asks gently
+(no punish); the Tweedle room — push an inverse pair, socket cancels to
+zero, room completes; with the switch OFF, NO negatives appear and the
+Tweedle room shows the gentle grown-up note; the Cheshire gives a negative
+hint near the room. Full sweep (normal play unchanged — assert no negatives
+anywhere outside the mirror-with-switch-on). DETACHED marathon (poll
+IN-TURN to MARATHON COMPLETE — do NOT end the turn to wait; the marathon is
+non-mirror so it must see ZERO negatives). SCREENSHOT AUDIT: a signed combat
+problem (the "−3" renders clearly, not as a stray dash), the Tweedle room
+mid-solve (the +n/−n slabs read, the socket reads "▢ + ▢ = 0"), the
+cancel-to-zero moment, the switch-off gentle note. NO COMMIT — stop and
+report with ALL new prose verbatim (the Tweedle twins' lines, the Cheshire
+negative hints, the switch-off note, the parent-switch label/blurb), unit
+exit code, drive + marathon results with tests/logs/ paths, and a statement
+that signed arithmetic is EXACT + how you proved it.
+
+### Deviation authority
+May defer: the reciprocal (C2), reflection wonder (G), completed spiral, and
+the number-line WALK (B) — all explicitly later. May narrow the signed
+generators to add/sub first if mult is hairy (say so). May NOT cut: the
+parent switch (DEFAULT OFF) gating EVERYTHING, negatives ONLY in the mirror,
+EXACT signed arithmetic, gentle re-ask (never punish), the Tweedle
+additive-inverse room accepting every valid pair, no negatives in normal
+play or a switch-off mirror run. This phase's math must be flawless.
