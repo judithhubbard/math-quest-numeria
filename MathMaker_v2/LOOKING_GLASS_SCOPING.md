@@ -72,14 +72,24 @@ constitution:
   parent switch. Fun: the familiar loop made harder — the backbone, not the
   magic. Constitution: fine. → **INCLUDE as the backbone; necessary, not
   sufficient.**
-- **B. The number line as a walkable PLACE** (mirror overworld = the number
-  line; zero at center, negatives are a direction you walk into). Pedagogy:
-  THE canonical integer model — "a place before a rule" (the sequel
-  scoping's principle, brought into 1D). Cost: MEDIUM (the overworld is
-  already mirrored/rebuilt; making zero explicit + signed position is new UI
-  over existing movement). Fun: high — exploration IS the math; walking
-  west into "less than nothing." Constitution: great. → **INCLUDE as the
-  SPINE — negatives as geography, for everyone, before arithmetic.**
+- **B. The number line as a walkable PLACE.** (Clarified 2026-07-21 — the
+  earlier "the overworld IS the number line" was too abstract; a top-down 2D
+  world can't be a literal 1D ruler. The concrete, buildable form is TWO
+  things:) (1) a **walkable number-line PATH** — a stretch of the mirror
+  world (a bridge / frozen channel / road) laid out as LABELED tiles, zero
+  marked in the middle, negatives west, positives east; a door or the
+  Cheshire Cat names a target ("stand on −4") and you WALK there — negatives
+  are a place your feet go, not a symbol. Reuses the Wave 12 skip-count
+  stepping stones + numeral-on-tile rendering + ordinary movement. (2) a
+  **zero-meridian** dividing the mirror overworld — a glowing N–S line;
+  west = the "Below" (negative lands, cool/frozen palette), east = the
+  "Above"; crossing it is a narrated beat. This is just THEMING the mirrored
+  map (negatives as a REGION). Pedagogy: THE canonical integer model — "a
+  place before a rule." Cost: LOW-MEDIUM (both reuse existing tech). Fun:
+  high — a kid SEES that −4 is "four west of nothing." Constitution: great.
+  → **INCLUDE — negatives as geography + a walkable path, for everyone,
+  before arithmetic.** (Path = the concrete puzzle; meridian = the world's
+  signed theming.)
 - **C. Additive inverses via PAIRING — Tweedledum & Tweedledee** (mirror
   twins, one +n and one −n; pair them and they cancel to ZERO). Pedagogy:
   EXCELLENT + distinctive — teaches what a negative fundamentally IS (the
@@ -114,9 +124,11 @@ constitution:
 ### RECOMMENDATION — a ladder, not a single puzzle
 Match the game's own embodied→seen→typed pedagogy and the two-kids
 constitution. In priority order:
-1. **B (number line as the world) — the SPINE.** Negatives are GEOGRAPHY
-   first: the mirror overworld is the number line, zero at center, negatives
-   a direction. Everyone meets negatives here gently, before any arithmetic.
+1. **B (number line: walkable path + zero-meridian) — the embodied FOUNDATION.**
+   Negatives are GEOGRAPHY first: a walkable labeled path you step along
+   ("stand on −4") + a zero-meridian dividing the world into the Below (west)
+   and the Above (east). Everyone meets negatives here gently, before any
+   arithmetic. (Concrete, not the vague "whole map is a number line.")
 2. **C (Tweedle additive-inverse pairing) — the FLAGSHIP puzzle.** The
    distinctive, memorable, cheap-to-build mechanic that teaches the ESSENCE
    of negatives (opposite-that-cancels). Reuses Wave 12 slabs.
@@ -133,6 +145,28 @@ Through-line: **negatives as geography and reflection FIRST (embodied,
 gentle, for everyone); signed arithmetic SECOND (the loop, parent-gated,
 for the ready kid).** The Tweedle inverse-pairing is the flagship because
 it is cheap, deep, and delightful all at once.
+
+## The golden spiral in the mirror (KEEP it — complete it) (user Q, 2026-07-21)
+Do NOT remove the spiral — it is the game's soul (the ending reveal, the
+Turning Stones, the Spiral Stair, "step back far enough and the tangle was
+a shape all along"). The mirror is the perfect place to DEEPEN it, not
+replace it — two moves:
+- **Mirror it truthfully.** A reflected logarithmic spiral coils the OTHER
+  way (reversed chirality — a real mathematical fact, nearly free: flip the
+  existing render). Rewards the kid who knows the original: "same shape,
+  turning backwards."
+- **Make the mirror's revelation the UNION.** Numeria's ending was "the
+  kingdom was a spiral all along." The negatives-world revelation: the
+  spiral was only HALF the figure — the kingdom and its reflection, joined
+  across the zero-line, form one complete SYMMETRIC whole. This is the exact
+  thematic payoff for a negatives world (positives + negatives are two
+  halves reflected through zero; together they complete the number line, the
+  way the mirror-spiral completes the shape). The Turning Stones get their
+  reflected twin; the Spiral Stair meets a mirror descending the other way;
+  the reveal line becomes "…and its reflection was the other half all
+  along." Replacing the spiral would throw away continuity; COMPLETING it
+  turns the feature's whole math (negatives finish the number line) into the
+  wonder-beat.
 
 ## The mirror aesthetic (a coherent SYSTEM, not reskins)
 Everything reflected — reusing existing palette/flip tech (monster pals,
