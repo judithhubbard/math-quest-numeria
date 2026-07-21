@@ -64,6 +64,12 @@ var MM = globalThis.MM = globalThis.MM || {};
   const soothing = () => !!(bt && bt.ctx.hooks.stance && bt.ctx.hooks.stance() === 'soothe');
   const brave = () => !!(bt && bt.ctx.hooks.brave && bt.ctx.hooks.brave());
   const calm = () => bt ? 1 - Math.max(0, bt.mon.hp) / bt.mon.maxhp : 0;
+  // Wave 21 (Looking Glass P2.3): "Recognize" — through the glass, Soothe is
+  // reflavored (WORDING only; every number above is untouched) because a
+  // mirror monster is a reflection of a friend already made, not a stranger
+  // to tame. Gated on E.inMirror() so normal play (and even a normal-play
+  // Soothe fight) never sees this wording.
+  const recognizing = () => soothing() && !!(MM.engine.inMirror && MM.engine.inMirror());
 
   B.start = function (mon, ctx) {
     MM.track('battle:start ' + mon.name);
@@ -97,22 +103,33 @@ var MM = globalThis.MM = globalThis.MM || {};
       // v1.7.0: golems (canonically Miscount's old wrong homework) rarely
       // bellow an ancient wrong answer instead — the COMEDY register of the
       // same idea the boss falsehoods below play straight. Never on a boss.
+      // Wave 21 (Looking Glass P2.1): through the glass, EVERY regular
+      // monster is a reflection first — the mirror flavor takes priority
+      // over the (rarer) golem cry, gated on inMirror() so normal play never
+      // sees it.
       enterLine: mon.boss ? null
-        : (mon.sprite === 'golem' && Math.random() < B.GOLEM_CRY_CHANCE
-            ? MM.data.pick(MM.data.GOLEM_BATTLE_CRIES)
-            : MM.data.flavor(mon.sprite, 'enter', mon.name))
+        : (MM.engine.inMirror && MM.engine.inMirror()
+            ? MM.data.pick(MM.data.MIRROR_ENTER_LINES)
+            : (mon.sprite === 'golem' && Math.random() < B.GOLEM_CRY_CHANCE
+                ? MM.data.pick(MM.data.GOLEM_BATTLE_CRIES)
+                : MM.data.flavor(mon.sprite, 'enter', mon.name)))
           + (mon.hat ? ' It is wearing a tiny hat. No one knows why.' : ''),
       hatCv: mon.hat ? MM.sprites.get('crown', { scale: 2 }) : null,
     };
     buildDom();
     setBars(true);
     const s = soothing();
+    const rec = recognizing();
     // the soothe banner NAMES the creature, in the calm meter's own words
     // (playtest 2026-07-13, twice: every fight opening with the same
     // "A TANGLED THING" read as the game forgetting the monster's name —
     // Miscount's line stays in the reveal, where it lands — and the 🕊
     // bookends were "too small to see clearly"; words carry this better)
-    banner(mon.boss ? '☠️ BOSS BATTLE ☠️' : (s ? MM.data.theMon('Frightened ' + mon.name, true).toUpperCase() : '⚔️ BATTLE! ⚔️'),
+    // Wave 21 (Looking Glass P2.3): "Recognize" swaps "Frightened X" for
+    // "Reflected X" — the mirror-world stance label — wording only.
+    banner(mon.boss ? '☠️ BOSS BATTLE ☠️'
+        : rec ? MM.data.theMon('Reflected ' + mon.name, true).toUpperCase()
+        : s ? MM.data.theMon('Frightened ' + mon.name, true).toUpperCase() : '⚔️ BATTLE! ⚔️',
       mon.boss ? '#ff6b5c' : (s ? '#7ee0e8' : '#ffd94a'));
     MM.sound.battleStart(mon.boss);
     el('battleOverlay').classList.remove('hidden');
@@ -212,8 +229,12 @@ var MM = globalThis.MM = globalThis.MM || {};
       // the label speaks the BAR's language (v1.7.3: the bar drains wildness
       // now — a "64% calm" caption over a 36%-full bar would re-create the
       // exact two-directions confusion the bar swap fixed)
+      // Wave 21 (Looking Glass P2.3): "Recognize" reflavors this same label —
+      // the bar/number are IDENTICAL either way, only the words change.
       sub.innerHTML = !soothing()
         ? `⚔️ attacks for ${bt.mon.atk} each round`
+        : recognizing()
+        ? (k >= 1 ? 'Recognized.' : `${Math.max(1, Math.round((1 - k) * 100))}% still a stranger · still swinging (${bt.mon.atk})`)
         // At the end it is not frightened any more — that's the whole point,
         // and this is the line in the victory freeze-frame.
         : k >= 1 ? 'Completely calm.'
@@ -256,7 +277,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     bt.locked = false;
     const intro = bt.enterLine ? `<i>${bt.enterLine}</i><br>` : '';
     bt.enterLine = null; // shown with round 1 only
-    msg(soothing()
+    // Wave 21 (Looking Glass P2.3): "Recognize" reflavors the round prompt —
+    // wording only; the same pickProblem()/answer path runs underneath.
+    msg(recognizing()
+      ? `${intro}🪞 <b>Your move.</b> Work it out, and you recognize a little more of the friend inside ${MM.data.theMon(bt.mon.name)}:`
+      : soothing()
       ? `${intro}🕊 <b>Your move.</b> Work it out, and the tangle in ${MM.data.theMon(bt.mon.name)} comes a little looser:`
       : `${intro}🗡 <b>Your move!</b> Solve it to strike ${MM.data.theMon(bt.mon.name)}:`);
     const box = el('battleProblem');
@@ -468,7 +493,9 @@ var MM = globalThis.MM = globalThis.MM || {};
         burst(MON.x, MON.y - 60, '#ffd94a', 10);
       }
       if (crit) {
-        banner(soothe ? '🕊 PERFECTLY CALM! 🕊' : '💥 CRITICAL HIT! 💥', soothe ? '#7ee0e8' : '#ffd94a');
+        // Wave 21 (Looking Glass P2.3): "Recognize" swaps in its own crit banner.
+        banner(soothe ? (recognizing() ? '🪞 FULLY RECOGNIZED! 🪞' : '🕊 PERFECTLY CALM! 🕊') : '💥 CRITICAL HIT! 💥',
+          soothe ? '#7ee0e8' : '#ffd94a');
         burst(MON.x, MON.y - 60, soothe ? '#7ee0e8' : '#ffd94a', 18);
       }
       // soothing sheds soft motes rather than a damage burst — and CHIMES
@@ -589,14 +616,22 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   function monsterDefeated() {
     const soothe = soothing();
+    const rec = recognizing();
     if (soothe) {
       // It does not splat. It becalms, does the thing its kind does when it is
       // finally at ease, and wanders off — under its own power, in its own time.
       bt.gesture = MM.data.sootheGesture(bt.mon.sprite);
       bt.gestureT = 0;
       MM.sound.purr(); // the settling-in, under the victory notes (2026-07-13)
-      msg(`🕊 ${bt.mon.boss ? `${MM.data.theMon(bt.mon.name, true)} is at peace.` : MM.data.sootheLine(bt.mon)}`);
-      banner('🕊 CALMED 🕊', '#7ee0e8');
+      // Wave 21 (Looking Glass P2.3): "Recognize" — same settling, same
+      // gesture, same gold/XP path below; only the words differ. A kind
+      // already befriended (in the real kingdom or an earlier reflection)
+      // reads as a REUNION; a kind never befriended reads as new.
+      const alreadyKnown = rec && !!(MM.engine.isBefriended && MM.engine.isBefriended(bt.mon));
+      msg(rec
+        ? `🪞 ${bt.mon.boss ? `${MM.data.theMon(bt.mon.name, true)} is at peace.` : MM.data.recognizeLine(bt.mon, alreadyKnown)}`
+        : `🕊 ${bt.mon.boss ? `${MM.data.theMon(bt.mon.name, true)} is at peace.` : MM.data.sootheLine(bt.mon)}`);
+      banner(rec ? '🪞 RECOGNIZED 🪞' : '🕊 CALMED 🕊', '#7ee0e8');
       MM.sound.fanfare();
       motes(MON.x, MON.y - 60, 22);
       tween(v => { bt.gestureT = v; }, 1500);
@@ -614,7 +649,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       const box = el('battleProblem');
       box.innerHTML = `
         <div class="victory-panel">
-          <div class="victory-title${soothe ? ' calm' : ''}">${soothe ? '🕊 CALMED 🕊' : '⭐ VICTORY! ⭐'}</div>
+          <div class="victory-title${soothe ? ' calm' : ''}">${soothe ? (rec ? '🪞 RECOGNIZED 🪞' : '🕊 CALMED 🕊') : '⭐ VICTORY! ⭐'}</div>
           <div class="victory-lines">${summary.lines.map(l => `<div>${l}</div>`).join('')}</div>
           <div class="btnrow"><button id="victOk" class="primary">Continue ➜</button></div>
         </div>`;
