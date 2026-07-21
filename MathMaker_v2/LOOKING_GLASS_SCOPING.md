@@ -101,6 +101,18 @@ constitution:
   comedy + the satisfying cancel-to-nothing click. Constitution: perfect.
   → **THE FLAGSHIP PUZZLE. Cheap (reuses slabs), conceptually deepest,
   best Carroll costume.**
+- **C2. Multiplicative inverses via pairing — RECIPROCALS** (n and 1/n; pair
+  them and they cancel to ONE). The sibling of C: there are TWO kinds of
+  inverse — additive (sum to 0) and multiplicative (product to 1) — and this
+  is the second. Pedagogy: a real "aha" (numbers cancel two ways); fractions
+  are already Numeria curriculum (fractions_as/_m), so it's a fresh
+  EMBODIMENT, not new content. Cost: LOW — the SAME slab-into-socket
+  machinery, socket reads "▢ × ▢ = 1". Constitution: fine. → **OPTIONAL
+  sibling puzzle if a fractions-inverse is wanted; cheap. NOTE the metaphor
+  axis: negatives extend OUTWARD from zero (reflection — the mirror);
+  fractions extend INWARD/BETWEEN (zoom) — so C2 rides C's slab mechanic but
+  does NOT get the mirror-reflection framing (that stays negatives-only, to
+  keep mirror = negatives clean).**
 - **D. Debt / economy (gold as signed).** Pedagogy: good real-world model
   (owing = negative). Cost: MEDIUM. Constitution: CAUTION — a kid seeing
   "you owe −40" can read as punishment/anxiety; the game never punishes.
@@ -167,6 +179,22 @@ replace it — two moves:
   along." Replacing the spiral would throw away continuity; COMPLETING it
   turns the feature's whole math (negatives finish the number line) into the
   wonder-beat.
+
+## Considered + PARKED: spiral-zoom-to-fractions (user idea, 2026-07-21)
+Idea: the golden spiral ZOOMS IN to reveal fractional scales — "another kind
+of inverse." Assessment: mathematically lovely (the log spiral is
+self-similar, so diving into its center reveals ever-finer structure — past
+"1" a "½" stone, then "¼," then "⅛," never bottoming out = the density of
+fractions / infinite subdivision). BUT it is a DIFFERENT AXIS from negatives:
+negatives extend OUTWARD (reflection across zero — the mirror); fractions
+extend INWARD/BETWEEN (zoom). Overloading the mirror world with both muddies
+the cleanest thing (mirror = negatives = reflection). And the zoom is a real
+build (an animated self-similar zoom, cousin to the Mandelbrot the sequel
+reserved as wonder) — WONDER, not a puzzle. DECISION: keep the mirror doing
+reflection (negatives + completing the spiral); take the "inverse" idea as
+the cheap RECIPROCAL PAIRING puzzle (C2, multiplicative inverse) instead;
+PARK spiral-zoom-to-fractions as its own separate wonder for a later feature,
+so it can be done properly without diluting mirror = negatives.
 
 ## The mirror aesthetic (a coherent SYSTEM, not reskins)
 Everything reflected — reusing existing palette/flip tech (monster pals,
