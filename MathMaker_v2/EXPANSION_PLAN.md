@@ -4474,3 +4474,97 @@ negative INTEGERS + decimals cover the mirror world's first needs; say so
 if deferred. May NOT cut: accepting BOTH "-" and "−", the no-regression
 guarantee on positive parses, the malformed-input rejections, gentle
 wrong-answer behavior.
+
+## Wave 20 order — Through the Looking Glass, P1: the reversible mirror portal (Looking Glass P1) (user directive 2026-07-21)
+
+Second phase of LOOKING_GLASS_SCOPING.md (P0 parser shipped v1.14.1). This
+is the SACRED-REVERSIBILITY phase: make the post-game replay a MIRROR world
+you step INTO and safely BACK OUT of, superseding Golden Numeria — WITHOUT
+ever risking the player's finished kingdom (the Golden Numeria confusion —
+a kid pressed it and thought he'd lost everything — is the whole reason
+this must be explicit + reversible). Scoped TIGHT: the reversible container
++ a cheap mirror tint + superseding Golden Numeria. DEFER to later phases:
+negatives in problems (P3 + parent switch), the deep reversal aesthetics /
+map-flip / reversed speech / reflected-monster prose (P2), the Cheshire Cat
+(P2), the number-line walk + zero-meridian + Tweedle/reciprocal puzzles
+(P3), the completed spiral (P3/P4). P1 = the reversible mirror container,
+visibly mirror-tinted, nothing lost.
+
+ALL standing rules apply: no timers; gentle; jokes on the world never the
+kid; combat-free castle; new glyphs get context guards. Do NOT bump sw.js /
+tracker.js versions — the design session ships.
+
+### P1.1 — Supersede Golden Numeria (reuse its machinery, reframe it)
+The existing NG+ IS the good bones — reuse wholesale, reframe as the mirror:
+E.goldenPrompt / E.startGolden (entry), snapshotFinishedKingdom /
+s.goldenSnapshot / E.reconstructFinishedSnapshot (the snapshot),
+E.returnToFinishedKingdom / E.canReturnToKingdom (the restore), the
+parent-panel #goldenReturn recovery (ui.js ~2374), s.ngPlus (run counter).
+- Player-facing RENAME to the looking-glass framing everywhere: the
+  throne-room "✨ Golden Numeria" option → "🪞 Step through the looking
+  glass"; the prompt, the sidebar, the parent-panel recovery → mirror
+  language. INTERNAL fields (s.ngPlus, s.goldenSnapshot) KEPT for
+  save-compat — reframed, not renamed-with-risk (or rename WITH a migration
+  that maps the old field; simplest = keep the field, change the words).
+- MIGRATE existing Golden Numeria saves: a kid mid-NG+ (s.ngPlus>0 &&
+  s.goldenSnapshot) must load cleanly into the mirror framing and still be
+  able to step back through the glass. Unit-test this migration.
+
+### P1.2 — Reversibility, bulletproof (THE sacred part)
+- Stepping through the glass SNAPSHOTS the finished kingdom FIRST (already
+  the startGolden order — verify), then enters the mirror.
+- Stepping BACK (a mirror-side exit + the parent-panel recovery) RESTORES
+  the finished kingdom EXACTLY — every task, isle flag, gear, level, badge,
+  the castle reading as finished (castleOpen true). Reuse
+  returnToFinishedKingdom; confirm the round-trip is lossless.
+- The ENTRY PROMPT is EXPLICIT (the Golden Numeria lesson): it says plainly
+  you are stepping into a reflection, your real kingdom is kept safe, and
+  you can step back any time. The safe/default choice is staying. Author
+  the prompt; paste for review.
+- A clear IN-MIRROR EXIT: the player can leave from inside the mirror world
+  (a glass to step back through), not only via the parent panel.
+
+### P1.3 — The mirror container (cheap visible identity)
+- Entering re-tangles the kingdom (existing NG+ content) rendered with a
+  distinct MIRROR PALETTE — a cool/inverted global tint applied at the
+  render layer (reuse the existing tint mechanism — the descent-theme /
+  themePalette approach — as a world-wide "in-mirror" palette when in the
+  glass), so it LOOKS like a reflection even before the P2 aesthetic pass.
+- A persistent "you are through the glass" indicator (sidebar/HUD line +
+  the profile/version area is fine) so the state is always visible (the
+  "sticky state must be visible" rule).
+- P1 does NOT flip the map geometry, reverse NPC speech, add the Cheshire
+  Cat, or generate negatives — those are P2/P3. P1 is the tinted, reversible
+  container.
+
+### Evidence & discipline (reversibility is the high-stakes part)
+Unit: the ROUND-TRIP is lossless (enter → snapshot → mirror → return →
+finished kingdom EXACTLY restored: taskIndex, tasksDone, isles flags, gear,
+level, badges, castleOpen true — extend the existing golden round-trip
+block); the mirror palette/flag is set in-mirror and cleared on return; the
+explicit prompt's safe default; MIGRATION of a pre-Wave-20 Golden Numeria
+save (s.ngPlus>0 && goldenSnapshot) into the mirror framing; the in-mirror
+exit and the parent-panel recovery both restore identically; nothing about
+normal (non-mirror) play changes. Capture the unit exit code directly.
+Drive drive-mirror.js (extend/replace drive-golden.js structure, ~18
+checks): the explicit prompt + safe default; step through → in-mirror
+(palette flag set, indicator shown, re-tangled); step back from inside →
+finished kingdom restored + castleOpen; the parent-panel recovery restores;
+a decline leaves everything untouched. Full sweep (drive-golden's
+assertions become drive-mirror's — update any that reference "Golden
+Numeria" wording). DETACHED marathon (NG+ path changed — run it; poll
+IN-TURN, do NOT end turn to wait). NO COMMIT — stop and report with ALL new
+prose verbatim (the entry prompt, the sidebar/indicator line, the
+parent-panel mirror language, the in-mirror exit prompt), unit exit code,
+drive + marathon results with tests/logs/ paths, and a note confirming the
+round-trip is lossless.
+
+### Deviation authority
+May defer: the map-flip and any deep aesthetic (that's P2 by design — P1's
+tint is enough); a bespoke full-length-mirror sprite/portal (reuse the
+throne-room entry point Golden Numeria already used if a new portal object
+is heavy — the REVERSIBILITY matters more than the doorway art). May NOT
+cut: lossless round-trip reversibility, the explicit entry prompt + safe
+default, the in-mirror exit, the parent-panel recovery, the Golden-Numeria
+save migration, the visible in-mirror indicator, no-change to normal play.
+This is the phase that must NEVER lose a kid's kingdom — test it hardest.
