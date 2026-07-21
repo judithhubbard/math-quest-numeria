@@ -75,6 +75,65 @@ if (!rem || rem.kind !== 'rem' || rem.q !== 14 || rem.r !== 2) fail('parse "14 r
 if (pa('abc') !== null) fail('garbage should parse to null');
 if (pa('3/0') !== null) fail('divide-by-zero fraction should be null');
 
+// ---------- negatives in the answer parser (Wave 19 — Looking Glass P0) ----------
+// The parser must ACCEPT a leading sign on `num` kinds — a kid TYPES "-"
+// (U+002D), the game DISPLAYS "−" (U+2212); both, plus en/em dashes and an
+// optional following space, round-trip. Nothing generates a negative answer
+// yet, so this is a pure capability; every positive parse above must be
+// unchanged (the no-regression spot-check below re-verifies a dozen).
+{
+  const negCases = [
+    ['-3', { n: -3, d: 1 }],
+    ['−3', { n: -3, d: 1 }],       // U+2212 unicode minus (the displayed glyph)
+    ['– 3', { n: -3, d: 1 }],       // U+2013 en dash + a following space
+    ['—3', { n: -3, d: 1 }],       // U+2014 em dash
+    ['- 3', { n: -3, d: 1 }],       // hyphen + space
+    ['-1/2', { n: -1, d: 2 }],
+    ['-0.5', { n: -1, d: 2 }],
+    ['-2 1/2', { n: -5, d: 2 }],    // negative mixed number
+    ['+3', { n: 3, d: 1 }],         // leading plus → positive
+    ['-12', { n: -12, d: 1 }],
+  ];
+  for (const [s, want] of negCases) {
+    const got = pa(s);
+    if (!got || got.kind !== 'num' || got.f.n !== want.n || got.f.d !== want.d) {
+      fail(`parse negative "${s}" -> ${JSON.stringify(got)}, want num ${JSON.stringify(want)}`);
+    }
+  }
+  // malformed / no-negative-here inputs → null
+  for (const bad of ['--3', '3-', '-', '−', '- ', '-abc', '-1:30', '-5 r 2', '+ ', '++3']) {
+    if (pa(bad) !== null) fail(`malformed "${bad}" should parse to null, got ${JSON.stringify(pa(bad))}`);
+  }
+  // time and remainder stay positive-only (a sign in front is nonsense)
+  if (pa('12:30') == null || pa('12:30').kind !== 'time') fail('positive time still parses');
+  if (pa('5 r 2') == null || pa('5 r 2').kind !== 'rem') fail('positive remainder still parses');
+
+  // checkAnswer over a synthetic negative-answer problem: frac(-3,1). It must
+  // accept BOTH typed forms of −3 and REJECT the positive 3.
+  const frac = MM.problems.frac;
+  const negProb = { kind: 'number', text: 'mirror', answer: frac(-3, 1), solution: '−3.' };
+  if (!MM.problems.checkAnswer(negProb, '-3')) fail('checkAnswer: negative problem rejects typed hyphen "-3"');
+  if (!MM.problems.checkAnswer(negProb, '−3')) fail('checkAnswer: negative problem rejects typed unicode-minus "−3"');
+  if (MM.problems.checkAnswer(negProb, '3')) fail('checkAnswer: negative problem must REJECT the positive "3"');
+  // a negative fraction round-trips through frac/feq too
+  const negFrac = { kind: 'number', text: 'mirror½', answer: frac(-1, 2), solution: '−½.' };
+  if (!MM.problems.checkAnswer(negFrac, '-1/2')) fail('checkAnswer: -1/2 rejected against frac(-1,2)');
+  if (!MM.problems.checkAnswer(negFrac, '-0.5')) fail('checkAnswer: -0.5 rejected against frac(-1,2)');
+  if (MM.problems.checkAnswer(negFrac, '1/2')) fail('checkAnswer: negative fraction must reject the positive 1/2');
+
+  // NO-REGRESSION spot-check: a dozen existing positive parses are unchanged.
+  const stillGood = [
+    ['3', 'num'], ['1/2', 'num'], ['0.75', 'num'], ['3 1/2', 'num'],
+    ['1,204', 'num'], ['$3.50', 'num'], ['.5', 'num'], ['12', 'num'],
+    ['12:30', 'time'], ['5 r 2', 'rem'], ['14 r 2', 'rem'], ['6/8', 'num'],
+  ];
+  for (const [s, kind] of stillGood) {
+    const got = pa(s);
+    if (!got || got.kind !== kind) fail(`no-regression: "${s}" should still parse as ${kind}, got ${JSON.stringify(got)}`);
+    if (kind === 'num' && got.f.n < 0) fail(`no-regression: "${s}" must stay POSITIVE, got ${JSON.stringify(got)}`);
+  }
+}
+
 // ---------- geometry SVGs (Wave 6): every diagram is real, and every
 // dimension the question TEXT names actually appears drawn on it ----------
 {

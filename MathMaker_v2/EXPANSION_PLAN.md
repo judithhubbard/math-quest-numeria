@@ -4399,6 +4399,26 @@ The five pickable avatars: **woman, man, dragon, fox, slug.** Locked design call
 
 ## Wave 19 order — negatives in the answer parser (Looking Glass P0) (user directive 2026-07-21)
 
+✅ SHIPPED v1.14.1 2026-07-21 (design-reviewed; invisible plumbing — no player-facing change). parseAnswer now takes an
+optional leading sign on the `num` kinds only (integer/decimal/fraction/mixed):
+it strips a leading "-"(U+002D) / "−"(U+2212) / "–"(en) / "—"(em) + optional
+following space, parses the rest with a new positive-only `parseUnsigned`
+helper (the old branch code, unchanged), then negates; a leading "+" → positive.
+Because the remainder is parsed by parseUnsigned (still requires a leading
+digit), "--3" / a signed time / a signed remainder / bare "-"/"−" all fall
+through to null; "3-" was never a match. **Signed-frac note:** `frac`/`feq`
+ALREADY handle a negative numerator correctly — `frac(n,d)` normalizes the sign
+onto the numerator (line ~23, `if (d < 0) { n = -n; d = -d; }`) and `feq` is a
+signed cross-multiply, so `checkAnswer` needed NO change and negative fractions
+work (not deferred). The answer input box (`#answerInput`, plain `type="text"`)
+has no sanitizer, so a typed "-"/"−" already round-trips — no ui.js change
+needed. Nothing generates a negative answer yet, so normal play is byte-identical.
+Evidence: `node tests/test.js` exit 0 with a new negatives block (accepts
+"-3"/"−3"/"- 3"/"-1/2"/"-0.5"/"-2 1/2"/"+3", rejects "--3"/"3-"/bare "-", 12
+positive parses unchanged); new tests/drive-negparse.js (10 checks, all green,
+no JS errors); full drive sweep green (tests/logs/sweep-wave19-summary.txt). NO
+COMMIT — design session ships.
+
 FIRST concrete step of LOOKING_GLASS_SCOPING.md (read it for context). A
 tightly-scoped PREREQUISITE: make the answer parser + input box ACCEPT
 negative numbers, with tests. It does NOT generate negatives in gameplay
