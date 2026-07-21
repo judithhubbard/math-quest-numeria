@@ -264,12 +264,12 @@ async function makeChampion(page) {
   check(/tidiest/.test(await page.textContent('#modalBox')), 'the Study is just a study now — two people arguing happily about long division');
   await dlgOk(page);
 
-  // ---------- the throne: replay + Golden Numeria ----------
+  // ---------- the throne: replay + the looking glass (Wave 20) ----------
   await goto(page, 19, 4);
   await bump(page, 'ArrowUp');
   const throne = await page.textContent('#modalBox');
   check(/Untangled/.test(throne), 'the throne offers a replay of the ending');
-  check(/Golden Numeria/.test(throne), 'the throne offers Golden Numeria');
+  check(/looking glass/i.test(throne), 'the throne offers to step through the looking glass');
   // replay works
   await page.click('#modalBox .btnrow button.primary');
   await page.waitForFunction(() => MM.ui.cinematic());

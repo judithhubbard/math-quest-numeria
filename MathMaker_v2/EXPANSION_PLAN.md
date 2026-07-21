@@ -4477,6 +4477,40 @@ wrong-answer behavior.
 
 ## Wave 20 order — Through the Looking Glass, P1: the reversible mirror portal (Looking Glass P1) (user directive 2026-07-21)
 
+> ✅ SHIPPED v1.15.0 2026-07-21 (design-reviewed; lossless round-trip proven; supersedes Golden Numeria). Superseded Golden Numeria
+> by REUSING its machinery wholesale (startGolden / snapshotFinishedKingdom /
+> returnToFinishedKingdom / reconstructFinishedSnapshot / s.ngPlus /
+> s.goldenSnapshot / the #goldenReturn parent-panel recovery) and reframing only
+> the player-facing WORDS to the looking-glass framing; INTERNAL fields kept
+> unchanged for save-compat, so an in-flight Golden Numeria save (ngPlus>0 +
+> snapshot) loads straight into the mirror framing (unit-tested migration).
+> Reversibility is LOSSLESS and proven hardest: the unit round-trip now
+> serializes every kingdom field before stepping through and asserts it is
+> byte-for-byte identical after stepping back (taskIndex, tasksDone, opened,
+> bossesDefeated, unsealed, continent, worldPos, every isle flag, level, badges,
+> petHats, castleOpen true). Added: `E.inMirror()` (the sticky mirror flag =
+> ngPlus>0) driving a world-wide cool "reflection" tint at the render layer (a
+> `color`+`multiply`+sheen wash in drawWorld — a pure function of s.ngPlus, so
+> normal play is byte-for-byte unchanged) and a persistent sidebar INDICATOR
+> (#mirrorBanner) that doubles as the in-mirror EXIT (`E.mirrorExitPrompt`, a
+> "step back through the glass" button — the kid is never trapped and never
+> needs a grown-up to leave). The parent-panel recovery is kept as the grown-up
+> path. Explicit entry prompt with the SAFE "Stay in my finished kingdom" as
+> primary/default. Evidence: `node tests/test.js` green (exit 0) with the
+> extended round-trip / flag / migration / normal-play blocks; drive-mirror.js
+> (25 checks, replaces drive-golden.js) green with 4 audited screenshots; full
+> sweep + detached marathon (tests/logs/*-wave20*).
+> DEVIATIONS (all within the order's deviation authority): reused the throne-room
+> entry point rather than a bespoke full-length-mirror portal sprite (a new
+> portal object was heavy; reversibility mattered more); the mirror identity is a
+> cheap world-wide render-layer color-wash rather than a per-sprite themePalette
+> swap (the order explicitly permits "a cool/inverted global tint applied at the
+> render layer"). DEFERRED to P2/P3 by design (NOT this wave): the map-flip /
+> reversed sprites / reversed NPC speech, the Cheshire Cat + its fade, the
+> "Recognize" taming rename, generating negatives, the number-line-as-place /
+> zero-meridian, and all the negative-number puzzles.
+
+
 Second phase of LOOKING_GLASS_SCOPING.md (P0 parser shipped v1.14.1). This
 is the SACRED-REVERSIBILITY phase: make the post-game replay a MIRROR world
 you step INTO and safely BACK OUT of, superseding Golden Numeria — WITHOUT

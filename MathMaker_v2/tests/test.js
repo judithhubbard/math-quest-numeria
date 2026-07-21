@@ -2590,14 +2590,30 @@ for (const skill of skills) {
   });
   MM.engine.state = finished();
   const s = MM.engine.state;
+  // Wave 20 (Looking Glass P1): before stepping through, snapshot the EXACT
+  // finished kingdom so the round-trip can be proved LOSSLESS field-by-field.
+  const beforeGlass = JSON.stringify({
+    taskIndex: s.taskIndex, tasksDone: s.tasksDone, haveItem: s.haveItem,
+    opened: s.opened, bossesDefeated: s.bossesDefeated, unsealed: s.unsealed,
+    continent: s.continent, worldPos: s.worldPos,
+    isles: { keys: s.isles.keys, lenses: s.isles.lenses, lampLit: s.isles.lampLit,
+      spireDone: s.isles.spireDone, hallsDone: s.isles.hallsDone,
+      breakwaterDone: s.isles.breakwaterDone, gullwrackRebuilt: s.isles.gullwrackRebuilt },
+    level: s.level, badges: s.badges, petHats: s.petHats,
+    castleOpen: MM.engine.castleOpen(),
+  });
+  if (MM.engine.inMirror()) fail('mirror: a finished kingdom is NOT through the glass');
+  if (!JSON.parse(beforeGlass).castleOpen) fail('mirror: the finished kingdom must read as finished (castleOpen) before stepping through');
   MM.engine.startGolden();
   if (s.taskIndex !== 1 || s.tasksDone.length !== 0) fail('golden: startGolden must reset the kingdom');
   if (s.isles.lampLit || s.isles.spireDone) fail('golden: startGolden must re-seal the isles');
   if (s.ngPlus !== 1) fail('golden: startGolden increments ngPlus');
+  if (!MM.engine.inMirror()) fail('mirror: the mirror flag/tint must be SET while through the glass');
+  if (MM.engine.castleOpen()) fail('mirror: the mirror kingdom is unfinished — castleOpen must be false through the glass');
   if (s.level !== 18 || s.badges.addsub_facts !== 3 || !s.petHats.includes('bow')) fail('golden: the hero keeps level/badges/hats through NG+');
   if (!s.goldenSnapshot) fail('golden: startGolden must snapshot the finished kingdom');
   if (!MM.engine.canReturnToKingdom()) fail('golden: a return must be available once NG+ has started');
-  // undo it
+  // undo it — the SACRED round-trip
   MM.engine.returnToFinishedKingdom();
   if (s.taskIndex !== 14 || JSON.stringify(s.tasksDone) !== JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])) fail('golden: return restores the finished tasks');
   if (!s.isles.lampLit || !s.isles.spireDone || !s.isles.breakwaterDone) fail('golden: return restores the isles flags');
@@ -2605,6 +2621,22 @@ for (const skill of skills) {
   if (s.goldenSnapshot) fail('golden: return clears the snapshot');
   if (s.level !== 18 || !s.petHats.includes('bow')) fail('golden: the hero still has everything after returning');
   if (MM.engine.canReturnToKingdom()) fail('golden: no return offered once back in the finished kingdom');
+  // Wave 20: the mirror flag/tint is CLEARED on return, the castle reads as
+  // finished again, and — the whole point — the round-trip is LOSSLESS: every
+  // kingdom field is byte-for-byte what it was before stepping through.
+  if (MM.engine.inMirror()) fail('mirror: the mirror flag/tint must be CLEARED once back in the finished kingdom');
+  if (!MM.engine.castleOpen()) fail('mirror: the castle (throne room) must read as finished again after the round-trip');
+  const afterGlass = JSON.stringify({
+    taskIndex: s.taskIndex, tasksDone: s.tasksDone, haveItem: s.haveItem,
+    opened: s.opened, bossesDefeated: s.bossesDefeated, unsealed: s.unsealed,
+    continent: s.continent, worldPos: s.worldPos,
+    isles: { keys: s.isles.keys, lenses: s.isles.lenses, lampLit: s.isles.lampLit,
+      spireDone: s.isles.spireDone, hallsDone: s.isles.hallsDone,
+      breakwaterDone: s.isles.breakwaterDone, gullwrackRebuilt: s.isles.gullwrackRebuilt },
+    level: s.level, badges: s.badges, petHats: s.petHats,
+    castleOpen: MM.engine.castleOpen(),
+  });
+  if (afterGlass !== beforeGlass) fail('mirror: the round-trip is NOT lossless — the finished kingdom did not come back EXACTLY');
 
   // reconstruction (for a pre-reversibility NG+ save with no snapshot)
   const snap = MM.engine.reconstructFinishedSnapshot({ ngPlus: 1 });
@@ -2629,6 +2661,16 @@ for (const skill of skills) {
   MM.engine.load('ngmigrant');
   if (!MM.engine.state.goldenSnapshot) fail('golden migration: a pre-reversibility NG+ save must gain a finished-kingdom snapshot on load');
   if (!MM.engine.canReturnToKingdom()) fail('golden migration: the return option must become available for a migrated NG+ save');
+  // Wave 20: a migrated Golden Numeria save loads straight into the mirror
+  // framing — it reads as "through the glass" and can step back through it.
+  if (!MM.engine.inMirror()) fail('mirror migration: a migrated Golden Numeria save (ngPlus>0 + snapshot) must read as through the glass');
+  MM.engine.returnToFinishedKingdom();
+  if (MM.engine.inMirror() || MM.engine.state.ngPlus !== 0) fail('mirror migration: a migrated save must step back out of the glass cleanly');
+  if (!MM.engine.state.tasksDone || MM.engine.state.tasksDone.length !== 13) fail('mirror migration: stepping back restores the reconstructed finished kingdom');
+
+  // Wave 20: normal (non-mirror) play is never through the glass.
+  MM.engine.state = finished();
+  if (MM.engine.inMirror()) fail('mirror: normal play must NEVER read as through the glass');
 
   MM.engine.enterWorld = realEW;
   MM.engine.state = null;

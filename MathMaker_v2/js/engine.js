@@ -1306,29 +1306,58 @@ var MM = globalThis.MM = globalThis.MM || {};
       `<span class="dim">From here you can watch the whole kingdom, and remember it whole.</span>`,
       [
         { label: '🌀 Watch "The Kingdom, Untangled" again', primary: true, onClick: () => E.playEnding() },
-        { label: '✨ Golden Numeria (start over, keep everything)', onClick: () => E.goldenPrompt() },
+        { label: '🪞 Step through the looking glass', onClick: () => E.goldenPrompt() },
         { label: 'Just sit a while', onClick: () => {} },
       ]);
   };
 
-  // ---------- Golden Numeria (NG+) ----------
-  // NG+ is REVERSIBLE (2026-07-16, after a kid started it without meaning to
-  // and lost his finished kingdom): startGolden snapshots the finished kingdom
-  // first, and E.returnToFinishedKingdom puts it back. The throne room where
-  // NG+ launches is UNREACHABLE mid-run (castleOpen needs the kingdom
-  // finished), so the way back lives in 👪 Parent Settings — the right home
-  // for an "undo the whole run" anyway.
+  // ---------- Through the Looking Glass (post-game replay, was Golden Numeria) ----------
+  // Wave 20 (Looking Glass P1): the post-game replay is now a MIRROR world you
+  // step INTO and safely BACK OUT of. It REUSES the Golden Numeria machinery
+  // wholesale (the snapshot/restore, the run counter s.ngPlus, the reversibility)
+  // — only the player-facing WORDS change to the looking-glass framing. The
+  // INTERNAL fields (s.ngPlus, s.goldenSnapshot) are KEPT for save-compat, so
+  // an in-flight Golden Numeria save loads straight into the mirror framing.
+  // Reversibility is REVERSIBLE (2026-07-16, after a kid started it without
+  // meaning to and lost his finished kingdom): startGolden snapshots the
+  // finished kingdom FIRST, and E.returnToFinishedKingdom puts it back
+  // EXACTLY. The way back lives in TWO places — a mirror-side exit in the
+  // sidebar (E.mirrorExitPrompt) reachable while through the glass, AND
+  // 👪 Parent Settings (the grown-up's undo). This is the sacred part: the
+  // round-trip must be lossless.
+  // E.inMirror(): the sticky "you are through the glass" flag — a pure
+  // function of the run counter, so it survives save/load and drives both the
+  // world-wide mirror tint and the sidebar indicator.
+  E.inMirror = () => !!(E.state && E.state.ngPlus > 0);
+
   E.goldenPrompt = function () {
-    MM.ui.dialogChoices('✨ Golden Numeria — start the WHOLE adventure over?',
-      `<b>This restarts the entire kingdom.</b> Every dungeon locks again and every task goes back to the ` +
-      `beginning — you would play the whole story over, with the bosses back and <b>tougher</b>.<br><br>` +
-      `You keep <b>everything you earned</b>: your level, gear, gems, charms, badges, Monster Book, pet, and ` +
-      `crown. But your <b>finished kingdom</b> — every dungeon cleared, the peace you won — gets packed away.<br><br>` +
-      `<span class="dim">It is not lost: a grown-up can bring your finished kingdom back any time from ` +
-      `👪 Parent Settings. Still — best to <b>ask a grown-up</b> before starting the whole adventure over.</span>`,
+    MM.ui.dialogChoices('🪞 Step through the looking glass?',
+      `<b>You can step through the looking glass into a reflection of Numeria</b> — the whole kingdom again, ` +
+      `cool and new, every dungeon to explore afresh and the bosses back on their feet.<br><br>` +
+      `Your <b>real, finished kingdom is kept safe</b> — every dungeon you cleared, the peace you won — set gently ` +
+      `aside on this side of the glass while you're away. And <b>everything you earned comes with you</b>: your ` +
+      `level, gear, gems, charms, badges, Monster Book, pet, and crown.<br><br>` +
+      `<span class="dim">You can <b>step back through the glass any time</b> — from the 🪞 mirror in your sidebar, or ` +
+      `a grown-up can bring you back from 👪 Parent Settings — and your finished kingdom returns exactly as you left ` +
+      `it. <b>Nothing is lost.</b> Still — best to <b>ask a grown-up</b> first.</span>`,
       [
-        { label: '↩ Keep my finished kingdom', primary: true, onClick: () => E.throneRoom() },
-        { label: '✨ Start over in Golden Numeria', onClick: () => E.startGolden() },
+        { label: '↩ Stay in my finished kingdom', primary: true, onClick: () => E.throneRoom() },
+        { label: '🪞 Step through the looking glass', onClick: () => E.startGolden() },
+      ]);
+  };
+
+  // The mirror-side exit: a kid can step back through the glass from INSIDE
+  // the mirror (the sidebar 🪞 indicator opens this), not only via the parent
+  // panel. Same safe restore, same explicit confirm.
+  E.mirrorExitPrompt = function () {
+    if (!E.canReturnToKingdom()) return;
+    MM.ui.dialogChoices('🪞 Step back through the glass?',
+      `This ends your looking-glass reflection and puts your <b>finished kingdom</b> back — every dungeon cleared, ` +
+      `the story complete. <b>Everything you collected stays with you.</b> You can step through the looking glass ` +
+      `again any time.`,
+      [
+        { label: '👑 Yes, step back to my finished kingdom', primary: true, onClick: () => E.returnToFinishedKingdom() },
+        { label: '🪞 Stay through the glass', onClick: () => {} },
       ]);
   };
 
@@ -1404,9 +1433,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.save();
     MM.sound.fanfare();
     MM.ui.dialog('👑 Your finished kingdom, restored',
-      `<i>The dungeons fall quiet again, cleared as you left them. The kingdom is whole.</i><br><br>` +
+      `<i>You step back through the glass. The dungeons fall quiet again, cleared as you left them. The kingdom is ` +
+      `whole.</i><br><br>` +
       `Every task done, every boss at rest — and everything you collected is exactly where you left it.<br><br>` +
-      `<span class="dim">Golden Numeria is there whenever you truly want it. No rush.</span>`);
+      `<span class="dim">The looking glass is there whenever you want it again. No rush.</span>`);
     return true;
   };
 
@@ -1461,13 +1491,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.enterWorld();
     E.save();
     MM.sound.fanfare();
-    MM.ui.dialog('✨ Golden Numeria',
-      `<i>The kingdom takes a breath, and begins again — every dungeon sealed, every boss back on its feet ` +
-      `and <b>stronger</b> for the rest.</i><br><br>` +
+    MM.ui.dialog('🪞 Through the looking glass',
+      `<i>You step through, and the glass closes cool and silvery behind you. Here is Numeria again — the same ` +
+      `shape, turned the other way, every dungeon waiting to be explored anew.</i><br><br>` +
       `You still have your level, your gear, your charms, your badges, your book, your pet, and your crown. ` +
-      `You have everything you learned. That, it turns out, is the only thing that was ever really yours.<br><br>` +
-      `<span class="dim">Miss the peace you won? A grown-up can bring your finished kingdom back any time from ` +
-      `👪 Parent Settings.<br>Golden Numeria — run ${s.ngPlus}. One careful step at a time.</span>`);
+      `Everything you learned came with you.<br><br>` +
+      `<span class="dim">Your finished kingdom is safe on the other side of the glass. Step back any time — from the ` +
+      `🪞 mirror in your sidebar, or a grown-up can bring it back from 👪 Parent Settings.<br>` +
+      `Through the looking glass — reflection ${s.ngPlus}. One careful step at a time.</span>`);
   };
 
   // Sailing between continents (the Compass Rose) — with the voyage scene.

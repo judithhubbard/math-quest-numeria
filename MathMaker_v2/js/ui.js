@@ -9,6 +9,14 @@ var MM = globalThis.MM = globalThis.MM || {};
   // Wave 11 (P1): only wall/floor sprites take a theme tint — everything
   // else (doors, chests, levers...) keeps its own fixed colors.
   const DESCENT_TINT_SPRITES = { wall: 1, wallWorked: 1, wallGrand: 1, floor: 1 };
+  // Wave 20 (Looking Glass P1): when the kid is THROUGH THE GLASS (a mirror
+  // replay run, s.ngPlus > 0), the whole world renders under a cheap cool
+  // "reflection" wash at the render layer — the mirror is VISIBLE at a glance
+  // even before the P2 aesthetic pass (map-flip, reversed sprites). A `color`
+  // blend shifts every hue toward cool blue while keeping luminance (so it
+  // stays readable), a faint multiply deepens it, and a cyan sheen adds the
+  // glassy glint. Warm greens/browns read as a cool moonlit reflection.
+  const MIRROR_TINT = { hue: '#4f93c9', hueAlpha: 0.60, mult: '#aecbe6', sheen: '#bfe4ff', sheenAlpha: 0.08 };
 
   let canvas, ctx, modalEl, modalBox;
   let messages = [];
@@ -1477,6 +1485,31 @@ var MM = globalThis.MM = globalThis.MM || {};
       }
     }
 
+    // Wave 20 (Looking Glass P1): through the glass, wash the whole scene
+    // cool — a world-wide render-layer tint, a pure function of s.ngPlus, so
+    // normal play is byte-for-byte unchanged and the mirror always LOOKS like
+    // a reflection. Drawn over the finished world (tiles, monsters, hero) so
+    // everything reads as reflected; the sidebar/particles keep their colours.
+    if (MM.engine.inMirror && MM.engine.inMirror()) {
+      ctx.save();
+      // (1) shift every hue toward cool blue, keeping brightness (readable)
+      ctx.globalCompositeOperation = 'color';
+      ctx.globalAlpha = MIRROR_TINT.hueAlpha;
+      ctx.fillStyle = MIRROR_TINT.hue;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // (2) deepen it a touch
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = MIRROR_TINT.mult;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // (3) a faint glassy sheen
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = MIRROR_TINT.sheenAlpha;
+      ctx.fillStyle = MIRROR_TINT.sheen;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+
     drawWorldParticles(camX, camY);
     UI.renderSidebar();
   }
@@ -1559,6 +1592,25 @@ var MM = globalThis.MM = globalThis.MM || {};
   UI.renderSidebar = function () {
     const s = MM.engine.state;
     if (!s) return;
+    // Wave 20 (Looking Glass P1): the persistent "you are through the glass"
+    // indicator — always visible while in a mirror run (the sticky-state rule),
+    // and it doubles as the mirror-side EXIT (a glass to step back through, so
+    // the kid is never trapped and never needs a grown-up to leave).
+    const mirrorBanner = document.getElementById('mirrorBanner');
+    if (mirrorBanner) {
+      const inMirror = MM.engine.inMirror && MM.engine.inMirror();
+      mirrorBanner.classList.toggle('hidden', !inMirror);
+      if (inMirror) {
+        mirrorBanner.innerHTML =
+          `🪞 <b>Through the looking glass</b> — a reflection of Numeria (reflection ${s.ngPlus}). ` +
+          `Your finished kingdom is safe.<br>` +
+          `<button id="mirrorStepBack">↩ Step back through the glass</button>`;
+        const back = document.getElementById('mirrorStepBack');
+        if (back) back.onclick = () => MM.engine.mirrorExitPrompt();
+      } else {
+        mirrorBanner.innerHTML = '';
+      }
+    }
     const hpPct = Math.max(0, Math.round(s.hp / s.maxhp * 100));
     document.getElementById('statHp').innerHTML =
       `<div class="hpbar"><div class="hpfill${hpPct < 35 ? ' low' : ''}" style="width:${hpPct}%"></div></div>❤️ ${s.hp}/${s.maxhp}`;
@@ -2372,12 +2424,12 @@ var MM = globalThis.MM = globalThis.MM || {};
           answered <b>${s.totals.correct}/${s.totals.answered}</b> correctly overall.
           Press <b>R</b> in-game for the full per-topic report card.</p>
         ${MM.engine.canReturnToKingdom() ? `
-        <h3>✨ Golden Numeria</h3>
-        <p style="font-size:13px">Your child is on a <b>Golden Numeria</b> run (New Game+, run ${s.ngPlus}) — the whole
-          kingdom restarted, tougher. Everything they collected is safe. If they'd rather have their
-          <b>finished kingdom</b> back — every dungeon cleared, the story complete — you can restore it here.
-          <span class="dim">(Their level, gear, badges, Monster Book, and pet all stay either way.)</span></p>
-        <div style="margin:6px 0 2px"><button id="goldenReturn" class="secondary">↩ Return to the finished kingdom</button></div>` : ''}
+        <h3>🪞 Through the looking glass</h3>
+        <p style="font-size:13px">Your child stepped <b>through the looking glass</b> (reflection ${s.ngPlus}) — a fresh
+          reflection of the whole kingdom to explore. Everything they collected is safe. If they'd rather have their
+          <b>finished kingdom</b> back — every dungeon cleared, the story complete — you can step them back through
+          the glass here. <span class="dim">(Their level, gear, badges, Monster Book, and pet all stay either way.)</span></p>
+        <div style="margin:6px 0 2px"><button id="goldenReturn" class="secondary">↩ Step back through the glass</button></div>` : ''}
         <h3>🛂 Adventurer's Passport</h3>
         <p style="font-size:13px" class="dim">Saves live in this browser. The passport is how they travel —
         download a file to back this adventurer up, move them to another computer, or send them to a cousin.
@@ -2447,11 +2499,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (MM.engine.canReturnToKingdom()) {
       document.getElementById('goldenReturn').onclick = () => {
         closeModal();
-        UI.dialogChoices('👑 Return to the finished kingdom?',
-          `This ends the current Golden Numeria run and puts the finished kingdom back — every dungeon cleared, ` +
-          `the story complete. <b>Everything ${s.name} collected stays.</b> You can start Golden Numeria again any time.`,
+        UI.dialogChoices('👑 Step back through the looking glass?',
+          `This steps ${s.name} back through the glass and puts the finished kingdom back — every dungeon cleared, ` +
+          `the story complete. <b>Everything ${s.name} collected stays.</b> You can step through the looking glass again any time.`,
           [
-            { label: '👑 Yes, restore the finished kingdom', primary: true, onClick: () => MM.engine.returnToFinishedKingdom() },
+            { label: '👑 Yes, step back to the finished kingdom', primary: true, onClick: () => MM.engine.returnToFinishedKingdom() },
             { label: 'Not now', onClick: () => {} },
           ]);
       };

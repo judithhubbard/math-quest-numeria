@@ -433,9 +433,16 @@ switched off.)
   *tended*.** Pip runs a riddle contest for other kids. Miscount teaches
   ("my students show their work *twice*"). Callie is training two harbour
   children on the lenses. Maren has apprentices and, thrillingly, a rota.
-- **✨ Golden Numeria** (from the throne): walk the whole kingdom again, with
-  every dungeon re-sealed and every boss back and tougher — while you keep
-  your level, gear, gems, charms, badges, Monster Book, pet, and crown.
+- **🪞 Through the Looking Glass** (from the throne): step through the glass
+  into a *reflection* of Numeria — the whole kingdom again, washed cool and
+  new, every dungeon to explore afresh and every boss back on its feet — while
+  you keep your level, gear, gems, charms, badges, Monster Book, pet, and
+  crown. Your **finished kingdom is kept safe** on the other side of the glass:
+  a persistent sidebar marker shows you're through the glass, and you can
+  **step back any time** (from that marker, or a grown-up from 👪 Parent
+  Settings) to find your finished kingdom exactly as you left it — nothing
+  lost. (This replaces the old "Golden Numeria," and any in-progress Golden
+  Numeria save steps straight into the mirror framing.)
 
 ### 🌀 The Tending — life after the ending
 
