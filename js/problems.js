@@ -46,10 +46,32 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   // ---------- answer parsing ----------
   // Accepts: 12 | 3.5 | 3/4 | 1 3/4 | 14 r 2 | $3.50 | 1,204 | 3:15
+  //   ...and, since Wave 19 (Looking Glass P0), an optional leading sign on
+  //   the `num` kinds: "-3", "-1/2", "-2 1/2", "+3". A kid TYPES an ASCII
+  //   hyphen "-" (U+002D); the game DISPLAYS a unicode minus "−" (U+2212) —
+  //   both round-trip, along with en/em dashes and an optional following
+  //   space ("- 3"). A sign is meaningful only for integers/decimals/
+  //   fractions; a negative clock or a negative remainder is nonsense, so a
+  //   sign in front of a time/remainder form is rejected (→ null). No problem
+  //   generates a negative answer yet — this only makes the parser CAPABLE.
   function parseAnswer(str) {
     if (str == null) return null;
     let s = String(str).trim().toLowerCase().replace(/\$/g, '').replace(/,/g, '');
     if (!s) return null;
+    // Optional leading sign, `num` kinds only. Strip it, parse the rest with
+    // the positive-only logic, then negate. Because the rest is parsed by
+    // parseUnsigned (which still requires a leading digit), a second sign
+    // ("--3") or a signed time/rem falls through to null.
+    const sm = s.match(/^([+\-−–—])\s*(\S.*)$/);
+    if (sm) {
+      const rest = parseUnsigned(sm[2]);
+      if (!rest || rest.kind !== 'num') return null; // reject "--3", "-1:30", "-5 r 2", bare "-"/"−"
+      return sm[1] === '+' ? rest : { kind: 'num', f: frac(-rest.f.n, rest.f.d) };
+    }
+    return parseUnsigned(s);
+  }
+
+  function parseUnsigned(s) {
     let m;
     if ((m = s.match(/^(\d{1,2}):(\d{2})$/))) {
       const hh = +m[1], mm = +m[2];
