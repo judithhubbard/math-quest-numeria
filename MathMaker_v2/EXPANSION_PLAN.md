@@ -4396,3 +4396,61 @@ The five pickable avatars: **woman, man, dragon, fox, slug.** Locked design call
   it must never vanish for someone who already has it).
 - World-reaction comedy pools: author for dragon, fox, slug (the humans
   stay neutral — they ARE the kid). e.g. the dragon-in-the-courtyard line.
+
+## Wave 19 order — negatives in the answer parser (Looking Glass P0) (user directive 2026-07-21)
+
+FIRST concrete step of LOOKING_GLASS_SCOPING.md (read it for context). A
+tightly-scoped PREREQUISITE: make the answer parser + input box ACCEPT
+negative numbers, with tests. It does NOT generate negatives in gameplay
+yet (that comes with the negatives parent switch in a later phase), so it
+is invisible in normal play and cannot regress existing content — it only
+makes the parser CAPABLE of negatives, the foundation the mirror world
+needs. Self-contained; unit-testable.
+
+Standing rules apply (no build step; never rename MM/keys; old saves
+unaffected). Do NOT bump sw.js / tracker.js versions — the design session
+ships.
+
+### The fix (js/problems.js — parseAnswer ~49, checkAnswer ~87)
+- parseAnswer currently rejects a leading minus (every branch starts with
+  \d). Add an OPTIONAL LEADING SIGN: strip a leading minus — accepting ALL
+  of ASCII hyphen "-" (U+002D), unicode minus "−" (U+2212), en/em dashes
+  "–"/"—", and an optional following space — remember it, parse the rest
+  exactly as today, then NEGATE the resulting value (the frac's sign). An
+  optional leading "+" is accepted as positive (nice-to-have). This applies
+  to the `num` kinds ONLY (integer, decimal, fraction, mixed fraction) —
+  NOT time (negative clock is nonsense) and NOT remainder (leave
+  positive-only). Reject malformed: "--3", "3-", bare "-"/"−" → null.
+- Verify `frac` + `feq` handle a NEGATIVE numerator correctly (rational
+  compare with sign); if sign lives only on the numerator, normalize there.
+- checkAnswer: a `num` problem whose answer is negative must match a typed
+  negative and reject the positive (feq over signed fracs).
+- The ANSWER INPUT: confirm the answer box in MM.ui.showProblem accepts a
+  typed "-"/"−" (if any on-input sanitizer or inputmode filter strips
+  non-digits, allow a leading sign). The kid types "-"; the game displays
+  "−" — both must round-trip.
+
+### Evidence & discipline
+Unit (tests/test.js — add a negatives block): parseAnswer("-3")→-3,
+"−3"(U+2212)→-3, "- 3"→-3, "-1/2"→-1/2, "-0.5"→-0.5, "-2 1/2"→-2.5,
+"+3"→3, and REJECTS "--3"/"3-"/bare "-"; checkAnswer on a synthetic
+problem with answer frac(-3,1) accepts "-3" AND "−3" and rejects "3"; a
+REGRESSION sweep that every existing positive parse is unchanged (spot a
+dozen: "3","1/2","0.75","3 1/2","12:30","5 r 2"). Capture the unit exit
+code directly (pipe hides it). New tiny drive tests/drive-negparse.js
+(~8 checks): inject a synthetic negative-answer problem through
+MM.ui.showProblem, TYPE "-3" in the answer box, confirm it is accepted as
+correct (the input→parse→check path end-to-end); type "−3" likewise; a
+positive typed for a negative answer is gently wrong (re-ask, no crash).
+Full sweep (existing drives must be unchanged — no gameplay touched). NO
+marathon needed (pure parser, no content/flow change) — but run it if any
+doubt. NO COMMIT — stop and report with the parser diff summary, the
+signed-frac handling note (did frac/feq already work, or did you
+normalize?), unit exit code, drive results with tests/logs/ paths.
+
+### Deviation authority
+May defer: negative FRACTIONS ("-1/2") if signed-frac handling is hairy —
+negative INTEGERS + decimals cover the mirror world's first needs; say so
+if deferred. May NOT cut: accepting BOTH "-" and "−", the no-regression
+guarantee on positive parses, the malformed-input rejections, gentle
+wrong-answer behavior.
