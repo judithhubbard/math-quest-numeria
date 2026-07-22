@@ -4871,3 +4871,83 @@ parent switch (DEFAULT OFF) gating EVERYTHING, negatives ONLY in the mirror,
 EXACT signed arithmetic, gentle re-ask (never punish), the Tweedle
 additive-inverse room accepting every valid pair, no negatives in normal
 play or a switch-off mirror run. This phase's math must be flawless.
+
+## Wave 23 order — Through the Looking Glass, P3.5: the number-line walk (Looking Glass P3.5) (user directive 2026-07-21)
+
+The deferred foundation from P3: negatives as GEOGRAPHY — you WALK the
+number line. Rounds out the pedagogy (the embodied representation, gentlest
+for the anxious kid) on top of P3's signed arithmetic. Two concrete pieces
+(the vague "the overworld IS the number line" was corrected in
+LOOKING_GLASS_SCOPING.md to these): a walkable labeled PATH + a zero-meridian
+geography. Reuses the Wave 12 stepping-stone machinery. CORRECTNESS-adjacent
+(signed positions) → Opus.
+
+ALL standing rules: no timers; GENTLE (a wrong tile is a nudge + step back,
+never a punish, never a scold); jokes on the world never the kid; new glyphs
+get context guards. GATED on E.negativesOn() (= inMirror() && the parent
+switch) — identical to the Tweedle room: no negative tiles unless negatives
+are ON, and a switch-off state shows the gentle grown-up note (reuse
+MM.data.NEGATIVES_OFF_NOTE pattern), never a locked wall. Normal play and a
+switch-off mirror run show NONE of this. Do NOT bump sw.js / tracker.js.
+
+### P3.5.1 — The zero-meridian (mirror geography)
+When negativesOn(), the mirror overworld gains a subtle glowing N–S "zero
+line" down the middle: west of it is THE BELOW (negative lands — a cooler/
+frostier wash on top of the existing mirror tint), east is THE ABOVE.
+Crossing it is a narrated once-per-visit beat ("you step below zero"). This
+is THEMING (regional), reusing the render-tint approach; do NOT re-author or
+flip the map geometry. Pure atmosphere — negatives as a PLACE.
+
+### P3.5.2 — The number-line crossing (the walkable path — the real mechanic)
+A specific crossing in the mirror world (a frozen channel / a stone bridge —
+its own small area or a marked stretch): a row of LABELED tiles
+…−4 −3 −2 −1 [0] +1 +2 +3 +4…, zero marked distinctly, negatives west,
+positives east. REUSE the Wave 12 stepping-stone rendering (numeral-on-tile,
+the 'stepStone' idiom, E.skipStoneStep pattern) — the tiles carry their
+signed labels. The PUZZLE: a keeper (the Cheshire, or a gate, or a signpost)
+names a TARGET — "stand on −4", "meet me three east of zero", "go two below
+where you are" — and the kid WALKS to that tile. Standing on the right tile
+opens the way / grants a small reward; a wrong tile gives a gentle nudge
+("not quite — that's −3; you want one more step west"), never a punish. A
+few target types (absolute "stand on −N", relative "N east/west of zero",
+"N steps from where you are"), small magnitudes, adaptive-ish. Negatives are
+a place your FEET go. (May record as embodied signed practice via
+recordAnswer if it fits cleanly — implementer's call; keep it gentle.)
+
+### P3.5.3 — Cheshire number-line hint
+Surface the existing CHESHIRE_NEG_LINES near the crossing (e.g. "Less than
+nothing is still somewhere. West of zero is a perfectly good place to
+stand." / "A number and its opposite are the same distance from nothing —
+one east, one west."). Reuse E.armCheshire; only when negativesOn().
+
+### Evidence & discipline
+Unit: the meridian + crossing appear ONLY when negativesOn() (assert absent
+in normal play AND in a switch-off mirror run); the target logic is EXACT (a
+target of −4 is satisfied by the −4 tile and no other; "3 east of zero" = +3;
+relative targets compute correctly — a small correctness table); the
+switch-off crossing shows the gentle note; new-glyph context guards; pre-
+Wave-23 save unaffected; NG+/mirror round-trip still fine. Capture the unit
+exit code directly. Drive drive-numberline.js (~14 checks): in the mirror
+with negatives ON — the crossing shows signed tiles, a "stand on −4" target
+is satisfied by walking to the −4 tile (and a wrong tile nudges, no punish),
+a relative target computes right; with negatives OFF — the gentle note, no
+signed tiles; the Cheshire hint surfaces; NONE of it in normal play. Full
+sweep. DETACHED marathon (non-mirror → zero number-line content; poll
+IN-TURN to MARATHON COMPLETE — do NOT end your turn to wait). SCREENSHOT
+AUDIT: the number-line crossing (the −4…0…+4 labels read clearly, zero
+marked, the minus signs not stray dashes — numeral-hazard watch), the
+meridian/Below wash, a "stand on −N" target prompt, the switch-off note. NO
+COMMIT — stop and report with ALL new prose verbatim (the keeper/signpost
+target lines, the crossing intro, the "below zero" crossing beat, any nudge
+lines), unit exit code, drive + marathon results with tests/logs/ paths, and
+a statement that the target logic is EXACT.
+
+### Deviation authority
+May cut freely if hairy: the zero-meridian wash (P3.5.1) down to a single
+narrated "below zero" beat if the regional tint is fiddly; the relative/
+"N-steps-from-here" target types down to just absolute "stand on −N" for v1
+(say so). May NOT cut: everything gated on negativesOn() (no negatives when
+off / outside the mirror), the switch-off gentle note (never a locked wall),
+EXACT target logic, gentle wrong-tile nudge (never punish), reusing the
+stepping-stone rendering (not a bespoke new system). P4 (Carroll cast +
+completed spiral) remains the finale after this.
