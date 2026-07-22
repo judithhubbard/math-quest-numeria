@@ -4980,3 +4980,99 @@ off / outside the mirror), the switch-off gentle note (never a locked wall),
 EXACT target logic, gentle wrong-tile nudge (never punish), reusing the
 stepping-stone rendering (not a bespoke new system). P4 (Carroll cast +
 completed spiral) remains the finale after this.
+
+## Wave 24 order — Through the Looking Glass, P4: the wonder finale — Carroll cast + the completed spiral (Looking Glass P4) (user directive 2026-07-21)
+
+The FINALE of the Looking Glass feature (P0–P3.5 shipped: v1.14.1 →
+v1.18.0). Two pieces: the Carroll wonder cast (flavor + reference), and —
+the emotional capstone of the whole feature — THE COMPLETED SPIRAL. Content
++ wonder + prose, engine-light (SONNET), with ONE novel-render bit (the
+mirrored/completed spiral) the design-session review will scrutinize/touch
+up if needed (like the Cheshire fade). After this, the Looking Glass is
+DONE.
+
+ALL standing rules: no timers (the Carroll time-refs are FROZEN/anti-timers
+only — the tea-party where it is always six o'clock, NEVER a hurry); gentle;
+jokes on the world never the kid; WONDER NEVER BECOMES A PROBLEM GENERATOR
+(look, never test — the completed spiral and the Carroll cast are reverent/
+funny flavor, not quizzes). Gated on E.inMirror() (mirror-world content;
+normal play unchanged — assert it). Do NOT bump sw.js / tracker.js versions.
+
+### P4.1 — THE COMPLETED SPIRAL (the capstone — get this right)
+Numeria's ending revealed "the kingdom was a spiral all along" (the golden
+Fibonacci spiral, the Turning Stones, "step back far enough and the tangle
+was a shape all along"). The mirror's revelation: the spiral was only HALF
+the figure — the kingdom and its REFLECTION, joined across the zero-line,
+make one complete SYMMETRIC whole. This is the exact thematic payoff for a
+negatives world (positives + negatives are two halves reflected through
+zero; together they complete the number line, the way the mirror-spiral
+completes the shape). Concretely, reuse the spiral machinery (MM.data
+.TURNING_STONES / spiralChain / UI.drawTurningStones ~ui.js:306): in the
+mirror, the spiral is REFLECTED (reversed chirality — a real fact, cheap: a
+mirrored draw) AND the two spirals (kingdom + reflection) are shown together
+forming the symmetric whole. A discoverable wonder vantage in the mirror (a
+mirror Turning-Stones plaza, or a plaque at a vantage point) delivers the
+authored REVEAL beat — the closing line evolves Numeria's own: "…and its
+reflection was the other half all along." inMirror-gated; it is WONDER, so
+it does NOT require the negatives switch and never asks a question. Author
+the reveal prose (Sylvia/MathMaker voice); paste for review. The RENDER (the
+mirrored + unioned spiral) is the one bit to get visually right — the review
+will check it reads as a symmetric double-spiral, not a mess.
+
+### P4.2 — The Carroll wonder cast (bounded flavor, look-never-test)
+A curated set (NOT all of Carroll — the best, tight): the JABBERWOCK/
+Jabberwocky — a plaque printed in MIRROR-WRITING, readable only by reflection
+(a discoverable wonder; optionally the Jabberwock as a mirror flavor-boss,
+but do NOT build a whole boss if heavy — the plaque is the wonder); the
+WHITE QUEEN who lives backwards / "jam to-morrow and jam yesterday, but
+never jam to-day" (the number line as a rule, −1/+1 around today; a
+reversal-comedy NPC whose "memory" of what you're about to do is a gentle
+aside — memory direction, NOT time pressure); HUMPTY DUMPTY, words-mean-what
+-I-choose (a blustering contrarian who insists "less than nothing" is
+perfectly sensible); the MAD TEA-PARTY frozen at always-six-o'clock (a cozy,
+stakes-free rest spot — an ANTI-timer, funny BECAUSE nothing is rushed —
+NEVER the White Rabbit's hurry); the CATERPILLAR'S "Who are YOU?" (a callback
+to the Wave 18 avatar picker — the wardrobe already asks "who would you like
+to be?"); talking FLOWERS (a near-free cousin of the Kitchen-Garden carrot);
+a light CHESS motif (pawn crossing the board → queen rhymes with Numeria's
+student → MathMaker). Pick the best; keep the budget TIGHT. All inMirror-
+gated, all wonder-flavor (no quizzes), jokes on the world never the kid.
+
+### P4.3 — OPTIONAL (deviation-cuttable): reciprocal room (C2) / reflection (G)
+If time allows and negatives are on: a reciprocal-pairing room (n × 1/n = 1,
+the multiplicative-inverse sibling of the Tweedle room, reusing the same
+socket machinery with predicate a × b === 1) — but this is OPTIONAL; the
+completed spiral already delivers the reflection/absolute-value wonder (G),
+so G is subsumed. CUT C2 freely if the finale is full — say so.
+
+### Evidence & discipline
+Unit: the Carroll cast + completed-spiral vantage are reachable ONLY when
+inMirror() (assert absent in normal play); the mirrored-spiral render is a
+pure function (no Math.random in its geometry — reflect the existing chain);
+the mirror-writing plaque's reflected text round-trips (the "readable by
+reflection" is a real string transform, unit-checkable); the frozen
+tea-party has NO timer (assert no time state); new-glyph context guards;
+pre-Wave-24 save unaffected; NG+/mirror round-trip fine. Capture the unit
+exit code directly. Drive drive-finale.js (~14 checks): in the mirror — the
+completed-spiral reveal fires at its vantage and the render is armed; the
+Jabberwocky plaque + a Carroll-cast NPC (White Queen / Humpty / tea-party)
+appear and read; NONE of it in normal play. Full sweep. DETACHED marathon
+(NODE_PATH set; poll IN-TURN to MARATHON COMPLETE — do NOT end your turn to
+wait). SCREENSHOT AUDIT (the render is the point): the completed/mirrored
+spiral (reads as a symmetric double-spiral, NOT a tangle — this is the
+capstone image), the mirror-writing Jabberwocky plaque, a Carroll-cast NPC,
+the frozen tea-party. Fix what looks wrong — iterate on the spiral render
+until it reads. NO COMMIT — stop and report with ALL new prose verbatim (the
+completed-spiral REVEAL, the Jabberwocky plaque both ways, each Carroll NPC's
+lines, the tea-party), unit exit code, drive + marathon results with
+tests/logs/ paths, screenshots audited. Note in the report that this
+COMPLETES the Looking Glass feature (P0–P4).
+
+### Deviation authority
+May cut freely: C2 (reciprocal) entirely; the Jabberwock as a boss (keep the
+plaque); the Carroll cast down to the 3–4 strongest (completed spiral +
+Jabberwocky plaque + White Queen + tea-party is a fine finale). May NOT cut:
+the COMPLETED SPIRAL reveal + its render (the capstone — the whole feature
+builds to it), the frozen/anti-timer handling of every time-ref (no hurry
+ever), wonder-never-tested, inMirror-gating, jokes never on the kid. This is
+the finale — it should FEEL like one.
