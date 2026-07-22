@@ -1510,6 +1510,36 @@ var MM = globalThis.MM = globalThis.MM || {};
   // beat), gated on E.negativesOn(); the map geometry is never touched.
   MM.maps.MERIDIAN_X = Math.floor(MM.maps.OVERWORLD[0].length / 2);
 
+  // ===== Wave 24 (Looking Glass P4): the Vantage =====
+  // A mirror-only, combat-free wonder room (an overworld like the Tweedle/
+  // number-line rooms) — the finale's home. Exactly VIEW_W×VIEW_H (15×11) so
+  // the camera never scrolls, which keeps the completed-spiral render's
+  // geometry simple (it fits the whole fixed canvas). No mechanic lives here
+  // — it is ALL wonder (look, never test). Alphabet (own block, before every
+  // shared case — the v1.7.9 'Y' lesson): '#' wall, 'X' door back to the
+  // castle, 'i' the Vantage (the completed-spiral plaque — bump ARMS the
+  // render + delivers the reveal), 'k' the Jabberwocky plaque (mirror-
+  // writing — 'j' is deliberately avoided: it's Trader Tessa's NPCS key,
+  // and the NPC sprite pass below isn't map-scoped, the v1.7.9 'Y' lesson),
+  // 'w' the White Queen, 'm' Humpty Dumpty ('h' likewise avoided: Little
+  // Pip's key), 't' the frozen Mad Tea-Party, 'P' start. None of i/k/w/m/t
+  // is an NPCS key, so the overworld NPC pass never draws them — they're
+  // drawn as a bespoke overlay instead (js/ui.js drawVantageOverlays).
+  MM.maps.VANTAGE = [
+    '###############',
+    '#.............#',
+    '#.k.........w.#',
+    '#.............#',
+    '#.............#',
+    '#......i......#',
+    '#.............#',
+    '#.............#',
+    '#.m.........t.#',
+    '#..X....P.....#',
+    '###############',
+  ];
+  MM.maps.VANTAGE_GLYPHS = { i: '🌀', k: '📜', w: '♕', m: '🥚', t: '🕕' };
+
   // ===== Wave 13 (P2): Your Own Room — behind the Wing's named doorway =====
   // A separate tiny map (mapId 'myroom', an OVERWORLD like the castle:
   // combat-free, no stamina). The TEMPLATE below is the fixed shell; the
@@ -1864,7 +1894,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   // NPC pass may run (its alphabet avoids every NPCS key), castle movement.
   // 'myroom' (Wave 13) is an overworld like the castle and the Wing: no
   // monsters ever, no stamina, its own alphabet block below.
-  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom', 'parlor', 'garden', 'menagerie', 'tweedle', 'numberline'];
+  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom', 'parlor', 'garden', 'menagerie', 'tweedle', 'numberline', 'vantage'];
   MM.maps.isOverworld = mapId => MM.maps.OVERWORLD_IDS.includes(mapId);
 
   // Gear gates (Clockwork Spire): exactly one of A/B/C is open at a time, and
@@ -2099,6 +2129,17 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ch === 'n') return 'stepStone';
       if (ch === 'i') return 'board';
       return 'hallFloor';                      // '.', 'P'
+    }
+    // Wave 24 (P4): the Vantage owns its whole alphabet, castle-style — a
+    // mirror-only, combat-free wonder room. 'i'/'k'/'w'/'m'/'t' all sit on
+    // plain floor (their emoji glyph is a live overlay in js/ui.js, not a
+    // baked sprite) — this block sits before every shared case (the v1.7.9
+    // 'Y' lesson), and each collision has a unit guard in tests/test.js.
+    // None of these is an NPCS key, so the overworld NPC pass never draws them.
+    if (mapId === 'vantage') {
+      if (ch === '#') return 'wall';
+      if (ch === 'X') return 'castleDoor';
+      return 'hallFloor';                      // '.', 'P', 'i', 'k', 'w', 'm', 't'
     }
     // Wave 13 (P2): Your Own Room owns its whole alphabet, castle-style.
     // Several letters mean OTHER things elsewhere ('B'/'R' gear tiles in the

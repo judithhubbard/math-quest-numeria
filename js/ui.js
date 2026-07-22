@@ -1043,6 +1043,89 @@ var MM = globalThis.MM = globalThis.MM || {};
     ctx.textAlign = 'center';
   }
 
+  // ---------- Wave 24 (Looking Glass P4.1): the completed spiral ----------
+  // Drawn ONLY in the Vantage room, ONLY once s.vantage.revealed is true (the
+  // bump-the-plaque "arm" moment) — a full-canvas overlay, fit to whatever
+  // room size is on screen (the room is fixed at VIEW_W×VIEW_H so this is a
+  // static, camera-free transform). PURE geometry (MM.data
+  // .completedSpiralGeometry) — nothing here rolls a die. Called AFTER the
+  // mirror-tint wash (like the zero-meridian glow) so the kingdom-vs-
+  // reflection colour contrast isn't flattened by it — the whole point of
+  // this image is telling the two halves apart. A "never-colour-alone"
+  // distinction too: the reflection is DASHED, the kingdom solid, so the
+  // two halves read even if a screen/eye can't tell gold from blue apart.
+  function drawCompletedSpiral() {
+    const geom = MM.data.completedSpiralGeometry();
+    const { chain, mirrorChain, stones, mirrorStones, bbox } = geom;
+    const pad = 40;
+    const availW = canvas.width - pad * 2, availH = canvas.height - pad * 2;
+    const bw = Math.max(0.001, bbox.maxX - bbox.minX), bh = Math.max(0.001, bbox.maxY - bbox.minY);
+    const scale = Math.min(availW / bw, availH / bh);
+    const offX = pad + (availW - bw * scale) / 2 - bbox.minX * scale;
+    const offY = pad + (availH - bh * scale) / 2 - bbox.minY * scale;
+    const px = x => x * scale + offX, py = y => y * scale + offY;
+    function stroke(pts, color, width, alpha, dash) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      if (dash) ctx.setLineDash(dash);
+      ctx.beginPath();
+      pts.forEach((p, i) => { const X = px(p.x), Y = py(p.y); if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y); });
+      ctx.stroke();
+      ctx.restore();
+    }
+    // soft glow, then the bright curve — the kingdom (warm gold, SOLID) and
+    // its reflection (cool cyan, DASHED), the SAME shape, turning opposite ways.
+    stroke(chain, '#ffcb3d', 11, 0.20);
+    stroke(mirrorChain, '#4ad8ff', 11, 0.20);
+    stroke(chain, '#ffe9a8', 3.4, 1);
+    stroke(mirrorChain, '#bdf3ff', 3.2, 1, [7, 6]);
+    function drawStones(list, fill, strokeCol) {
+      list.forEach(st => {
+        const X = px(st.fx), Y = py(st.fy);
+        const r = 4 + st.size * 0.42;
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = strokeCol;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(X, Y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      });
+    }
+    drawStones(stones, '#fff6d8', '#8a7a2a');
+    drawStones(mirrorStones, '#dbf8ff', '#1f8fae');
+    // the shared center stone (stone 0, on the mirror line itself) gets one
+    // more ring, so the join reads clearly as ONE figure, not two abutting ones.
+    const c = geom.center;
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(px(c.x), py(c.y), 9, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+  // The Vantage room's Carroll-cast emoji glyphs — bumpable tiles, never
+  // grid-baked sprites (the same idiom as the Menagerie/Faculty overlays).
+  function drawVantageOverlays(camX, camY, now, s) {
+    const grid = s.grid;
+    for (let y = 0; y < grid.length; y++) {
+      for (let x = 0; x < grid[y].length; x++) {
+        const glyph = MM.maps.VANTAGE_GLYPHS[grid[y][x]];
+        if (!glyph) continue;
+        const bob = Math.sin(now / 450 + x * 3) * 1.5;
+        ctx.font = '26px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(glyph, (x - camX) * TILE + TILE / 2, (y - camY) * TILE + TILE / 2 + 9 + bob);
+      }
+    }
+  }
+
   function drawWorld(s, now) {
     const grid = s.grid;
     const H = grid.length, W = grid[0].length;
@@ -1316,6 +1399,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     drawTurningStones(camX, camY, now);
     if (s.mapId === 'wing') drawWingOverlays(camX, camY, now, s);
     if (s.mapId === 'tweedle') drawTweedleOverlays(camX, camY, s);
+    if (s.mapId === 'vantage') drawVantageOverlays(camX, camY, now, s);
 
     // Scout: secret walls on this floor shimmer for 10s
     if (MM.engine.scoutActive && MM.engine.scoutActive()) {
@@ -1634,6 +1718,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.restore();
     }
+
+    // Wave 24 (P4.1): the completed spiral — drawn ON TOP of the mirror tint
+    // (like the zero-meridian below) so the kingdom/reflection colour
+    // contrast survives it. Only in the Vantage room, only once armed.
+    if (s.mapId === 'vantage' && s.vantage && s.vantage.revealed) drawCompletedSpiral();
 
     // Wave 23 (P3.5.1): the zero-meridian — drawn ON TOP of the mirror tint so
     // it reads clearly. Through the glass WITH negatives on, a glowing N–S line

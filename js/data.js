@@ -1262,6 +1262,98 @@ var MM = globalThis.MM = globalThis.MM || {};
       'east of zero and west of it, is yours to walk.',
   };
 
+  // ===== Wave 24 (Looking Glass P4 — the finale): the Vantage =====
+  // The completed spiral (the capstone reveal) + a tight Carroll wonder cast.
+  // ALL of it is WONDER — look, never test; no quiz ever fires from any of
+  // this. Read only inMirror() (js/engine.js E.vantageDoor gates entry).
+
+  // A REAL string transform: mirror-writing. A mirror reverses left-right, so
+  // "printed" mirror-writing is each LINE's characters reversed (line order —
+  // top to bottom — is untouched, since a vertical mirror doesn't flip that).
+  // Pure + involutive: mirrorWrite(mirrorWrite(x)) === x for any line, which
+  // is exactly "readable only by reflection" made into a checkable fact.
+  MM.data.mirrorWrite = function (text) {
+    return text.split('\n').map(line => line.split('').reverse().join('')).join('\n');
+  };
+
+  // The Jabberwocky's first stanza (Lewis Carroll, "Through the Looking-Glass",
+  // 1871 — public domain), verbatim. Printed on the plaque in mirror-writing;
+  // held up to the glass, it reads true.
+  MM.data.JABBERWOCKY_TRUE =
+    "'Twas brillig, and the slithy toves\n" +
+    'Did gyre and gimble in the wabe;\n' +
+    'All mimsy were the borogoves,\n' +
+    'And the mome raths outgrabe.';
+  MM.data.jabberwockyPlaqueText = function () {
+    const printed = MM.data.mirrorWrite(MM.data.JABBERWOCKY_TRUE);
+    return {
+      title: '📜 A plaque, printed backwards',
+      body: 'Carved into the stone, every line runs the wrong way — as if the mason copied it straight out of a ' +
+        `mirror:<br><br><span style="font-family:monospace">${printed.replace(/\n/g, '<br>')}</span><br><br>` +
+        `Nonsense, read straight on. But you happen to be standing in front of a looking glass — so you hold the ` +
+        `plaque up to it, and the backwards words turn frontwards:<br><br>` +
+        `<i>${MM.data.JABBERWOCKY_TRUE.replace(/\n/g, '<br>')}</i><br><br>` +
+        `<span class="dim">It still doesn't mean anything. It means it PERFECTLY, though — that's the trick of a ` +
+        `good nonsense poem, and an even better mirror.</span>`,
+    };
+  };
+
+  // P4.1 — THE COMPLETED SPIRAL. The capstone: the whole game built to "the
+  // kingdom was a spiral all along" (the ending's own reveal); the mirror's
+  // revelation is that the spiral was only HALF the figure. Sincere register
+  // (STORY_BIBLE hard rule 4 — endings stay sincere; no jokes here).
+  MM.data.VANTAGE_ENTER_LINE =
+    '🌀 A quiet plaza, laid out like the Turning Stones back home — but the glass has been at work on it.';
+  MM.data.COMPLETED_SPIRAL_REVEAL =
+    'From here, the plaza looks like it always has — the old stones, curling out from the center, one for every ' +
+    'tangle you ever set right. <b>1, 1, 2, 3, 5, 8, 13.</b><br><br>' +
+    'But the glass does what glasses do here. Look again, and a <b>second</b> curl grows out from that very same ' +
+    'center stone — the same shape exactly, turning the <b>other</b> way, coiling out through the mirror instead of ' +
+    'into it.<br><br>' +
+    'Numeria told you once that the kingdom was a spiral all along. It undersold itself. <b>The kingdom was only ' +
+    'half the spiral.</b> And its reflection was the other half all along — joined at the one stone that never ' +
+    'moved, the two of them making a single, complete, <b>symmetric</b> whole.<br><br>' +
+    '<i>Zero was never an ending. It was always the middle.</i>';
+  MM.data.COMPLETED_SPIRAL_AGAIN =
+    'The two curls still meet at the center stone, turning opposite ways, same as always.<br><br>' +
+    '<i>Half of a whole is still whole — you only ever needed to know to look for the other half.</i>';
+
+  // P4.2 — the Carroll wonder cast. Bounded pools, deadpan/warm register,
+  // jokes always on the world (Carroll's own characters), never the kid.
+  // The White Queen: lives backwards, and recites the number-line as a house
+  // rule. The "jam" line is Carroll verbatim; the number-line gloss is ours.
+  MM.data.WHITE_QUEEN_LINES = [
+    '"The rule is, jam to-morrow and jam yesterday — but never jam to-day," the White Queen says, with the total ' +
+    'serenity of someone who has never once been surprised by a Tuesday. "It\'s a simple enough rule, dear. ' +
+    'To-day is the zero. Yesterday was <b>−1</b>. To-morrow is <b>+1</b>. Jam simply prefers to keep its distance."',
+    '"I remember it perfectly — you\'re about to ask me what day it is." She says this before you\'ve so much as ' +
+    'opened your mouth, looking rather pleased with her own foresight. "Memory works both ways, through the glass. ' +
+    'It\'s only a shame it never works <i>usefully</i> both ways."',
+    '"Living backwards does take practice," the White Queen admits, pouring a cup of tea that will, any moment ' +
+    'now, become full. "One finds the twinges before the pin, and the crying before the pricked finger. ' +
+    'One gets almost used to it. Chess helps — a pawn always knows it\'s walking toward being a queen, even before ' +
+    'it\'s walked a single square."',
+  ];
+  // Humpty Dumpty: the contrarian rules-explainer. "When I use a word" is
+  // Carroll verbatim; the "less than nothing" bluster is ours, in his voice.
+  MM.data.HUMPTY_LINES = [
+    '"When I use a word," Humpty Dumpty announces, before you\'ve said a single one, "it means just what I choose ' +
+    'it to mean — neither more nor less." He settles, precariously, on his wall. "Take \'less than nothing.\' Most ' +
+    'people act as though that\'s nonsense. I\'ve <b>decided</b> it isn\'t. So it isn\'t. That\'s really all there is to it."',
+    '"The question is," he says, glowering down at a number line only he appears to be able to see, "which is to be ' +
+    'master — the number, or you?" He does not wait for an answer. He is fairly confident he already knows it.',
+  ];
+  // The Mad Tea-Party: frozen at always-six-o'clock — a cozy, stakes-free
+  // rest spot, an ANTI-timer (funny BECAUSE nothing is rushed). NO time
+  // state anywhere near this — it is exactly as frozen as it claims to be.
+  MM.data.TEAPARTY_LINE =
+    '🕕 The table is set for a great many more guests than are sitting at it, and every single teacup is exactly ' +
+    'half full. Nobody here is in any hurry — nobody here has <b>ever</b> been in any hurry.<br><br>' +
+    '"It\'s always six o\'clock," the March Hare explains, topping up a cup that was never emptied. "There\'s no ' +
+    'time to wash the things between courses, you understand — so we simply don\'t, and there\'s no time, and ' +
+    'so we simply don\'t, and — well. You see how it goes. Round and round, like the nicest kind of spiral."<br><br>' +
+    '<span class="dim">Sit as long as you like. The tea stays exactly this warm, forever.</span>';
+
   // P2.1 — reversed NPC greetings (a curated, occasional aside, not every
   // line — see js/engine.js E.MIRROR_GREETING_CHANCE). {name} is the NPC's
   // plain name, no emoji.
@@ -2435,6 +2527,48 @@ var MM = globalThis.MM = globalThis.MM || {};
   // Date.now() or a frame counter, so it never moves on its own
   // (Calm-Mode-safe by construction — there is nothing to turn off).
   MM.data.stoneSkew = i => ((i * 47) % 60) - 30; // degrees, always non-zero-ish
+
+  // ---------- Wave 24 (Looking Glass P4.1): the COMPLETED spiral ----------
+  // A pure reflection of the existing chain/stones — no Math.random anywhere
+  // in this geometry, so it is exactly reproducible and unit-checkable. The
+  // mirror axis is the vertical line through TURNING_STONES_CENTER (stone 0,
+  // P0 — the spiral's own anchor): x' = 2*C.x - x, y unchanged. A LINE
+  // reflection (not a 180° rotation) genuinely reverses chirality — the
+  // mirrored curl really does turn the other way, a true mathematical fact,
+  // not just a relabeled copy — and both curls share the one stone that sits
+  // ON the mirror line, so they read as one figure, not two.
+  // The last arc (radius 13, plus its six unnumbered curve stones and the
+  // tip nub) is, by construction, roughly as much arc-length as ALL six
+  // earlier turns combined — accurate to the true golden spiral, but at
+  // "vantage plaque" scale it swamps the render into one big blank curve
+  // with a small illegible tangle where the actual COILING is. Cropping the
+  // vantage's icon to the six tighter turns (radii 1,1,2,3,5,8 — every
+  // NUMBERED stone through "8", corner-to-corner with arc 6) keeps the
+  // shape reading as a spiral at a glance; the full 13-armed curl is still
+  // exactly what draws in the overworld (js/ui.js drawTurningStones is
+  // untouched). Design-review note (2026-07-21 screenshot audit): the
+  // uncropped version read as a big "U" with a cramped scribble, not a
+  // double spiral — this crop is the fix.
+  MM.data.COMPLETED_SPIRAL_CUTOFF_T = 6;
+  MM.data._completedSpiralGeom = null;
+  MM.data.completedSpiralGeometry = function () {
+    if (MM.data._completedSpiralGeom) return MM.data._completedSpiralGeom;
+    const C = MM.data.TURNING_STONES_CENTER;
+    const cutoff = MM.data.COMPLETED_SPIRAL_CUTOFF_T;
+    const chain = MM.data.spiralChain().filter(p => p.t <= cutoff);
+    const mirrorChain = chain.map(p => ({ x: 2 * C.x - p.x, y: p.y, t: p.t }));
+    const stones = MM.data.TURNING_STONES.filter(st => st.t <= cutoff);
+    const mirrorStones = stones.map(st => ({
+      i: st.i, x: 2 * C.x - st.x, y: st.y, fx: 2 * C.x - st.fx, fy: st.fy, t: st.t, size: st.size, label: st.label,
+    }));
+    const all = chain.concat(mirrorChain);
+    const bbox = {
+      minX: Math.min(...all.map(p => p.x)), maxX: Math.max(...all.map(p => p.x)),
+      minY: Math.min(...all.map(p => p.y)), maxY: Math.max(...all.map(p => p.y)),
+    };
+    MM.data._completedSpiralGeom = { center: C, chain, mirrorChain, stones, mirrorStones, bbox };
+    return MM.data._completedSpiralGeom;
+  };
 
   MM.data.weaponById = id => MM.data.WEAPONS.find(w => w.id === id) || MM.data.WEAPONS[0];
   MM.data.armorById = id => MM.data.ARMOR.find(a => a.id === id) || MM.data.ARMOR[0];
