@@ -4791,5 +4791,172 @@ for (const skill of skills) {
   E.state = null;
 }
 
+// ========== Wave 22 (Looking Glass P3): negatives enter the mirror ==========
+// The two things that matter most: (1) signed arithmetic is EXACT; (2) the
+// gate is AIRTIGHT — a negative never appears unless inMirror() AND the parent
+// switch. Tested hardest.
+{
+  const E = MM.engine;
+  const P = MM.problems;
+
+  // ---- (1) EXACT signed arithmetic — a broad correctness table ----
+  // signedBuild computes the answer from the SAME operands it renders, so the
+  // graded answer can never disagree with the displayed problem. The table
+  // spans add/sub/mult across both signs; the answer must equal the true result.
+  const SIGNED_TABLE = [
+    [7, -3, '+', 4], [-4, 5, '+', 1], [-3, -6, '+', -9], [6, 4, '+', 10], [-2, 2, '+', 0], [0, -5, '+', -5],
+    [5, -8, '−', 13], [3, -3, '−', 6], [-5, -2, '−', -3], [-7, 4, '−', -11], [9, 12, '−', -3], [-6, -6, '−', 0],
+    [-4, 2, '×', -8], [4, -2, '×', -8], [-4, -2, '×', 8], [6, -1, '×', -6], [-3, 3, '×', -9], [-9, -9, '×', 81],
+    [7, -6, '×', -42], [-8, 5, '×', -40],
+  ];
+  for (const [a, b, op, exp] of SIGNED_TABLE) {
+    const p = P.signedBuild(a, b, op);
+    if (!(p.answer.d === 1 && p.answer.n === exp)) fail(`W22 signed table: ${a} ${op} ${b} should be ${exp}, got ${p.answer.n}/${p.answer.d}`);
+    // the displayed problem must round-trip through the REAL checker: typing the
+    // true answer grades correct, typing its opposite does not.
+    if (!P.checkAnswer(p, String(exp))) fail(`W22 signed table: checkAnswer must accept the true result for ${a} ${op} ${b}`);
+    if (exp !== 0 && P.checkAnswer(p, String(-exp))) fail(`W22 signed table: checkAnswer must REJECT the wrong sign for ${a} ${op} ${b}`);
+    // the displayed minus is the unicode U+2212, never an ASCII hyphen
+    if (/-/.test(p.text)) fail(`W22 signed table: the problem text must use the unicode minus, not an ASCII hyphen (${p.text})`);
+  }
+  // ---- fuzz: EVERY randomly generated signed problem is exact + shows a negative ----
+  for (const skill of ['addsub_facts', 'muldiv_facts']) {
+    for (let tier = 1; tier <= 3; tier++) {
+      for (let i = 0; i < 800; i++) {
+        const p = P.signed(skill, tier);
+        const truth = p.op === '+' ? p.a + p.b : p.op === '−' ? p.a - p.b : p.a * p.b;
+        if (!(p.answer.d === 1 && p.answer.n === truth)) fail(`W22 signed fuzz: ${p.a} ${p.op} ${p.b} answer ${p.answer.n}/${p.answer.d} != ${truth}`);
+        if (p.skill !== skill) fail('W22 signed fuzz: a signed problem must record under the requested skill');
+        if (!p.signed) fail('W22 signed fuzz: a signed problem must carry the signed flag');
+        // a negative must genuinely appear somewhere (an operand or the result)
+        if (!(p.a < 0 || p.b < 0 || truth < 0)) fail(`W22 signed fuzz: no negative visible in ${p.text}`);
+        if (/-/.test(p.text)) fail(`W22 signed fuzz: ASCII hyphen leaked into ${p.text}`);
+      }
+    }
+  }
+
+  // ---- (2) AIRTIGHT gate: negativesOn() only when inMirror() AND switch on ----
+  if (E.negativesOn({ ngPlus: 0, parent: { negatives: true } })) fail('W22 gate: NOT in the mirror → negatives OFF even with the switch on');
+  if (E.negativesOn({ ngPlus: 1, parent: { negatives: false } })) fail('W22 gate: switch OFF → negatives OFF even in the mirror');
+  if (E.negativesOn({ ngPlus: 1, parent: {} })) fail('W22 gate: a pre-Wave-22 save (no switch field) defaults OFF in the mirror');
+  if (E.negativesOn({ ngPlus: 0, parent: {} })) fail('W22 gate: normal play (no mirror, no switch) has no negatives');
+  if (!E.negativesOn({ ngPlus: 1, parent: { negatives: true } })) fail('W22 gate: mirror + switch ON → negatives ON');
+
+  // ---- the gate holds through the REAL combat/gate pickers ----
+  // A negative VALUE (not the subtraction glyph — normal "7 − 3" shows a
+  // unicode minus too): the signed flag, a negative answer, or a negative operand.
+  const hasNeg = pr => !!pr.signed || (pr.answer && pr.answer.n < 0) || pr.a < 0 || pr.b < 0;
+  // switch ON in the mirror: signed problems DO appear (backbone works)
+  E.state = { ngPlus: 1, parent: { negatives: true, topics: {} }, mastery: {}, badges: {} };
+  let sawSigned = 0;
+  for (let i = 0; i < 400; i++) { if (hasNeg(MM.mastery.combatProblem(E.state, 'addsub_facts'))) sawSigned++; }
+  if (sawSigned === 0) fail('W22 gate: with the switch ON in the mirror, signed combat problems must appear');
+  // switch OFF in the mirror: ZERO negatives, ever
+  E.state = { ngPlus: 1, parent: { negatives: false, topics: {} }, mastery: {}, badges: {} };
+  for (let i = 0; i < 1200; i++) {
+    if (hasNeg(MM.mastery.combatProblem(E.state, 'addsub_facts'))) { fail('W22 gate: switch OFF must yield ZERO negatives in combat'); break; }
+    if (hasNeg(MM.mastery.pickBossProblem(E.state, 1, false))) { fail('W22 gate: switch OFF must yield ZERO negatives at a boss gate'); break; }
+  }
+  // NOT in the mirror (normal play), switch on: still ZERO negatives
+  E.state = { ngPlus: 0, parent: { negatives: true, topics: {} }, mastery: {}, badges: {} };
+  for (let i = 0; i < 1200; i++) {
+    if (hasNeg(MM.mastery.combatProblem(E.state, 'muldiv_facts'))) { fail('W22 gate: normal play (not in the mirror) must yield ZERO negatives even with the switch on'); break; }
+  }
+
+  // ---- (3) the Tweedle socket: a + b === 0, every inverse pair, non-zero rejected ----
+  if (!E.tweedleEquationOk(3, -3)) fail('W22 tweedle: 3 + (−3) is a valid inverse pair');
+  if (!E.tweedleEquationOk(-5, 5)) fail('W22 tweedle: (−5) + 5 is a valid inverse pair (distinct second pair)');
+  if (!E.tweedleEquationOk(-4, 4)) fail('W22 tweedle: (−4) + 4 is a valid inverse pair');
+  if (E.tweedleEquationOk(3, -4)) fail('W22 tweedle: a non-zero sum (3 + (−4)) must be REJECTED');
+  if (E.tweedleEquationOk(3, 3)) fail('W22 tweedle: two same-sign numbers must be REJECTED');
+  if (E.tweedleEquationOk(null, 3)) fail('W22 tweedle: an empty socket must not complete');
+
+  // the room completes when an inverse pair sits in the two sockets, and pays out
+  {
+    let dlg = null; const realDialog = MM.ui.dialog;
+    MM.ui.dialog = (t) => { dlg = t; };
+    E.state = { ngPlus: 1, parent: { negatives: true }, gold: 0, calmMode: true, mapId: 'tweedle', px: 8, py: 10, equipped: { ring: null, amulet: null }, charmsOn: [], enchants: {} };
+    E.state.grid = MM.maps.parse(MM.maps.TWEEDLE, '#');
+    const t = E.ensureTweedle();
+    const [sa, sb] = MM.maps.TWEEDLE_ROOM.sockets;
+    // seat +5 and −5 into the two sockets
+    const s1 = t.slabs.find(sl => sl.num === 5), s2 = t.slabs.find(sl => sl.num === -5);
+    s1.x = sa.x; s1.y = sa.y; s1.under = '0';
+    s2.x = sb.x; s2.y = sb.y; s2.under = '0';
+    E.tweedleCheckSockets();
+    if (!t.solved) fail('W22 tweedle: an inverse pair in both sockets must complete the room');
+    if (!s1.locked || !s2.locked) fail('W22 tweedle: the cancelled pair must lock into place');
+    if (E.state.gold <= 0) fail('W22 tweedle: completing the room pays a reward');
+    if (dlg == null) fail('W22 tweedle: completing the room shows the cancel-to-zero moment');
+    // a distinct second inverse pair also completes a fresh room (every valid pair)
+    E.state = { ngPlus: 1, parent: { negatives: true }, gold: 0, calmMode: true, mapId: 'tweedle', px: 8, py: 10, equipped: { ring: null, amulet: null }, charmsOn: [], enchants: {} };
+    E.state.grid = MM.maps.parse(MM.maps.TWEEDLE, '#');
+    const t2 = E.ensureTweedle();
+    const p1 = t2.slabs.find(sl => sl.num === 3), p2 = t2.slabs.find(sl => sl.num === -3);
+    p1.x = sa.x; p1.y = sa.y; p1.under = '0';
+    p2.x = sb.x; p2.y = sb.y; p2.under = '0';
+    E.tweedleCheckSockets();
+    if (!t2.solved) fail('W22 tweedle: a DISTINCT inverse pair (3 + (−3)) must also complete the room');
+    // a non-inverse pair leaves the room unsolved (never punishes, just nothing)
+    E.state = { ngPlus: 1, parent: { negatives: true }, gold: 0, calmMode: true, mapId: 'tweedle', px: 8, py: 10, equipped: { ring: null, amulet: null }, charmsOn: [], enchants: {} };
+    E.state.grid = MM.maps.parse(MM.maps.TWEEDLE, '#');
+    const t3 = E.ensureTweedle();
+    const q1 = t3.slabs.find(sl => sl.num === 3), q2 = t3.slabs.find(sl => sl.num === -4);
+    q1.x = sa.x; q1.y = sa.y; q1.under = '0';
+    q2.x = sb.x; q2.y = sb.y; q2.under = '0';
+    E.tweedleCheckSockets();
+    if (t3.solved) fail('W22 tweedle: a non-inverse pair must NOT complete the room');
+    MM.ui.dialog = realDialog;
+  }
+
+  // ---- the negatives switch persists + migrates (pre-Wave-22 save defaults OFF) ----
+  {
+    // a pre-Wave-22 save has no s.parent.negatives → migrates to OFF on load
+    localStorage.setItem('mathmaker2_save_w22migrant', JSON.stringify({
+      version: 4, name: 'w22migrant', hp: 100, maxhp: 100, stamina: 100, maxStamina: 100,
+      gold: 100, level: 5, xp: 0, difficulty: 'hero', parent: { pin: null, topics: {} },
+      taskIndex: 1, haveItem: false, tasksDone: [], ngPlus: 0, endingDone: false,
+      mastery: {}, badges: {}, bestiary: { seen: {}, kills: {}, gauntlet: {} },
+      continent: 'west', isles: { lenses: {}, keys: {}, egg: null, pet: null },
+      charmsOn: [], opened: {}, bossesDefeated: {}, defeatedAt: {}, streak: 0,
+      totals: { answered: 0, correct: 0 }, worldPos: null, seenBattleHelp: true,
+      gear: { weapon: ['stick'], body: ['clothes'], helmet: [], boots: [], ring: [], amulet: [] },
+      equipped: { weapon: 'stick', body: 'clothes', helmet: null, boots: null, ring: null, amulet: null }, enchants: {},
+      items: { food: {}, treasures: [], charms: [], gems: [] },
+    }));
+    MM.engine.load('w22migrant');
+    if (MM.engine.state.parent.negatives !== false) fail('W22 migrate: a pre-Wave-22 save must default the negatives switch to OFF');
+    // set it on, save, reload — it persists
+    MM.engine.state.parent.negatives = true;
+    MM.engine.save();
+    MM.engine.load('w22migrant');
+    if (MM.engine.state.parent.negatives !== true) fail('W22 persist: the negatives switch must survive save/load');
+  }
+
+  // ---- the mirror round-trip carries the switch state (parent is a KEPT field) ----
+  {
+    const realEW = MM.engine.enterWorld; MM.engine.enterWorld = () => {};
+    MM.engine.state = {
+      name: 'w22rt', ngPlus: 0, goldenSnapshot: null, endingDone: true,
+      taskIndex: 14, tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], haveItem: false,
+      opened: {}, bossesDefeated: {}, defeatedAt: {}, unsealed: {}, gearState: {}, repairSites: {},
+      enrollSeen: true, continent: 'west', worldPos: { x: 5, y: 5 },
+      isles: { keys: {}, lenses: {}, lampLit: true, spireDone: true, hallsDone: true, breakwaterDone: true, gullwrackRebuilt: true, egg: null, pet: null },
+      level: 18, xp: 0, maxhp: 100, hp: 100, maxStamina: 100, stamina: 100,
+      badges: {}, petHats: [], tangles: null, monsters: [], parent: { pin: null, topics: {}, negatives: true },
+    };
+    const s = MM.engine.state;
+    if (E.negativesOn(s)) fail('W22 round-trip: before stepping through, negatives are OFF (not in the mirror) even with the switch on');
+    MM.engine.startGolden();
+    if (s.parent.negatives !== true) fail('W22 round-trip: startGolden must carry the negatives switch into the mirror');
+    if (!E.negativesOn(s)) fail('W22 round-trip: in the mirror with the switch on, negatives are ON');
+    MM.engine.returnToFinishedKingdom();
+    if (s.parent.negatives !== true) fail('W22 round-trip: stepping back must keep the switch state (parent is a KEPT field)');
+    if (E.negativesOn(s)) fail('W22 round-trip: back in the finished kingdom, negatives are OFF again');
+    MM.engine.enterWorld = realEW;
+    MM.engine.state = null;
+  }
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');
 process.exit(fails ? 1 : 0);

@@ -194,7 +194,27 @@ var MM = globalThis.MM = globalThis.MM || {};
     const extended = MM.problems.braveStep(base);
     return { base, extended, eligible: extended !== base };
   }
+  // Wave 22 (Looking Glass P3): the AIRTIGHT negatives gate. A signed problem
+  // is generated ONLY when E.negativesOn(state) is true — inMirror() AND the
+  // parent switch — and only for the two small-magnitude facts families. So a
+  // switch-off mirror run and all of normal (non-mirror) play produce exactly
+  // zero negatives (the marathon, non-mirror, sees none). Signed problems are
+  // single-form (no brave ⚡ ladder yet): the dual fields point at themselves,
+  // eligible false, which battle.js already handles.
+  const SIGN_ELIGIBLE = { addsub_facts: true, muldiv_facts: true };
+  const SIGN_RATE = 0.55;
+  function signEligible(skill) { return !!SIGN_ELIGIBLE[skill]; }
+  function negativesActive(state) {
+    return !!(MM.engine && MM.engine.negativesOn && MM.engine.negativesOn(state));
+  }
+  function maybeSignedQuick(state, skill) {
+    if (!signEligible(skill) || !negativesActive(state) || Math.random() >= SIGN_RATE) return null;
+    const p = MM.problems.signed(skill, Math.random() < 0.5 ? 1 : 2, { quick: true });
+    return Object.assign({}, p, { _dualBase: p, _dualExtended: p, _dualEligible: false });
+  }
   function combatProblem(state, skill) {
+    const signed = maybeSignedQuick(state, skill);
+    if (signed) return signed;
     const { base, extended, eligible } = combatDualForm(state, skill);
     const active = (isBrave(state) && eligible) ? extended : base;
     return Object.assign({}, active, { _dualBase: base, _dualExtended: extended, _dualEligible: eligible });
@@ -241,6 +261,12 @@ var MM = globalThis.MM = globalThis.MM || {};
   // happens exactly as before; the tail guarantees the brave delta is never
   // zero even once the tier lift caps at 3.
   function bossDualForm(state, skill, brave) {
+    // Wave 22: a full-depth gate MAY be signed too, on the same airtight gate.
+    if (signEligible(skill) && negativesActive(state) && Math.random() < SIGN_RATE) {
+      const p = MM.problems.signed(skill, gateTier(state, skill, brave));
+      if (!brave) return p;
+      return Object.assign({}, p, { _dualBase: p, _dualExtended: p, _dualEligible: false });
+    }
     const base = MM.problems.generate(skill, gateTier(state, skill, brave));
     if (!brave) return base;
     const extended = MM.problems.tailStep(base);

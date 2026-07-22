@@ -999,6 +999,50 @@ var MM = globalThis.MM = globalThis.MM || {};
     });
   }
 
+  // ---------- Wave 22 (Looking Glass P3): the Tweedle room ----------
+  // A signed slab: a cool-tinted stone carrying +n or −n (the minus is the
+  // displayed U+2212, drawn clearly — never a stray dash). A locked slab (seated
+  // in a socket) gets a soft blue glow ring so the cancelled pair reads as done.
+  const TWEEDLE_SLAB_PAL = { F: '#6f7f9c', f: '#59697f' };   // cool mirror-slab
+  function slabSignLabel(n) { return n < 0 ? '−' + (-n) : '+' + n; }
+  function drawTweedleTile(x, y, vx, vy, s) {
+    const E = MM.engine;
+    ctx.drawImage(MM.sprites.get('hallFloor', { scale: 3 }), vx * TILE, vy * TILE);
+    const slab = E.tweedleSlabAt && E.tweedleSlabAt(x, y);
+    ctx.drawImage(MM.sprites.get('slab', { palette: TWEEDLE_SLAB_PAL, scale: 3 }), vx * TILE, vy * TILE);
+    if (slab && slab.locked) {
+      ctx.save();
+      ctx.strokeStyle = '#8fd0ff';
+      ctx.globalAlpha = 0.8;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(vx * TILE + 3, vy * TILE + 3, TILE - 6, TILE - 6);
+      ctx.restore();
+    }
+    if (slab && slab.num != null) {
+      const label = slabSignLabel(slab.num);
+      ctx.font = '10px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#141221';
+      ctx.fillText(label, vx * TILE + TILE / 2 + 1, vy * TILE + TILE / 2 + 5);
+      ctx.fillStyle = '#eaf3ff';
+      ctx.fillText(label, vx * TILE + TILE / 2, vy * TILE + TILE / 2 + 4);
+    }
+  }
+  function drawTweedleOverlays(camX, camY, s) {
+    // the carved equation on the floor: ▢ + ▢ = 0, drawn between the sockets
+    const room = MM.maps.TWEEDLE_ROOM;
+    const [sa, sb] = room.sockets;
+    const midX = ((sa.x + sb.x) / 2 - camX) * TILE + TILE / 2;
+    const rowY = (sa.y - camY) * TILE + TILE / 2 + 5;
+    ctx.font = '11px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#5a6478';
+    ctx.fillText('+', midX, rowY);
+    ctx.textAlign = 'left';
+    ctx.fillText('= 0', (sb.x + 1 - camX) * TILE + 6, rowY);
+    ctx.textAlign = 'center';
+  }
+
   function drawWorld(s, now) {
     const grid = s.grid;
     const H = grid.length, W = grid[0].length;
@@ -1053,8 +1097,11 @@ var MM = globalThis.MM = globalThis.MM || {};
         // own offsets/overlays (bob, lean, slump, numeral) — handled here
         // instead of the default draw, exactly like the mimic's breathing.
         const wingSpecial = s.mapId === 'wing' && (ch === 'w' || ch === 'U');
+        const tweedleSpecial = s.mapId === 'tweedle' && ch === 'U';
         if (wingSpecial) {
           drawWingTile(ch, x, y, vx, vy, now, s);
+        } else if (tweedleSpecial) {
+          drawTweedleTile(x, y, vx, vy, s);
         } else if (isMimic && !s.calmMode) {
           const near = Math.abs(x - s.px) <= 2 && Math.abs(y - s.py) <= 2;
           const bob = near ? (Math.floor(performance.now() / 550) % 2 ? 3 : 0)
@@ -1095,7 +1142,9 @@ var MM = globalThis.MM = globalThis.MM || {};
             ctx.globalAlpha = 1;
           }
         }
-        if (!inDungeon && '1234567890'.includes(ch)) {
+        // (the Tweedle room's '0' tiles are equation SOCKETS, not dungeon
+        // entrances — they must never wear a "10" entrance numeral)
+        if (!inDungeon && s.mapId !== 'tweedle' && '1234567890'.includes(ch)) {
           const label = ch === '0' ? '10' : ch;
           ctx.font = '9px "Press Start 2P", monospace';
           ctx.textAlign = 'center';
@@ -1241,6 +1290,7 @@ var MM = globalThis.MM = globalThis.MM || {};
 
     drawTurningStones(camX, camY, now);
     if (s.mapId === 'wing') drawWingOverlays(camX, camY, now, s);
+    if (s.mapId === 'tweedle') drawTweedleOverlays(camX, camY, s);
 
     // Scout: secret walls on this floor shimmer for 10s
     if (MM.engine.scoutActive && MM.engine.scoutActive()) {
@@ -2475,6 +2525,15 @@ var MM = globalThis.MM = globalThis.MM || {};
           for real magnitude comparison and larger running sums. <span class="dim">Off = single-digit (default).
           The Parlor is casual play; it is never graded.</span>
         </label>
+        <h3>🪞 Negative numbers (Looking Glass)</h3>
+        <label class="topic-check">
+          <input type="checkbox" id="negativesCheck" ${s.parent.negatives ? 'checked' : ''}>
+          Negative numbers in the Looking Glass — once your child has stepped through the looking glass, let the
+          mirror world include <b>negatives</b>: signed problems in battles and doors (−3, 7 + (−2), −4 × 2) and the
+          Tweedles' cancel-to-zero puzzle. <span class="dim">Integers are about 6th-grade, the top of Numeria's
+          range — so this stays OFF until you turn it on, and even then negatives appear ONLY through the looking
+          glass, never in the ordinary kingdom. A wrong signed answer just shows the worked solution, as always.</span>
+        </label>
         <h3>Current progress</h3>
         <p style="font-size:14px">📗 On task <b>${Math.min(s.taskIndex, 13)}</b> ·
           answered <b>${s.totals.correct}/${s.totals.answered}</b> correctly overall.
@@ -2520,6 +2579,7 @@ var MM = globalThis.MM = globalThis.MM || {};
       s.bigText = document.getElementById('bigTextCheck').checked;
       document.body.classList.toggle('big-text', s.bigText);
       s.parent.parlorTwoDigit = document.getElementById('parlorTwoDigitCheck').checked;   // Wave 15
+      s.parent.negatives = document.getElementById('negativesCheck').checked;             // Wave 22
       MM.engine.save();
       closeModal();
       const n = Object.values(map).filter(Boolean).length;

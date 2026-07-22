@@ -317,6 +317,11 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.parlor.hats == null) s.parlor.hats = {};
     if (s.parlor.back == null) s.parlor.back = 'default';
     if (s.parent && s.parent.parlorTwoDigit == null) s.parent.parlorTwoDigit = false;
+    // Wave 22 (Looking Glass P3): the negatives switch — DEFAULT OFF. A
+    // pre-Wave-22 save has no s.parent.negatives, so it migrates to OFF (no
+    // negatives until a grown-up opts in). s.parent is a KEPT field across the
+    // mirror round-trip, so this choice carries through startGolden/return.
+    if (s.parent && s.parent.negatives == null) s.parent.negatives = false;
     // Wave 16: the Kitchen Garden — a pre-Wave-16 save migrates clean (empty
     // plot, no ingredients, all counters at zero). The garden/kitchen record
     // under existing skills (muldiv_facts / fractions_as / fractions_m), which
@@ -1336,6 +1341,10 @@ var MM = globalThis.MM = globalThis.MM || {};
       `<span class="dim">From here you can watch the whole kingdom, and remember it whole.</span>`,
       [
         { label: '🌀 Watch "The Kingdom, Untangled" again', primary: true, onClick: () => E.playEnding() },
+        // Wave 22 (Looking Glass P3): while through the glass, the throne opens
+        // onto the Tweedles' additive-inverse room (E.tweedleDoor gates it —
+        // negatives on → the room; off → the gentle grown-up note).
+        ...(E.inMirror() ? [{ label: '🎭 Visit the Tweedles\' room', onClick: () => E.tweedleDoor() }] : []),
         { label: '🪞 Step through the looking glass', onClick: () => E.goldenPrompt() },
         { label: 'Just sit a while', onClick: () => {} },
       ]);
@@ -1359,6 +1368,18 @@ var MM = globalThis.MM = globalThis.MM || {};
   // function of the run counter, so it survives save/load and drives both the
   // world-wide mirror tint and the sidebar indicator.
   E.inMirror = () => !!(E.state && E.state.ngPlus > 0);
+
+  // Wave 22 (Looking Glass P3): the AIRTIGHT negatives gate. Negatives exist in
+  // GAMEPLAY only when BOTH are true: you are through the glass (ngPlus > 0, the
+  // same rule as inMirror) AND a grown-up has switched them on (s.parent.negatives,
+  // DEFAULT OFF — integers are ~6th grade, the top of Numeria's range). Reads the
+  // passed state's OWN ngPlus (not just E.state) so it is correct for any state
+  // the tests construct. Nothing generates a negative unless this returns true —
+  // so a switch-off mirror run, and all of normal play, have exactly zero.
+  E.negativesOn = function (s) {
+    s = s || E.state;
+    return !!(s && (s.ngPlus || 0) > 0 && s.parent && s.parent.negatives === true);
+  };
 
   E.goldenPrompt = function () {
     MM.ui.dialogChoices('🪞 Step through the looking glass?',
@@ -1544,11 +1565,18 @@ var MM = globalThis.MM = globalThis.MM || {};
   // negative-number hints yet), then fades smile-last. Warm-cryptic, never
   // at the kid's expense. Gated on E.inMirror() so it can never appear, or
   // even advance its own counter, outside the mirror.
-  E.armCheshire = function () {
+  E.armCheshire = function (opts) {
     const s = E.state;
     if (!s || !E.inMirror()) return;
+    opts = opts || {};
+    // Wave 22 (Looking Glass P3): once negatives exist, the cat also carries
+    // NEGATIVE-number hints — cryptic-kind, still smile-last. Chosen when the
+    // caller asks (opts.negative, e.g. at a Tweedle-room threshold) AND
+    // negatives are actually on; otherwise the general mirror-guidance pool.
+    const negative = !!(opts.negative && E.negativesOn());
     s.mirrorCheshireCount = (s.mirrorCheshireCount || 0) + 1;
-    const line = MM.data.CHESHIRE_LINES[(s.mirrorCheshireCount - 1) % MM.data.CHESHIRE_LINES.length];
+    const pool = negative ? MM.data.CHESHIRE_NEG_LINES : MM.data.CHESHIRE_LINES;
+    const line = pool[(s.mirrorCheshireCount - 1) % pool.length];
     E.save();
     MM.sound.mew();
     MM.ui.dialog('🐱 A cat, or the memory of one',
@@ -1977,6 +2005,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (s.mapId === 'garden') return E.gardenMove(dx, dy, nx, ny, ch);
       // Wave 17: the Menagerie — combat-free, castle rules, its own alphabet.
       if (s.mapId === 'menagerie') return E.menagerieMove(dx, dy, nx, ny, ch);
+      // Wave 22: the Tweedle room — combat-free, castle rules, its own alphabet.
+      if (s.mapId === 'tweedle') return E.tweedleMove(dx, dy, nx, ny, ch);
       if (s.mapId === 'gullwrack') {
         if (ch === '7') return E.tryEnterDungeon(21);
         if (ch === 'W') return E.gullwrackDock();
@@ -2870,6 +2900,138 @@ var MM = globalThis.MM = globalThis.MM || {};
       `<b>${a.num} × ${b.num} = ${MM.maps.WING_WREN.target}.</b> The two Numberlings hop in place, delighted with themselves, and settle into their sockets for good.<br><br>` +
       `+${g} gold — MathMaker Wren's standing reward for <i>any</i> true answer.`,
       () => E.wingMaybeTitle());
+  };
+
+  // ---------- Wave 22 (Looking Glass P3): Tweedledum & Tweedledee ----------
+  // The additive-inverse flagship, REUSING the Numberling machinery almost
+  // directly (pushable slabs + a two-socket check) — but the predicate is
+  // a + b === 0, and EVERY valid inverse pair completes it. Combat-free
+  // (overworld rules), gated on E.negativesOn(): the entry (E.tweedleDoor)
+  // shows a gentle grown-up note when negatives are off, never a locked wall.
+  E.ensureTweedle = function () {
+    const s = E.state;
+    if (!s.tweedle) s.tweedle = { slabs: null, solved: false };
+    const t = s.tweedle;
+    if (!t.slabs) t.slabs = MM.maps.TWEEDLE_SLABS.map(sl => ({ id: sl.id, num: sl.num, x: sl.x, y: sl.y, under: '.', locked: false }));
+    return t;
+  };
+  E.tweedleSlabAt = function (x, y) {
+    const t = E.state && E.state.tweedle;
+    return (t && t.slabs && t.slabs.find(sl => sl.x === x && sl.y === y)) || null;
+  };
+  // Pure check, unit-tested directly: is (a, b) a TRUE additive-inverse pair?
+  // EVERY inverse pair is accepted (multiple-solutions delight, like Wren's).
+  E.tweedleEquationOk = (a, b) => a != null && b != null && a + b === 0;
+
+  // The gated entry. Reached from the throne room's mirror menu (and drivable
+  // directly). Outside the mirror it can't be reached; with negatives off it
+  // shows the gentle grown-up note; with negatives on it opens the room.
+  E.tweedleDoor = function () {
+    if (!E.inMirror()) {
+      return MM.ui.dialog('🚪 A door that isn\'t here', 'It is only a door on the other side of the glass. Step through the looking glass first.');
+    }
+    if (!E.negativesOn()) {
+      const note = MM.data.NEGATIVES_OFF_NOTE;
+      return MM.ui.dialog(note.title, note.body);
+    }
+    E.enterTweedle();
+  };
+  E.enterTweedle = function () {
+    const s = E.state;
+    MM.track('enterTweedle');
+    if (E.resetTransientEntities) E.resetTransientEntities();
+    E.ensureTweedle();
+    if (MM.maps.isOverworld(s.mapId)) s.worldPos = { x: s.px, y: s.py };
+    s.mapId = 'tweedle';
+    s.grid = MM.maps.parse(MM.maps.TWEEDLE, '#');
+    s.monsters = [];   // combat-free, always
+    E.applyTweedleState();
+    const start = MM.maps.find(s.grid, 'P')[0];
+    s.px = start.x; s.py = start.y;
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.log(MM.data.TWEEDLE_ENTER_LINE);
+    E.save();
+    MM.ui.refresh();
+    // the Cheshire drops a negative hint at the threshold (only with negatives on)
+    E.armCheshire({ negative: true });
+  };
+  E.exitTweedle = function () {
+    E.enterCastle();
+    MM.ui.refresh();
+  };
+  E.applyTweedleState = function () {
+    const s = E.state;
+    if (!s.grid || s.mapId !== 'tweedle') return;
+    const t = E.ensureTweedle();
+    for (const sl of MM.maps.TWEEDLE_SLABS) if (s.grid[sl.y][sl.x] === 'U') s.grid[sl.y][sl.x] = '.';
+    for (const sl of t.slabs) s.grid[sl.y][sl.x] = 'U';
+  };
+  E.tweedleMove = function (dx, dy, nx, ny, ch) {
+    const s = E.state;
+    E.ensureTweedle();
+    if (ch === 'X') return E.exitTweedle();
+    if (ch === 'i') return MM.ui.dialog('🎭 Two of a kind', MM.data.pick(MM.data.TWEEDLE_LINES));
+    if (ch === 'l') return E.tweedleReset(nx, ny);
+    if (ch === 'U') return E.tweedleSlabBump(dx, dy, nx, ny);
+    if (ch === '#') return;
+    // walk (no stamina — overworld rules)
+    E.petPos = { x: s.px, y: s.py };
+    s.px = nx; s.py = ny;
+    MM.ui.refresh();
+  };
+  E.tweedleSlabBump = function (dx, dy, nx, ny) {
+    const s = E.state;
+    const t = E.ensureTweedle();
+    const slab = t.slabs.find(sl => sl.x === nx && sl.y === ny);
+    if (!slab) return;
+    if (slab.locked) return MM.ui.log('🪨 That slab has settled into its socket, perfectly content, and will not budge.');
+    const bx = nx + dx, by = ny + dy;
+    const destCh = s.grid[by] && s.grid[by][bx];
+    const blocked = !(destCh === '.' || destCh === '0')
+      || t.slabs.some(o => o !== slab && o.x === bx && o.y === by);
+    if (blocked) { MM.sound.thud(); return; }
+    s.grid[ny][nx] = slab.under || '.';
+    slab.x = bx; slab.y = by; slab.under = destCh;
+    s.grid[by][bx] = 'U';
+    MM.sound.thud();
+    E.tweedleCheckSockets();
+    E.save();
+    MM.ui.refresh();
+  };
+  E.tweedleCheckSockets = function () {
+    const s = E.state;
+    const t = E.ensureTweedle();
+    if (t.solved) return;
+    const [sa, sb] = MM.maps.TWEEDLE_ROOM.sockets;
+    const a = E.tweedleSlabAt(sa.x, sa.y), b = E.tweedleSlabAt(sb.x, sb.y);
+    if (!a || !b) return;
+    if (!E.tweedleEquationOk(a.num, b.num)) return;   // not an inverse pair — nothing happens (no punish)
+    a.locked = true; b.locked = true;
+    t.solved = true;
+    const g = E.gainGold(MM.maps.TWEEDLE_ROOM.reward);
+    MM.sound.fanfare();
+    if (MM.ui.worldBurst && !s.calmMode) {
+      MM.ui.worldBurst(sa.x, sa.y, '#8fd0ff', 14);
+      MM.ui.worldBurst(sb.x, sb.y, '#8fd0ff', 14);
+    }
+    E.save();
+    const c = MM.data.TWEEDLE_CANCEL(a.num, b.num, g);
+    MM.ui.dialog(c.title, c.body);
+  };
+  E.tweedleReset = function () {
+    const s = E.state;
+    const t = E.ensureTweedle();
+    if (t.solved) return MM.ui.log('🎭 The Tweedles are done arguing for today. The pair in the sockets stays put.');
+    for (const sl of t.slabs) {
+      const tmpl = MM.maps.TWEEDLE_SLABS.find(o => o.id === sl.id);
+      if (s.grid[sl.y] && s.grid[sl.y][sl.x] === 'U') s.grid[sl.y][sl.x] = '.';
+      sl.x = tmpl.x; sl.y = tmpl.y; sl.under = '.'; sl.locked = false;
+    }
+    E.applyTweedleState();
+    MM.sound.tone(2);
+    MM.ui.log('🎭 "Contrariwise!" The slabs shuffle back to where they started, arguing the whole way.');
+    E.save();
+    MM.ui.refresh();
   };
 
   // ---------- the Armory beam ----------

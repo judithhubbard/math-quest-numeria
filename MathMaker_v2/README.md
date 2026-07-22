@@ -456,6 +456,20 @@ switched off.)
   friends you already made: soothing one here is called **"Recognize"** —
   you're not taming a stranger, you're looking past the reflection and
   seeing the friend you know.
+- **➖ Negative numbers — the mirror's real math (parent-gated, OFF by
+  default).** Zero is a mirror, and negatives are the number line reflected
+  through it — so the mirror world is where they belong. Because integers are
+  about 6th-grade (the top of Numeria's range), they stay **off until a
+  grown-up turns them on** in 👪 Parent Settings ("Negative numbers (Looking
+  Glass)"), and even then they appear **only through the looking glass** —
+  never in the ordinary kingdom. With the switch on, mirror battles and doors
+  may ask *signed* problems (`7 + (−3)`, `−4 × 2`), gently and well-scaffolded;
+  a wrong answer just shows the worked solution, exactly as always. And the
+  **Tweedles** (Tweedledum & Tweedledee) run the flagship puzzle: push a slab
+  and its opposite — `+5` and `−5` — into the `▢ + ▢ = 0` sockets and they
+  **cancel to nothing**, with a delighted "Contrariwise!" (With the switch off,
+  their door simply shows a gentle note that a grown-up can open negatives —
+  never a locked wall.) The Cheshire Cat learns negative-number hints to match.
 
 ### 🌀 The Tending — life after the ending
 

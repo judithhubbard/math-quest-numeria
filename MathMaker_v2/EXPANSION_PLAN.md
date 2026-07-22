@@ -4732,7 +4732,50 @@ the "Recognize" reflavor being mechanically identical to Soothe, everything
 gated on inMirror() so normal play is unchanged, jokes never on the kid.
 The Cheshire's NEGATIVE-number hint role is P3 (negatives don't exist yet).
 
-## Wave 22 order — Through the Looking Glass, P3: negatives enter the mirror (Looking Glass P3) (user directive 2026-07-21)
+## Wave 22 order — Through the Looking Glass, P3: negatives enter the mirror (Looking Glass P3) (user directive 2026-07-21) — ✅ SHIPPED v1.17.0 2026-07-21 (design-reviewed; exact signed math + airtight gate proven; marathon-verified zero negatives outside the mirror)
+
+IMPLEMENTATION NOTES (2026-07-21, no commit — design session ships):
+- **DONE, all four P3 items:** (P3.1) the negatives parent switch DEFAULT OFF +
+  `E.negativesOn(s) = (s.ngPlus>0) && s.parent.negatives===true` (reads the
+  passed state's own ngPlus so it is airtight for any constructed state);
+  (P3.2) signed combat/gate problems — new EXACT signed generators in
+  js/problems.js (`signedBuild`/`signed`, for the two facts families:
+  addsub_facts → signed add/sub, muldiv_facts → signed products), injected at
+  the two central pickers (`combatProblem`/`bossDualForm` in js/mastery.js)
+  ONLY when `E.negativesOn(state)` — so the door/other direct generate() call
+  sites simply never sign, and normal play / a switch-off mirror run produce
+  exactly zero negatives; (P3.3) the Tweedledum & Tweedledee additive-inverse
+  room — a new mirror-only overworld map (`MM.maps.TWEEDLE`, mapId 'tweedle'),
+  reusing the Numberling slab/socket machinery with predicate `a + b === 0`,
+  accepting EVERY inverse pair, entered from the throne's mirror menu via
+  `E.tweedleDoor()` (gentle grown-up note when negatives are off, never a
+  locked wall); (P3.4) the Cheshire's negative hints (`MM.data.CHESHIRE_NEG_LINES`,
+  surfaced by `E.armCheshire({negative:true})` at the Tweedle threshold).
+- **EXACT arithmetic, proven:** `signedBuild` computes the answer from the SAME
+  operands it renders (they can never disagree); a 20-case hand table across
+  add/sub/mult × both signs + a 4800-case fuzz (recomputing the truth from the
+  carried operands) assert generated answer === true result, and the displayed
+  glyph is the unicode minus (U+2212), never an ASCII hyphen.
+- **AIRTIGHT gate, proven:** unit-asserts negativesOn() OFF when not in the
+  mirror (even switch on) AND when the switch is off (even in the mirror) AND
+  for a pre-Wave-22 save (no field → OFF); plus the real pickers yield ZERO
+  negatives across 1200+ draws with the switch off / outside the mirror. The
+  DETACHED marathon (non-mirror) is the live airtight check — it must see zero.
+- **DEFERRED (as scoped):** the number-line WALK + zero-meridian (B, → P3.5),
+  the reciprocal pairing (C2), the reflection/absolute-value wonder (G), and the
+  completed mirror spiral — all still deferred to later orders, untouched here.
+- **No deviations from the non-negotiables:** parent switch DEFAULT OFF gates
+  everything; negatives only in the mirror; EXACT signed math; gentle re-ask
+  (the standard worked-solution flow, never a punish); the Tweedle room accepts
+  every valid inverse pair; zero negatives in normal play. Did NOT narrow to
+  add/sub — signed mult (muldiv_facts) shipped too (small magnitudes, not hairy).
+  Did NOT bump sw.js / tracker.js versions. Extended existing runtime files only
+  (no new js/*.js), so no index.html / sw.js cache changes.
+- **Evidence:** unit `node tests/test.js` exit 0 (Wave 22 block); new
+  drive-negatives.js 24/24 + 4 audited screenshots; full sweep + detached
+  non-mirror marathon (both in tests/logs/).
+
+
 
 Fourth phase of LOOKING_GLASS_SCOPING.md (P0 parser + P1 portal + P2
 aesthetic shipped: v1.14.1/v1.15.0/v1.16.0). This is the CORRECTNESS-

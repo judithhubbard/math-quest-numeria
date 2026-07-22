@@ -1411,6 +1411,48 @@ var MM = globalThis.MM = globalThis.MM || {};
     d18: [{ x: 20, y: 10 }],
   };
 
+  // ===== Wave 22 (Looking Glass P3): the Tweedle room (additive inverses) =====
+  // A mirror-only proving room, combat-free (an overworld like the Wing), that
+  // REUSES the Numberling slab machinery — but the socket predicate is a + b === 0
+  // (additive inverse) instead of a × b = target. Pushable slabs carry +n and −n;
+  // seat any inverse pair in the two sockets and they CANCEL to nothing. Gated on
+  // E.negativesOn() (needs negatives); when negatives are off it shows a gentle
+  // grown-up note, never a locked wall. Alphabet (own tileSprite block): '#' wall,
+  // 'X' door back to the castle, 'U' a numbered slab (signed), '0' a socket,
+  // 'i' the twins' plaque, 'l' the reset lever, 'P' start.
+  MM.maps.TWEEDLE = [
+    '####################',
+    '#..................#',
+    '#.......i..........#',
+    '#.....0.....0......#',
+    '#..................#',
+    '#..................#',
+    '#...U.U.U.U.U.U....#',
+    '#..................#',
+    '#..................#',
+    '#........l.........#',
+    '#.X.....P..........#',
+    '####################',
+  ];
+  // Two sockets carve "▢ + ▢ = 0". EVERY true inverse pair completes it (like
+  // the Numberlings' every-true-filling) — 3 + (−3), 5 + (−5), 4 + (−4).
+  MM.maps.TWEEDLE_ROOM = {
+    sockets: [{ x: 6, y: 3 }, { x: 12, y: 3 }],
+    resetLever: { x: 9, y: 9 },
+    reward: 60,
+  };
+  // Slab start positions + signed numbers. The −5 and +5 sit directly below the
+  // two sockets (a clean straight-up intended solution), but any inverse pair
+  // works — the kid may pair the ±3 or ±4 instead.
+  MM.maps.TWEEDLE_SLABS = [
+    { id: 't+3', num: 3, x: 4, y: 6 },
+    { id: 't-5', num: -5, x: 6, y: 6 },
+    { id: 't+4', num: 4, x: 8, y: 6 },
+    { id: 't-4', num: -4, x: 10, y: 6 },
+    { id: 't+5', num: 5, x: 12, y: 6 },
+    { id: 't-3', num: -3, x: 14, y: 6 },
+  ];
+
   // ===== Wave 13 (P2): Your Own Room — behind the Wing's named doorway =====
   // A separate tiny map (mapId 'myroom', an OVERWORLD like the castle:
   // combat-free, no stamina). The TEMPLATE below is the fixed shell; the
@@ -1765,7 +1807,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   // NPC pass may run (its alphabet avoids every NPCS key), castle movement.
   // 'myroom' (Wave 13) is an overworld like the castle and the Wing: no
   // monsters ever, no stamina, its own alphabet block below.
-  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom', 'parlor', 'garden', 'menagerie'];
+  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom', 'parlor', 'garden', 'menagerie', 'tweedle'];
   MM.maps.isOverworld = mapId => MM.maps.OVERWORLD_IDS.includes(mapId);
 
   // Gear gates (Clockwork Spire): exactly one of A/B/C is open at a time, and
@@ -1973,6 +2015,20 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ch === '<') return 'stairsUp';
       if (ch === '_') return 'slick';
       return 'hallFloor';
+    }
+    // Wave 22 (P3): the Tweedle room owns its whole alphabet, castle-style —
+    // a mirror-only combat-free room. 'U'/'0'/'l'/'i'/'X' reuse the Wing's
+    // slab/socket/lever/board/door sprites; this block sits before every shared
+    // case (the v1.7.9 'Y' lesson), and each collision has a unit guard in
+    // tests/test.js. None of these is an NPCS key, so the NPC pass never draws them.
+    if (mapId === 'tweedle') {
+      if (ch === '#') return 'wall';
+      if (ch === 'X') return 'castleDoor';
+      if (ch === 'U') return 'slab';
+      if (ch === '0') return 'socket';
+      if (ch === 'l') return 'resetLever';
+      if (ch === 'i') return 'board';
+      return 'hallFloor';                      // '.', 'P'
     }
     // Wave 13 (P2): Your Own Room owns its whole alphabet, castle-style.
     // Several letters mean OTHER things elsewhere ('B'/'R' gear tiles in the
