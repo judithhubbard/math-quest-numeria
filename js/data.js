@@ -1992,9 +1992,14 @@ var MM = globalThis.MM = globalThis.MM || {};
     // predicate (games played) — E.checkFaculty claims it with ZERO changes
     // there, exactly the extension the Court built this list for. A reformed
     // Skeleton, visible in the castle once the kid is a parlor regular.
+    // Stands beside the Parlor door 'Z' at (16,9) — its own workplace. It
+    // originally stood at (13,4), the tile at the TOP OF THE CENTRAL STAIR:
+    // posts are bump-solid, so it sat squarely on the straight walking line
+    // from the castle doors to the throne (caught in live play 2026-07-22).
+    // Post tiles must never sit in the shaft columns (11-14) or on row 4.
     {
       id: 'dealer', title: 'House Dealer', sprite: 'skeleton',
-      pal: { A: '#3a3352', H: '#e0dcd0', F: '#e8c24a' }, badge: '🎩', x: 13, y: 4,
+      pal: { A: '#3a3352', H: '#e0dcd0', F: '#e8c24a' }, badge: '🎩', x: 17, y: 9,
       earned: s => ((s.parlor && s.parlor.games) || 0) >= 3,
       spawnLine: 'Word of the Parlor has reached the castle. A reformed <b>Skeleton</b> — Deuce, of the excellent shuffling hands — has taken up the official post of <b>House Dealer</b>, and looks thrilled to be on the staff.',
       line: 'The House Dealer riffles a deck it does not strictly need to riffle. "I have a POST now," Deuce says, adjusting its tiny hat with evident pride. "A desk, a title, a little brass plate. I used to be a pile of bones in a catacomb. Now I run a card table in a castle." It fans the deck. "Life is mostly a matter of finding the right table."',

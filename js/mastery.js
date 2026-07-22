@@ -196,9 +196,10 @@ var MM = globalThis.MM = globalThis.MM || {};
   }
   // Wave 22 (Looking Glass P3): the AIRTIGHT negatives gate. A signed problem
   // is generated ONLY when E.negativesOn(state) is true — inMirror() AND the
-  // parent switch — and only for the two small-magnitude facts families. So a
-  // switch-off mirror run and all of normal (non-mirror) play produce exactly
-  // zero negatives (the marathon, non-mirror, sees none). Signed problems are
+  // parent switch not OFF (default ON since 2026-07-22) — and only for the two
+  // small-magnitude facts families. So a switched-OFF mirror run and all of
+  // normal (non-mirror) play produce exactly zero negatives (the marathon,
+  // non-mirror, sees none). Signed problems are
   // single-form (no brave ⚡ ladder yet): the dual fields point at themselves,
   // eligible false, which battle.js already handles.
   const SIGN_ELIGIBLE = { addsub_facts: true, muldiv_facts: true };

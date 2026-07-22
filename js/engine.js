@@ -317,11 +317,16 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.parlor.hats == null) s.parlor.hats = {};
     if (s.parlor.back == null) s.parlor.back = 'default';
     if (s.parent && s.parent.parlorTwoDigit == null) s.parent.parlorTwoDigit = false;
-    // Wave 22 (Looking Glass P3): the negatives switch — DEFAULT OFF. A
-    // pre-Wave-22 save has no s.parent.negatives, so it migrates to OFF (no
-    // negatives until a grown-up opts in). s.parent is a KEPT field across the
-    // mirror round-trip, so this choice carries through startGolden/return.
-    if (s.parent && s.parent.negatives == null) s.parent.negatives = false;
+    // Wave 22 (Looking Glass P3), reversed 2026-07-22 (user decision): the
+    // negatives switch — DEFAULT ON. Stepping through the glass IS the
+    // invitation to meet negatives; the panel is an OFF-switch, the same
+    // missing-means-enabled convention as every topic. Earlier builds migrated
+    // missing → OFF automatically, so flip that stored auto-default ONCE here;
+    // a choice a grown-up actually makes in the panel sets negativesChosen and
+    // sticks from then on. s.parent is a KEPT field across the mirror
+    // round-trip, so the choice carries through startGolden/return.
+    if (s.parent && s.parent.negatives == null) s.parent.negatives = true;
+    if (s.parent && !s.parent.negativesChosen && s.parent.negatives === false) s.parent.negatives = true;
     // Wave 16: the Kitchen Garden — a pre-Wave-16 save migrates clean (empty
     // plot, no ingredients, all counters at zero). The garden/kitchen record
     // under existing skills (muldiv_facts / fractions_as / fractions_m), which
@@ -1379,14 +1384,15 @@ var MM = globalThis.MM = globalThis.MM || {};
 
   // Wave 22 (Looking Glass P3): the AIRTIGHT negatives gate. Negatives exist in
   // GAMEPLAY only when BOTH are true: you are through the glass (ngPlus > 0, the
-  // same rule as inMirror) AND a grown-up has switched them on (s.parent.negatives,
-  // DEFAULT OFF — integers are ~6th grade, the top of Numeria's range). Reads the
-  // passed state's OWN ngPlus (not just E.state) so it is correct for any state
-  // the tests construct. Nothing generates a negative unless this returns true —
-  // so a switch-off mirror run, and all of normal play, have exactly zero.
+  // same rule as inMirror) AND the switch isn't off (s.parent.negatives — DEFAULT
+  // ON since 2026-07-22, missing-means-enabled; the parent panel is the
+  // OFF-switch, matching every other topic). Reads the passed state's OWN ngPlus
+  // (not just E.state) so it is correct for any state the tests construct.
+  // Nothing generates a negative unless this returns true — so a switched-OFF
+  // mirror run, and all of normal (non-mirror) play, have exactly zero.
   E.negativesOn = function (s) {
     s = s || E.state;
-    return !!(s && (s.ngPlus || 0) > 0 && s.parent && s.parent.negatives === true);
+    return !!(s && (s.ngPlus || 0) > 0 && !(s.parent && s.parent.negatives === false));
   };
 
   E.goldenPrompt = function () {
