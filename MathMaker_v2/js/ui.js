@@ -2669,12 +2669,13 @@ var MM = globalThis.MM = globalThis.MM || {};
         </label>
         <h3>🪞 Negative numbers (Looking Glass)</h3>
         <label class="topic-check">
-          <input type="checkbox" id="negativesCheck" ${s.parent.negatives ? 'checked' : ''}>
-          Negative numbers in the Looking Glass — once your child has stepped through the looking glass, let the
-          mirror world include <b>negatives</b>: signed problems in battles and doors (−3, 7 + (−2), −4 × 2) and the
-          Tweedles' cancel-to-zero puzzle. <span class="dim">Integers are about 6th-grade, the top of Numeria's
-          range — so this stays OFF until you turn it on, and even then negatives appear ONLY through the looking
-          glass, never in the ordinary kingdom. A wrong signed answer just shows the worked solution, as always.</span>
+          <input type="checkbox" id="negativesCheck" ${s.parent.negatives !== false ? 'checked' : ''}>
+          Negative numbers in the Looking Glass — once your child steps through the looking glass, the mirror
+          world includes <b>negatives</b>: signed problems in battles and doors (−3, 7 + (−2), −4 × 2) and the
+          Tweedles' cancel-to-zero puzzle. <span class="dim">On by default — the mirror world is where negatives
+          live. They appear ONLY through the looking glass, never in the ordinary kingdom, and a wrong signed
+          answer just shows the worked solution, as always. Integers are about 6th-grade, the top of Numeria's
+          range — uncheck this to keep the mirror world to familiar numbers.</span>
         </label>
         <h3>Current progress</h3>
         <p style="font-size:14px">📗 On task <b>${Math.min(s.taskIndex, 13)}</b> ·
@@ -2722,6 +2723,9 @@ var MM = globalThis.MM = globalThis.MM || {};
       document.body.classList.toggle('big-text', s.bigText);
       s.parent.parlorTwoDigit = document.getElementById('parlorTwoDigitCheck').checked;   // Wave 15
       s.parent.negatives = document.getElementById('negativesCheck').checked;             // Wave 22
+      // A choice made HERE is deliberate — mark it so the one-time default-ON
+      // migration (engine.js load) never overrides a grown-up's real OFF.
+      s.parent.negativesChosen = true;
       MM.engine.save();
       closeModal();
       const n = Object.values(map).filter(Boolean).length;

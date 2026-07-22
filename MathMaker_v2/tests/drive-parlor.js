@@ -186,9 +186,11 @@ const SHOTS = '/Users/jk/Dropbox/Claude/TaskMaker_math/MathMaker_v2/tests/shots-
   // castle overlay, so facultyAt only resolves once you're on the castle map)
   await ev(() => { MM.engine.enterCastle(); });
   await clearModals();
-  const facAt = await ev(() => { const f = MM.engine.facultyAt(13, 4); return f && f.id; });
-  check(facAt === 'dealer', 'the dealer stands as a live castle overlay at its post');
-  await ev(() => { const s = MM.engine.state; s.px = 13; s.py = 6; MM.ui.refresh(); });
+  const facAt = await ev(() => { const f = MM.engine.facultyAt(17, 9); return f && f.id; });
+  check(facAt === 'dealer', 'the dealer stands as a live castle overlay at its post (beside the Parlor door)');
+  const stairClear = await ev(() => !MM.engine.facultyAt(13, 4));
+  check(stairClear, 'the top of the central stair (13,4) is clear — no post may block the throne path');
+  await ev(() => { const s = MM.engine.state; s.px = 17; s.py = 10; MM.ui.refresh(); });
   await page.waitForTimeout(150);
   await page.screenshot({ path: SHOTS + '/6-faculty.png' });   // the House Dealer in the castle
 

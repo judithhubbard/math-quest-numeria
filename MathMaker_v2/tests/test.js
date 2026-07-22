@@ -4146,6 +4146,17 @@ for (const skill of skills) {
     E.state = null;
   }
 
+  // (6b) EVERY Faculty post stands on plain castle floor, OFF the central
+  // artery. Posts are bump-solid: one at the top of the stair (the dealer
+  // stood at (13,4) until 2026-07-22) sits squarely on the straight walking
+  // line from the castle doors to the throne. Columns 11–14 are the central
+  // shaft/corridor — no post may stand there, ever.
+  for (const p of MM.data.FACULTY_POSTS) {
+    const row = MM.maps.CASTLE[p.y] || '';
+    if (row[p.x] !== '.') fail(`faculty: post '${p.id}' at (${p.x},${p.y}) must stand on plain castle floor, found '${row[p.x]}'`);
+    if (p.x >= 11 && p.x <= 14) fail(`faculty: post '${p.id}' at (${p.x},${p.y}) blocks the central artery (columns 11-14, the doors-to-throne walk)`);
+  }
+
   // (5) tokens never negative + a loss costs zero; (8) migration; (9) NG+.
   {
     localStorage.setItem('mathmaker2_save_w15', JSON.stringify({
@@ -4835,11 +4846,12 @@ for (const skill of skills) {
     }
   }
 
-  // ---- (2) AIRTIGHT gate: negativesOn() only when inMirror() AND switch on ----
+  // ---- (2) AIRTIGHT gate: negativesOn() only when inMirror() AND switch not OFF ----
+  // (default ON since 2026-07-22: missing-means-enabled, the panel is the OFF-switch)
   if (E.negativesOn({ ngPlus: 0, parent: { negatives: true } })) fail('W22 gate: NOT in the mirror → negatives OFF even with the switch on');
   if (E.negativesOn({ ngPlus: 1, parent: { negatives: false } })) fail('W22 gate: switch OFF → negatives OFF even in the mirror');
-  if (E.negativesOn({ ngPlus: 1, parent: {} })) fail('W22 gate: a pre-Wave-22 save (no switch field) defaults OFF in the mirror');
-  if (E.negativesOn({ ngPlus: 0, parent: {} })) fail('W22 gate: normal play (no mirror, no switch) has no negatives');
+  if (!E.negativesOn({ ngPlus: 1, parent: {} })) fail('W22 gate: no switch field in the mirror → defaults ON (missing-means-enabled)');
+  if (E.negativesOn({ ngPlus: 0, parent: {} })) fail('W22 gate: normal play (no mirror) has no negatives');
   if (!E.negativesOn({ ngPlus: 1, parent: { negatives: true } })) fail('W22 gate: mirror + switch ON → negatives ON');
 
   // ---- the gate holds through the REAL combat/gate pickers ----
@@ -4909,9 +4921,9 @@ for (const skill of skills) {
     MM.ui.dialog = realDialog;
   }
 
-  // ---- the negatives switch persists + migrates (pre-Wave-22 save defaults OFF) ----
+  // ---- the negatives switch persists + migrates (default ON; the panel is the OFF-switch) ----
   {
-    // a pre-Wave-22 save has no s.parent.negatives → migrates to OFF on load
+    // a pre-Wave-22 save has no s.parent.negatives → migrates to ON on load
     localStorage.setItem('mathmaker2_save_w22migrant', JSON.stringify({
       version: 4, name: 'w22migrant', hp: 100, maxhp: 100, stamina: 100, maxStamina: 100,
       gold: 100, level: 5, xp: 0, difficulty: 'hero', parent: { pin: null, topics: {} },
@@ -4925,12 +4937,19 @@ for (const skill of skills) {
       items: { food: {}, treasures: [], charms: [], gems: [] },
     }));
     MM.engine.load('w22migrant');
-    if (MM.engine.state.parent.negatives !== false) fail('W22 migrate: a pre-Wave-22 save must default the negatives switch to OFF');
-    // set it on, save, reload — it persists
-    MM.engine.state.parent.negatives = true;
+    if (MM.engine.state.parent.negatives !== true) fail('W22 migrate: a save with no negatives field must default the switch to ON');
+    // an old auto-OFF default (never chosen in the panel) flips to ON on load
+    MM.engine.state.parent.negatives = false;
+    delete MM.engine.state.parent.negativesChosen;
     MM.engine.save();
     MM.engine.load('w22migrant');
-    if (MM.engine.state.parent.negatives !== true) fail('W22 persist: the negatives switch must survive save/load');
+    if (MM.engine.state.parent.negatives !== true) fail('W22 migrate: an old auto-OFF default (no negativesChosen) must flip to ON');
+    // a grown-up's DELIBERATE off (the panel sets negativesChosen) persists
+    MM.engine.state.parent.negatives = false;
+    MM.engine.state.parent.negativesChosen = true;
+    MM.engine.save();
+    MM.engine.load('w22migrant');
+    if (MM.engine.state.parent.negatives !== false) fail('W22 persist: a deliberate OFF from the panel must survive save/load');
   }
 
   // ---- the mirror round-trip carries the switch state (parent is a KEPT field) ----
