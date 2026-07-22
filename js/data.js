@@ -1161,6 +1161,46 @@ var MM = globalThis.MM = globalThis.MM || {};
     'I go where I\'m needed, which is a roundabout way of saying I go everywhere, eventually.',
   ];
 
+  // P3 — the Cheshire's NEGATIVE-number hints (read only when E.negativesOn()).
+  // Cryptic-KIND, still smile-last; each is a true, useful thing about the
+  // number line, said sideways. Cycled by the same counter, never Math.random.
+  MM.data.CHESHIRE_NEG_LINES = [
+    'To get to zero from below, you go up. From above, you go down. Everyone arrives eventually.',
+    'A number and its opposite are the same distance from nothing — one to the east, one to the west.',
+    'Add a thing to its very opposite and you are left holding nothing at all. The Tweedles find this endlessly funny.',
+    'Less than nothing is still somewhere. West of zero is a perfectly good place to stand.',
+    'Take away more than you have and you have simply walked past zero. It happens to the best of us.',
+  ];
+
+  // P3 — Tweedledum & Tweedledee: the additive-inverse room. All comedy is on
+  // the twins (contradiction, "Contrariwise!"), never on the kid. Bounded pool.
+  MM.data.TWEEDLE_ENTER_LINE = '🎭 Two round little figures stand back to back, each insisting the other is standing the wrong way round. A carved socket in the floor reads: ▢ + ▢ = 0.';
+  MM.data.TWEEDLE_LINES = [
+    '"You\'re going to push us together," says Tweedledum. "Nohow," says Tweedledee. "He\'s going to push us apart. Contrariwise — it comes to exactly the same nothing."',
+    '"I\'m three to the good," says one. "And I\'m three to the bad," says the other. "Between us we are precisely nobody. We\'re very proud of it."',
+    '"If it were so, it might be," says Tweedledee. "And if it was so, it would be. But as it isn\'t, it ain\'t. That\'s logic." Neither of them has said a single thing.',
+    '"Put us in the right way round and we come to nothing," says Tweedledum. "Put us in the WRONG way round," says Tweedledee, "and we ALSO come to nothing. It\'s our best trick."',
+  ];
+  // The cancel-to-zero moment. a + b is a true inverse pair (a + b === 0); g is
+  // the gold reward. Uses the displayed unicode minus (U+2212), same as combat.
+  MM.data.TWEEDLE_CANCEL = function (a, b, g) {
+    const sgn = n => (n < 0 ? '−' + (-n) : '+' + n);
+    return {
+      title: '🌀 Contrariwise — and then, nothing',
+      body: `<b>(${sgn(a)}) + (${sgn(b)}) = 0.</b> The two slabs lean together, agree completely for once, and cancel — ` +
+        `to exactly nothing, with a small satisfied <i>click</i>.<br><br>` +
+        `"Nohow!" cry the Tweedles, delighted. "Contrariwise!" They shake hands, in perfect agreement about being ` +
+        `perfect opposites.<br><br>+${g} gold — for proving that a number and its opposite make nothing at all.`,
+    };
+  };
+  // The gentle grown-up note shown when negatives are OFF — never a locked wall.
+  MM.data.NEGATIVES_OFF_NOTE = {
+    title: '🚪 A door, leaning the wrong way',
+    body: 'Behind it, two voices are arguing cheerfully about which of them is <i>less than nothing</i>.<br><br>' +
+      'The door won\'t open just yet. <b>A grown-up can open negative numbers</b> for you in 👪 <b>Parent Settings</b> — ' +
+      'and then the Tweedles will be delighted to show you how a number and its opposite add up to nothing at all.',
+  };
+
   // P2.1 — reversed NPC greetings (a curated, occasional aside, not every
   // line — see js/engine.js E.MIRROR_GREETING_CHANCE). {name} is the NPC's
   // plain name, no emoji.

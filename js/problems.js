@@ -1215,6 +1215,80 @@ var MM = globalThis.MM = globalThis.MM || {};
     return p;
   }
 
+  // ---------- Wave 22 (Looking Glass P3): signed integer arithmetic ----------
+  // Negatives ENTER gameplay — but ONLY inside the mirror, ONLY with the parent
+  // switch on. That gate lives in the engine (E.negativesOn / MM.mastery); a
+  // signed problem is never generated here unless a caller explicitly asks for
+  // one, so normal play and a switch-off mirror run produce exactly zero
+  // negatives. The math is EXACT BY CONSTRUCTION: signedBuild computes the
+  // answer straight from the two operands it also renders, so the displayed
+  // problem and its graded answer can never disagree. Small magnitudes,
+  // well-scaffolded — the first negatives a kid meets. Displays the unicode
+  // minus (U+2212), the same glyph the parser round-trips (P0), and a trailing
+  // negative operand is parenthesised — 7 + (−3) — so a sign never reads as a
+  // subtraction. p.a / p.b / p.op are carried for the unit correctness table.
+  const MINUS = '−';
+  function sgnBare(n) { return n < 0 ? MINUS + (-n) : String(n); }        // leading operand / the answer
+  function sgnParen(n) { return n < 0 ? '(' + MINUS + (-n) + ')' : String(n); } // trailing operand
+  const SIGNED_SOL = {
+    '+': (a, b, r) => b < 0
+      ? `Adding a negative is the same as taking it away: ${sgnBare(a)} − ${-b} = ${sgnBare(r)}.`
+      : a < 0
+      ? `Start ${-a} to the left of zero, then count ${b} back toward it: ${sgnBare(a)} + ${b} = ${sgnBare(r)}.`
+      : `${a} + ${b} = ${r}.`,
+    '−': (a, b, r) => b < 0
+      ? `Subtracting a negative turns around and adds: ${sgnBare(a)} + ${-b} = ${sgnBare(r)}.`
+      : `${sgnBare(a)} − ${b} = ${sgnBare(r)}.`,
+    '×': (a, b, r) => (a < 0) !== (b < 0)
+      ? `A negative times a positive is negative: ${Math.abs(a)} × ${Math.abs(b)} = ${Math.abs(r)}, so the answer is ${sgnBare(r)}.`
+      : (a < 0 && b < 0)
+      ? `Two negatives multiply to a positive: ${-a} × ${-b} = ${r}.`
+      : `${a} × ${b} = ${r}.`,
+  };
+  // Build a signed problem for EXACT, caller-given operands (deterministic —
+  // the unit table drives this directly). op is '+', '−' (U+2212), or '×'.
+  function signedBuild(a, b, op) {
+    const r = op === '+' ? a + b : op === '−' ? a - b : a * b;
+    const text = `${sgnBare(a)} ${op} ${sgnParen(b)} = ?`;
+    const p = num(text, r, SIGNED_SOL[op](a, b, r));
+    p.a = a; p.b = b; p.op = op; p.signed = true;
+    return p;
+  }
+  function signedAddSub(tier) {
+    const hi = tier <= 1 ? 6 : tier === 2 ? 9 : 12;
+    const x = R.int(1, hi), y = R.int(1, hi);
+    switch (R.int(0, 4)) {
+      case 0: return signedBuild(x, -y, '+');   // x + (−y)
+      case 1: return signedBuild(-x, y, '+');   // (−x) + y
+      case 2: return signedBuild(-x, -y, '+');  // (−x) + (−y)
+      case 3: return signedBuild(x, -y, '−');   // x − (−y): subtracting a negative
+      default: {                                 // smaller − larger: a negative RESULT, no negative operand
+        const lo = Math.min(x, y), big = Math.max(x, y) + 1;
+        return signedBuild(lo, big, '−');
+      }
+    }
+  }
+  function signedMul(tier) {
+    const hi = tier <= 1 ? 5 : tier === 2 ? 7 : 9;
+    const x = R.int(2, hi), y = R.int(2, hi);
+    switch (R.int(0, 2)) {
+      case 0: return signedBuild(-x, y, '×');   // (−x) × y
+      case 1: return signedBuild(x, -y, '×');   // x × (−y)
+      default: return signedBuild(-x, -y, '×'); // (−x) × (−y) = +
+    }
+  }
+  // The one entry the engine calls once E.negativesOn() is true. addsub_facts →
+  // signed add/sub; muldiv_facts → signed products. Records UNDER the requested
+  // skill (the pedagogical point — a parent switch already governs each).
+  function signed(skill, tier, opts) {
+    opts = opts || {};
+    const t = Math.max(1, Math.min(3, tier || 1));
+    const p = skill === 'muldiv_facts' ? signedMul(t) : signedAddSub(t);
+    p.skill = skill; p.tier = t;
+    if (opts.quick) p.quick = true;
+    return p;
+  }
+
   // Wave 14 (the Court): wrap an applied generator with a petitioner + an
   // absurd complaint (the comedy) around ONE plain problem (the math). The
   // returned CASE is fully serializable — the same generated problem persists
@@ -1801,5 +1875,5 @@ var MM = globalThis.MM = globalThis.MM || {};
     return num('2 + 2 = ?', 4, '2 + 2 = 4.'); // unknown card: a safe fallback
   }
 
-  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError, braveStep, tailStep, yardDrill, courtCase, gardenArray, kitchenRecipe };
+  MM.problems = { generate, generateQuick, checkAnswer, parseAnswer, frac, fstr, GENERATORS, QUICK, generateClock, generateExam, spotTheError, braveStep, tailStep, yardDrill, courtCase, gardenArray, kitchenRecipe, signed, signedBuild };
 })();
