@@ -5080,5 +5080,151 @@ for (const skill of skills) {
   E.state = null;
 }
 
+// ========== Wave 24 (Looking Glass P4 — the finale): the Vantage ==========
+// The completed-spiral capstone + a tight Carroll wonder cast. ALL of it is
+// WONDER (look, never test) — gated on E.inMirror() ALONE (unlike the
+// Tweedle room / number-line crossing, no negatives switch is required —
+// there is no signed arithmetic anywhere in this room). The two things that
+// matter most: (1) reachable ONLY inMirror(), absent from normal play; (2)
+// the mirrored-spiral geometry is a PURE function — no Math.random in it.
+{
+  const E = MM.engine;
+  const M = MM.maps;
+  const realDialog = MM.ui.dialog;
+
+  // ---- (1) the gate: outside the mirror, the Vantage refuses gently ----
+  E.state = { name: 'w24a', ngPlus: 0, parent: { negatives: false }, gold: 0, calmMode: true, mapId: 'castle', px: 5, py: 5, equipped: {}, charmsOn: [], enchants: {}, monsters: [] };
+  let dlgTitle = null, dlgBody = null;
+  MM.ui.dialog = (t, b) => { dlgTitle = t; dlgBody = b; };
+  E.vantageDoor();
+  if (E.state.mapId === 'vantage') fail('W24 gate: outside the mirror the Vantage must not open');
+  if (!/isn.t here|other side of the glass/i.test(`${dlgTitle} ${dlgBody || ''}`)) fail('W24 gate: outside the mirror the door explains itself, never a silent wall');
+
+  // ---- (2) inside the mirror: NO negatives switch required (pure wonder) ----
+  E.state = { name: 'w24b', ngPlus: 1, parent: { negatives: false }, gold: 0, calmMode: true, mapId: 'castle', px: 5, py: 5, equipped: { ring: null, amulet: null }, charmsOn: [], enchants: {}, monsters: [] };
+  E.vantageDoor();
+  if (E.state.mapId !== 'vantage') fail('W24 gate: inside the mirror the Vantage opens even with negatives OFF (pure wonder, no gate on the switch)');
+
+  // ---- (3) the completed-spiral vantage: first bump reveals + arms; later bumps are a short callback ----
+  {
+    const s = E.state;
+    const bodies = [];
+    MM.ui.dialog = (t, b) => bodies.push(b);
+    if (s.vantage && s.vantage.revealed) fail('W24 spiral: a fresh visit starts un-revealed');
+    E.vantagePlaque();
+    if (!s.vantage.revealed) fail('W24 spiral: bumping the plaque ARMS the render (s.vantage.revealed)');
+    if (bodies[0] !== MM.data.COMPLETED_SPIRAL_REVEAL) fail('W24 spiral: the FIRST bump shows the full authored reveal');
+    E.vantagePlaque();
+    if (bodies[1] !== MM.data.COMPLETED_SPIRAL_AGAIN) fail('W24 spiral: a LATER bump shows the short callback, not the full reveal again');
+  }
+
+  // ---- (4) the mirrored-spiral geometry is a PURE function — no Math.random anywhere in it ----
+  {
+    MM.data._completedSpiralGeom = null;
+    const realRandom = Math.random;
+    Math.random = () => { throw new Error('completedSpiralGeometry must never call Math.random'); };
+    let geom;
+    try { geom = MM.data.completedSpiralGeometry(); } finally { Math.random = realRandom; }
+    if (!geom) fail('W24 spiral geometry: completedSpiralGeometry must return a value even with Math.random poisoned');
+    const geom2 = MM.data.completedSpiralGeometry();
+    if (JSON.stringify(geom) !== JSON.stringify(geom2)) fail('W24 spiral geometry: must be deterministic (cached/pure)');
+    if (geom.mirrorChain.length !== geom.chain.length) fail('W24 spiral geometry: the mirror chain must sample the SAME number of points as the original');
+    const C = geom.center;
+    const s0 = geom.stones.find(st => st.i === 0), m0 = geom.mirrorStones.find(st => st.i === 0);
+    if (Math.abs(m0.x - s0.x) > 1e-9) fail('W24 spiral geometry: the shared center stone (on the mirror line) must map to itself');
+    for (let i = 0; i < geom.chain.length; i += 37) {
+      const p = geom.chain[i], mp = geom.mirrorChain[i];
+      if (Math.abs(mp.x - (2 * C.x - p.x)) > 1e-9 || mp.y !== p.y) fail(`W24 spiral geometry: mirrorChain[${i}] must be the TRUE reflection of chain[${i}] (x'=2C.x-x, y unchanged)`);
+    }
+    // a genuine reflection reverses chirality: the curl's far tip must land on
+    // the OPPOSITE side of the center stone, not the same side (a relabeled
+    // copy, not a real mirror).
+    const tipO = geom.chain[geom.chain.length - 1], tipM = geom.mirrorChain[geom.mirrorChain.length - 1];
+    if (tipO.x !== C.x && Math.sign(tipO.x - C.x) === Math.sign(tipM.x - C.x)) {
+      fail('W24 spiral geometry: the mirrored curl must extend to the OPPOSITE side of the center stone');
+    }
+  }
+
+  // ---- (5) the Jabberwocky plaque: mirror-writing round-trips (a real string transform) ----
+  {
+    const mw = MM.data.mirrorWrite;
+    if (mw(mw(MM.data.JABBERWOCKY_TRUE)) !== MM.data.JABBERWOCKY_TRUE) fail('W24 jabberwocky: mirrorWrite must be involutive (round-trips)');
+    if (mw(MM.data.JABBERWOCKY_TRUE) === MM.data.JABBERWOCKY_TRUE) fail('W24 jabberwocky: mirrorWrite must actually change the text (a real transform, not a no-op)');
+    const plaque = MM.data.jabberwockyPlaqueText();
+    if (!plaque.body.includes(MM.data.JABBERWOCKY_TRUE.split('\n')[0])) fail('W24 jabberwocky: the plaque must show the TRUE stanza (held to the glass)');
+    if (!plaque.body.includes(mw(MM.data.JABBERWOCKY_TRUE).split('\n')[0])) fail('W24 jabberwocky: the plaque must ALSO show the mirror-written (printed) form');
+  }
+
+  // ---- (6) the frozen tea-party: NO timer/time state anywhere near it ----
+  {
+    const s = E.state;
+    const keysBefore = Object.keys(s).length;
+    let body = null;
+    MM.ui.dialog = (t, b) => { body = b; };
+    E.vantageMove(0, 0, s.px, s.py, 't');
+    if (Object.keys(s).length !== keysBefore) fail('W24 tea-party: bumping it must add NO new state (no timer, no persisted anything)');
+    if (s.teaParty) fail('W24 tea-party: there must be no s.teaParty field of any kind');
+    if (!/six o.clock/i.test(body || '')) fail("W24 tea-party: the line names the frozen six-o'clock joke");
+    if (/countdown|timer|seconds left|hurry up|time is running/i.test(body || '')) fail('W24 tea-party: must never read as a timer/hurry');
+  }
+
+  // ---- (7) White Queen / Humpty: the Carroll-verbatim lines are present ----
+  if (!MM.data.WHITE_QUEEN_LINES.some(l => /jam to-morrow/.test(l))) fail('W24 White Queen: the "jam to-morrow" line is present');
+  if (!MM.data.HUMPTY_LINES.some(l => /choose it to mean/.test(l))) fail('W24 Humpty: the "means what I choose" line is present');
+
+  MM.ui.dialog = realDialog;
+
+  // ---- (8) new-glyph context guards (the Vantage block precedes shared cases) ----
+  if (M.tileSprite('i', 7, 5, 'vantage') !== 'hallFloor') fail('W24 glyph: the spiral vantage sits on plain floor (emoji overlay, not a baked sprite)');
+  if (M.tileSprite('k', 2, 2, 'vantage') !== 'hallFloor') fail('W24 glyph: the Jabberwocky plaque sits on plain floor');
+  if (M.tileSprite('w', 13, 2, 'vantage') !== 'hallFloor') fail('W24 glyph: the White Queen sits on plain floor');
+  if (M.tileSprite('m', 2, 8, 'vantage') !== 'hallFloor') fail('W24 glyph: Humpty Dumpty sits on plain floor');
+  if (M.tileSprite('t', 13, 8, 'vantage') !== 'hallFloor') fail('W24 glyph: the tea-party sits on plain floor');
+  if (M.tileSprite('X', 3, 9, 'vantage') !== 'castleDoor') fail('W24 glyph: the exit renders as a castle door');
+  if (M.tileSprite('#', 0, 0, 'vantage') !== 'wall') fail('W24 glyph: the wall renders as a wall');
+  // 'k' elsewhere is UNAFFECTED — the Wing's bookshelf still reads its own sprite
+  if (M.tileSprite('k', 5, 5, 'wing') === 'hallFloor') fail("W24 glyph: 'k' on the Wing map must still be its own shelf sprite, not leaked floor");
+  if (M.isOverworld('vantage') !== true) fail('W24: the Vantage is an overworld (combat-free)');
+
+  // ---- (9) a pre-Wave-24 save (no s.vantage) is unaffected; ensure seeds it lazily ----
+  E.state = { name: 'w24c', ngPlus: 1, parent: { negatives: false } };
+  if (E.state.vantage) fail('W24: an old state has no vantage block until entered');
+  E.ensureVantage();
+  if (!E.state.vantage || E.state.vantage.revealed !== false) fail('W24: ensureVantage seeds a default un-revealed state');
+
+  // ---- (10) NG+/mirror round-trip: stepping back out closes the Vantage again ----
+  {
+    const realEW = E.enterWorld; E.enterWorld = () => {};
+    E.state = {
+      name: 'w24d', ngPlus: 0, goldenSnapshot: null, endingDone: true,
+      taskIndex: 14, tasksDone: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], haveItem: false,
+      opened: {}, bossesDefeated: {}, defeatedAt: {}, unsealed: {}, gearState: {}, repairSites: {}, freeSlabs: {},
+      enrollSeen: true, continent: 'west', worldPos: null,
+      isles: { keys: {}, lenses: {} },
+      level: 10, xp: 0, maxhp: 100, hp: 100, maxStamina: 100, stamina: 100,
+      badges: {}, bestiary: { seen: {}, kills: {}, gauntlet: {}, befriended: {} }, monsters: [],
+      parent: { pin: null, topics: {}, negatives: false },
+    };
+    const s = E.state;
+    let dt = null; MM.ui.dialog = (t) => { dt = t; };
+    if (E.inMirror()) fail('W24 round-trip: fixture must start outside the mirror');
+    E.vantageDoor();
+    if (s.mapId === 'vantage') fail('W24 round-trip: before stepping through, the Vantage is unreachable');
+    E.startGolden();
+    E.vantageDoor();
+    if (s.mapId !== 'vantage') fail('W24 round-trip: through the glass, the Vantage opens');
+    E.vantagePlaque(); // arm the render inside the mirror
+    if (!s.vantage.revealed) fail('W24 round-trip: the plaque arms inside the mirror');
+    E.returnToFinishedKingdom(); // note: E.enterWorld is stubbed, so s.mapId is stale ('vantage') — inMirror() is the real signal
+    if (E.inMirror()) fail('W24 round-trip: returning must close the mirror');
+    dt = null;
+    E.vantageDoor();
+    if (!/isn.t here|other side of the glass/i.test(dt || '')) fail('W24 round-trip: stepping back out of the glass closes the Vantage door again (gentle refusal, not a silent wall)');
+    MM.ui.dialog = realDialog;
+    E.enterWorld = realEW;
+  }
+  E.state = null;
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');
 process.exit(fails ? 1 : 0);

@@ -485,6 +485,24 @@ switched off.)
   you step into **the Below**, where every number is less than nothing. (Same
   parent gate: with negatives off, the crossing shows the gentle grown-up note,
   and none of the zero-line theming appears — the ordinary kingdom is untouched.)
+- **🌀 The Vantage — the mirror's wonder finale.** From the throne, **"Visit
+  the Vantage"** opens onto a quiet plaza and the closing thought of the whole
+  Looking Glass: **the completed spiral.** The ending told you the kingdom was
+  a spiral all along — the Vantage shows you it was only *half* of one. Bump
+  the plaque and a second curl grows out from the very same center stone, the
+  same golden shape turning the *other* way, and the two together make one
+  symmetric whole — *"Zero was never an ending. It was always the middle."*
+  Around it, a tight cast from *Through the Looking-Glass* waits, all wonder
+  and no quiz — nothing here is ever a question: a **Jabberwocky plaque**
+  carved in genuine mirror-writing (nonsense until you hold it up to the
+  glass, and then it reads true); the **White Queen**, who lives backwards
+  and recites "jam to-morrow and jam yesterday, but never jam to-day"; **Humpty
+  Dumpty**, insisting with total confidence that "less than nothing" means
+  just what he says it means; and the **Mad Tea-Party**, frozen forever at
+  six o'clock — a cozy rest stop where, for once in this or any game, nobody
+  is ever in a hurry. (All of it lives only on the other side of the glass;
+  step back and the Vantage — like everything else through the looking
+  glass — simply isn't there.)
 
 ### 🌀 The Tending — life after the ending
 

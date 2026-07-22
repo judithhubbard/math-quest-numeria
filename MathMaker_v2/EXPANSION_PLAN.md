@@ -4981,7 +4981,7 @@ EXACT target logic, gentle wrong-tile nudge (never punish), reusing the
 stepping-stone rendering (not a bespoke new system). P4 (Carroll cast +
 completed spiral) remains the finale after this.
 
-## Wave 24 order — Through the Looking Glass, P4: the wonder finale — Carroll cast + the completed spiral (Looking Glass P4) (user directive 2026-07-21)
+## Wave 24 order — Through the Looking Glass, P4: the wonder finale — Carroll cast + the completed spiral (Looking Glass P4) — ✅ SHIPPED v1.19.0 2026-07-22 (design-reviewed; the LOOKING GLASS FEATURE P0–P4 IS COMPLETE)
 
 The FINALE of the Looking Glass feature (P0–P3.5 shipped: v1.14.1 →
 v1.18.0). Two pieces: the Carroll wonder cast (flavor + reference), and —

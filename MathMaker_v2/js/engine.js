@@ -1349,6 +1349,10 @@ var MM = globalThis.MM = globalThis.MM || {};
         // Wave 23 (Looking Glass P3.5): and onto the number-line crossing —
         // negatives as a place you WALK (E.numberlineDoor gates it the same way).
         ...(E.inMirror() ? [{ label: '🌉 Walk the number-line crossing', onClick: () => E.numberlineDoor() }] : []),
+        // Wave 24 (Looking Glass P4, the finale): and onto the Vantage — the
+        // completed spiral + the Carroll wonder cast. Pure wonder: gated on
+        // E.inMirror() alone, no negatives switch required.
+        ...(E.inMirror() ? [{ label: '🌀 Visit the Vantage', onClick: () => E.vantageDoor() }] : []),
         { label: '🪞 Step through the looking glass', onClick: () => E.goldenPrompt() },
         { label: 'Just sit a while', onClick: () => {} },
       ]);
@@ -2011,6 +2015,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (s.mapId === 'menagerie') return E.menagerieMove(dx, dy, nx, ny, ch);
       // Wave 22: the Tweedle room — combat-free, castle rules, its own alphabet.
       if (s.mapId === 'tweedle') return E.tweedleMove(dx, dy, nx, ny, ch);
+      // Wave 24: the Vantage — combat-free, castle rules, own alphabet.
+      if (s.mapId === 'vantage') return E.vantageMove(dx, dy, nx, ny, ch);
       // Wave 23: the number-line crossing — combat-free, castle rules, own alphabet.
       if (s.mapId === 'numberline') return E.numberlineMove(dx, dy, nx, ny, ch);
       if (s.mapId === 'gullwrack') {
@@ -3194,6 +3200,78 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (next.kind === 'rel') n.anchor = justStoodValue;
     E.save();
     E.numberlinePromptLog();
+  };
+
+  // ---------- Wave 24 (Looking Glass P4 — the finale): the Vantage ----------
+  // The completed-spiral capstone + a tight Carroll wonder cast. ALL of it is
+  // WONDER (look, never test) — unlike the Tweedle room/number-line crossing,
+  // it does NOT require E.negativesOn() (no signed math lives here at all),
+  // only E.inMirror(). Combat-free, castle rules, own alphabet (own tileSprite
+  // block in js/maps.js).
+  E.ensureVantage = function () {
+    const s = E.state;
+    if (!s.vantage) s.vantage = { revealed: false };
+    return s.vantage;
+  };
+  // The gated entry, reached from the throne room's mirror menu.
+  E.vantageDoor = function () {
+    if (!E.inMirror()) {
+      return MM.ui.dialog('🚪 A vantage that isn\'t here', 'It is only a place on the other side of the glass. Step through the looking glass first.');
+    }
+    E.enterVantage();
+  };
+  E.enterVantage = function () {
+    const s = E.state;
+    MM.track('enterVantage');
+    if (E.resetTransientEntities) E.resetTransientEntities();
+    E.ensureVantage();
+    if (MM.maps.isOverworld(s.mapId)) s.worldPos = { x: s.px, y: s.py };
+    s.mapId = 'vantage';
+    s.grid = MM.maps.parse(MM.maps.VANTAGE, '#');
+    s.monsters = [];   // combat-free, always — this room is pure wonder
+    const start = MM.maps.find(s.grid, 'P')[0];
+    s.px = start.x; s.py = start.y;
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.log(MM.data.VANTAGE_ENTER_LINE);
+    E.save();
+    MM.ui.refresh();
+    E.armCheshire(); // the guide materializes at this threshold too, general (non-negative) hint
+  };
+  E.exitVantage = function () {
+    E.enterCastle();
+    MM.ui.refresh();
+  };
+  E.vantageMove = function (dx, dy, nx, ny, ch) {
+    E.ensureVantage();
+    if (ch === 'X') return E.exitVantage();
+    if (ch === 'i') return E.vantagePlaque();
+    if (ch === 'k') return E.jabberwockyPlaque();
+    if (ch === 'w') return MM.ui.dialog('♕ The White Queen', MM.data.pick(MM.data.WHITE_QUEEN_LINES));
+    if (ch === 'm') return MM.ui.dialog('🥚 Humpty Dumpty', MM.data.pick(MM.data.HUMPTY_LINES));
+    if (ch === 't') return MM.ui.dialog('🫖 The Mad Tea-Party', MM.data.TEAPARTY_LINE);
+    if (ch === '#') return;
+    // walk (no stamina — castle/overworld rules)
+    const s = E.state;
+    E.petPos = { x: s.px, y: s.py };
+    s.px = nx; s.py = ny;
+    MM.ui.refresh();
+  };
+  // P4.1 — the completed spiral's vantage. First bump: the full authored
+  // reveal, and the render ARMS (s.vantage.revealed persists — the render
+  // stays lit on every future visit, same as the original Turning Stones
+  // never un-align once tended). Every later bump: a short callback line.
+  E.vantagePlaque = function () {
+    const v = E.ensureVantage();
+    const first = !v.revealed;
+    v.revealed = true;
+    E.save();
+    MM.sound.fanfare();
+    MM.ui.refresh(); // the render arms in THIS view, same visit
+    MM.ui.dialog('🌀 The Vantage', first ? MM.data.COMPLETED_SPIRAL_REVEAL : MM.data.COMPLETED_SPIRAL_AGAIN);
+  };
+  E.jabberwockyPlaque = function () {
+    const d = MM.data.jabberwockyPlaqueText();
+    MM.ui.dialog(d.title, d.body);
   };
 
   // ---------- the Armory beam ----------
