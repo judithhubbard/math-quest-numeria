@@ -1201,6 +1201,67 @@ var MM = globalThis.MM = globalThis.MM || {};
       'and then the Tweedles will be delighted to show you how a number and its opposite add up to nothing at all.',
   };
 
+  // ===== Wave 23 (Looking Glass P3.5): the number-line crossing =====
+  // Read ONLY when E.negativesOn(). Negatives as a PLACE your feet go. All
+  // gentle: a wrong stone is a nudge that names the stone and points the way,
+  // never a scold. A shared signed-number formatter (U+2212 minus, like combat
+  // and the Tweedles) so a −4 never reads as a stray dash.
+  MM.data.signedNum = n => (n === 0 ? '0' : (n < 0 ? '−' + (-n) : '+' + n));
+  const NL_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
+  MM.data.NUMBERLINE_ENTER_LINE =
+    '🌉 A frozen channel, and a line of pale stones laid across it — each carved with a number. ' +
+    'To the west they count down <i>below</i> nothing; to the east they count up above it. ' +
+    'And in the very middle, marked apart and saying nothing at all: <b>0</b>.';
+  // The signpost names a target. Returns just the sentence; the caller wraps it.
+  // 'abs': stand on a signed number. 'zero': N east/west of zero. 'rel': N
+  // steps east/west of where you stand. dir +1 = east, −1 = west.
+  MM.data.numberlineTargetLine = function (t) {
+    const word = NL_WORDS[t.mag] || String(t.mag);
+    const way = t.dir < 0 ? 'west' : 'east';
+    if (t.kind === 'abs') return `Stand on <b>${MM.data.signedNum(t.dir * t.mag)}</b>.`;
+    if (t.kind === 'zero') return `Meet me <b>${word} ${way} of zero</b>.`;
+    const steps = t.mag === 1 ? 'one step' : `${word} steps`;
+    return `Take <b>${steps} ${way}</b> of where you stand.`;
+  };
+  // The gentle informative nudge on a wrong (non-target) stone: names the
+  // stone you're on and how far, which way, to the one the signpost meant.
+  MM.data.numberlineNudge = function (tileValue, targetValue) {
+    const diff = targetValue - tileValue;
+    const steps = Math.abs(diff);
+    const way = diff < 0 ? 'west' : 'east';
+    const word = NL_WORDS[steps] ? NL_WORDS[steps][0].toUpperCase() + NL_WORDS[steps].slice(1) : String(steps);
+    const stepStr = steps === 1 ? 'One more step' : `${word} more steps`;
+    return `🌉 That stone is <b>${MM.data.signedNum(tileValue)}</b>. ${stepStr} <b>${way}</b> to go.`;
+  };
+  // The you-stood-on-the-right-one line.
+  MM.data.numberlineHitLine = tileValue =>
+    `🌟 You stand on <b>${MM.data.signedNum(tileValue)}</b> — exactly where the signpost meant.`;
+  // The full-crossing completion. g = gold (0 on a replay after the first).
+  MM.data.NUMBERLINE_DONE = function (g) {
+    return {
+      title: '🌉 The crossing is yours',
+      body: 'You have walked from below nothing to above it, and stood on every stone the signpost named. ' +
+        'The pale stones hum, pleased with you.<br><br>' +
+        '<i>West of zero was a perfectly good place to stand, after all.</i>' +
+        (g > 0 ? `<br><br>+${g} gold, for learning the way of it.` : ''),
+    };
+  };
+  // The overworld zero-meridian crossing beat (P3.5.1) — narrated once per
+  // visit, the first time you step west of the glowing zero-line.
+  MM.data.NUMBERLINE_BELOW_BEAT =
+    '🧭 You cross the glimmering zero-line. Westward the light turns cooler — you have stepped into <b>the Below</b>, ' +
+    'where every number is less than nothing.';
+  // The gentle grown-up note shown when negatives are OFF at the crossing —
+  // same PATTERN as MM.data.NEGATIVES_OFF_NOTE, themed to the channel, never a
+  // locked wall.
+  MM.data.NUMBERLINE_OFF_NOTE = {
+    title: '🌉 A crossing, iced over',
+    body: 'A line of numbered stones runs out across the frozen channel — but past the middle they seem to count ' +
+      'into numbers <i>smaller than nothing</i>, and the ice there is too thin to cross just yet.<br><br>' +
+      'A grown-up can open <b>negative numbers</b> for you in 👪 <b>Parent Settings</b> — and then the whole crossing, ' +
+      'east of zero and west of it, is yours to walk.',
+  };
+
   // P2.1 — reversed NPC greetings (a curated, occasional aside, not every
   // line — see js/engine.js E.MIRROR_GREETING_CHANCE). {name} is the NPC's
   // plain name, no emoji.

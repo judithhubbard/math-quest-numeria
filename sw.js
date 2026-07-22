@@ -2,7 +2,7 @@
 // Cache-first over the full static set so the game plays OFFLINE after the
 // first visit. VERSION is bumped at each release deploy; the old cache is
 // dropped on activate, so players get each tagged release cleanly.
-const VERSION = 'v1.17.0';
+const VERSION = 'v1.18.0';
 const CACHE = 'mathquest-' + VERSION;
 const ASSETS = [
   '.', 'index.html', 'manifest.json',
