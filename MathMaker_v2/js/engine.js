@@ -799,6 +799,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (s.continent === 'chime') return E.enterChime();
     if (s.continent === 'gullwrack') return E.enterGullwrack();
     s.mapId = 'world';
+    E._belowSeen = false;   // Wave 23 (P3.5.1): the zero-line beat is once per visit
     s.grid = MM.maps.parse(MM.maps.OVERWORLD, '~');
     s.monsters = [];
     // the bridge to Miscount's bank rises once all ten tasks are done
@@ -1345,6 +1346,9 @@ var MM = globalThis.MM = globalThis.MM || {};
         // onto the Tweedles' additive-inverse room (E.tweedleDoor gates it —
         // negatives on → the room; off → the gentle grown-up note).
         ...(E.inMirror() ? [{ label: '🎭 Visit the Tweedles\' room', onClick: () => E.tweedleDoor() }] : []),
+        // Wave 23 (Looking Glass P3.5): and onto the number-line crossing —
+        // negatives as a place you WALK (E.numberlineDoor gates it the same way).
+        ...(E.inMirror() ? [{ label: '🌉 Walk the number-line crossing', onClick: () => E.numberlineDoor() }] : []),
         { label: '🪞 Step through the looking glass', onClick: () => E.goldenPrompt() },
         { label: 'Just sit a while', onClick: () => {} },
       ]);
@@ -2007,6 +2011,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (s.mapId === 'menagerie') return E.menagerieMove(dx, dy, nx, ny, ch);
       // Wave 22: the Tweedle room — combat-free, castle rules, its own alphabet.
       if (s.mapId === 'tweedle') return E.tweedleMove(dx, dy, nx, ny, ch);
+      // Wave 23: the number-line crossing — combat-free, castle rules, own alphabet.
+      if (s.mapId === 'numberline') return E.numberlineMove(dx, dy, nx, ny, ch);
       if (s.mapId === 'gullwrack') {
         if (ch === '7') return E.tryEnterDungeon(21);
         if (ch === 'W') return E.gullwrackDock();
@@ -2082,6 +2088,7 @@ var MM = globalThis.MM = globalThis.MM || {};
         E.stairStep(wasX, wasY);   // Wave 13: the following staircase trails 2 back
         E.walkStamina();
         E.updatePetAlert();
+        E.maybeCrossMeridian(wasX, nx);  // Wave 23 (P3.5.1): the zero-line beat
       }
       return;
     }
@@ -3032,6 +3039,161 @@ var MM = globalThis.MM = globalThis.MM || {};
     MM.ui.log('🎭 "Contrariwise!" The slabs shuffle back to where they started, arguing the whole way.');
     E.save();
     MM.ui.refresh();
+  };
+
+  // Wave 23 (P3.5.1): the zero-meridian crossing beat. Narrated ONCE per
+  // overworld visit, the first time you step WEST of the glowing zero-line into
+  // the Below. Gated on E.negativesOn() and the 'world' map — normal play, and
+  // a switch-off mirror run, cross nothing. Pure geography theming (no geometry
+  // change): the line lives at MM.maps.MERIDIAN_X.
+  E.maybeCrossMeridian = function (oldX, newX) {
+    const s = E.state;
+    if (!s || s.mapId !== 'world' || !E.negativesOn()) return;
+    const m = MM.maps.MERIDIAN_X;
+    if (oldX >= m && newX < m && !E._belowSeen) {
+      E._belowSeen = true;
+      MM.ui.log(MM.data.NUMBERLINE_BELOW_BEAT);
+    }
+  };
+
+  // ---------- Wave 23 (Looking Glass P3.5): the number-line crossing ----------
+  // Negatives as GEOGRAPHY: a walkable row of labelled signed stones. You WALK
+  // to the stone the signpost names. Combat-free (overworld rules), gated on
+  // E.negativesOn() exactly like the Tweedle room; a wrong stone is a gentle
+  // nudge that names it and points the way, NEVER a punish (the kid keeps their
+  // place — feet stay put, they simply take another step).
+  //
+  // EXACT target logic — the whole pedagogy rests on it, so it is a tiny PURE
+  // function, unit-tested against a correctness table. A target resolves to
+  // exactly ONE signed value: 'abs'/'zero' → dir*mag; 'rel' → anchor + dir*mag
+  // (anchor = the stone you were standing on when the target became active).
+  E.numberlineResolve = function (t) {
+    if (!t) return 0;
+    const base = t.kind === 'rel' ? (t.anchor || 0) : 0;
+    return base + t.dir * t.mag;
+  };
+  E.numberlineHit = (t, tileValue) => tileValue === E.numberlineResolve(t);
+  E.numberlineValueAt = function (x, y) {
+    const st = MM.maps.NUMBERLINE_ROW.find(r => r.x === x && r.y === y);
+    return st ? st.value : null;
+  };
+  E.ensureNumberline = function () {
+    const s = E.state;
+    if (!s.numberline) s.numberline = { idx: 0, anchor: 0, done: false, rewarded: false };
+    return s.numberline;
+  };
+  // The active target = the sequence entry at idx, carrying the live anchor.
+  E.numberlineActiveTarget = function () {
+    const n = E.ensureNumberline();
+    const t = MM.maps.NUMBERLINE_SEQ[n.idx];
+    if (!t) return null;
+    return { kind: t.kind, dir: t.dir, mag: t.mag, anchor: n.anchor };
+  };
+  // The gated entry (from the throne's mirror menu, and drivable directly).
+  E.numberlineDoor = function () {
+    if (!E.inMirror()) {
+      return MM.ui.dialog('🚪 A crossing that isn\'t here', 'It is only a place on the other side of the glass. Step through the looking glass first.');
+    }
+    if (!E.negativesOn()) {
+      const note = MM.data.NUMBERLINE_OFF_NOTE;
+      return MM.ui.dialog(note.title, note.body);
+    }
+    E.enterNumberline();
+  };
+  E.enterNumberline = function () {
+    const s = E.state;
+    MM.track('enterNumberline');
+    if (E.resetTransientEntities) E.resetTransientEntities();
+    const n = E.ensureNumberline();
+    n.idx = 0; n.anchor = 0;   // a fresh crossing each visit (done/rewarded persist)
+    if (MM.maps.isOverworld(s.mapId)) s.worldPos = { x: s.px, y: s.py };
+    s.mapId = 'numberline';
+    s.grid = MM.maps.parse(MM.maps.NUMBERLINE, '#');
+    s.monsters = [];   // combat-free, always
+    const start = MM.maps.NUMBERLINE_META.start;
+    s.px = start.x; s.py = start.y;
+    E.petPos = { x: s.px, y: s.py };
+    MM.ui.log(MM.data.NUMBERLINE_ENTER_LINE);
+    E.numberlinePromptLog();
+    E.save();
+    MM.ui.refresh();
+    // the Cheshire drops a number-line hint at the threshold (negatives on only)
+    E.armCheshire({ negative: true });
+  };
+  E.exitNumberline = function () {
+    E.enterCastle();
+    MM.ui.refresh();
+  };
+  E.numberlinePromptLog = function () {
+    const t = E.numberlineActiveTarget();
+    if (!t) return;
+    MM.ui.log(`🪧 The signpost: "${MM.data.numberlineTargetLine(t)}"`);
+  };
+  E.numberlineSignpost = function () {
+    const n = E.ensureNumberline();
+    if (n.idx >= MM.maps.NUMBERLINE_SEQ.length) {
+      return MM.ui.dialog('🪧 The signpost', 'It has run out of numbers to name. <i>You have walked them all.</i>');
+    }
+    const t = E.numberlineActiveTarget();
+    MM.ui.dialog('🪧 The signpost',
+      `In a careful, frost-rimed hand:<br><br><p style="text-align:center;font-size:16px">${MM.data.numberlineTargetLine(t)}</p>`);
+  };
+  E.numberlineMove = function (dx, dy, nx, ny, ch) {
+    const s = E.state;
+    E.ensureNumberline();
+    if (ch === 'X') return E.exitNumberline();
+    if (ch === 'i') return E.numberlineSignpost();
+    if (ch === '#') return;
+    // walk (no stamina — overworld rules). Stepping onto a labelled stone
+    // checks the active target; every other tile is plain floor.
+    E.petPos = { x: s.px, y: s.py };
+    s.px = nx; s.py = ny;
+    if (ch === 'n') E.numberlineStep(nx, ny);
+    MM.ui.refresh();
+  };
+  // The heart of the walk. Stepping onto a stone: right one → celebrate +
+  // advance; wrong one → a gentle informative nudge (name + direction), the
+  // kid keeps their footing (never yanked back — that would read as a punish).
+  E.numberlineStep = function (nx, ny) {
+    const s = E.state;
+    const n = E.ensureNumberline();
+    const val = E.numberlineValueAt(nx, ny);
+    if (val == null) return;
+    const t = E.numberlineActiveTarget();
+    if (!t) return;
+    if (!E.numberlineHit(t, val)) {
+      MM.sound.tone(2);
+      MM.ui.log(MM.data.numberlineNudge(val, E.numberlineResolve(t)));
+      return;
+    }
+    // a hit — small celebration, then the next target (or the crossing done)
+    MM.sound.fanfare();
+    if (MM.ui.worldBurst && !s.calmMode) MM.ui.worldBurst(nx, ny, '#8fd0ff', 12);
+    MM.ui.log(MM.data.numberlineHitLine(val));
+    E.numberlineAdvance(val);
+  };
+  E.numberlineAdvance = function (justStoodValue) {
+    const s = E.state;
+    const n = E.ensureNumberline();
+    n.idx += 1;
+    if (n.idx >= MM.maps.NUMBERLINE_SEQ.length) {
+      // the whole crossing walked
+      const first = !n.done;
+      n.done = true;
+      let g = 0;
+      if (!n.rewarded) { g = E.gainGold(MM.maps.NUMBERLINE_META.reward); n.rewarded = true; }
+      E.save();
+      if (first || g > 0) {
+        const d = MM.data.NUMBERLINE_DONE(g);
+        return MM.ui.dialog(d.title, d.body);
+      }
+      return MM.ui.log('🌉 You walk the whole crossing again, sure-footed now — below nothing, and back above it.');
+    }
+    // set the anchor for a relative next-target to the stone just stood on
+    const next = MM.maps.NUMBERLINE_SEQ[n.idx];
+    if (next.kind === 'rel') n.anchor = justStoodValue;
+    E.save();
+    E.numberlinePromptLog();
   };
 
   // ---------- the Armory beam ----------

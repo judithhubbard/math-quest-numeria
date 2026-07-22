@@ -1453,6 +1453,63 @@ var MM = globalThis.MM = globalThis.MM || {};
     { id: 't-3', num: -3, x: 14, y: 6 },
   ];
 
+  // ===== Wave 23 (Looking Glass P3.5): the number-line crossing =====
+  // A mirror-only, combat-free proving room (an overworld like the Tweedle
+  // room) whose whole mechanic is WALKING a labelled signed path. A row of
+  // stones …−4 −3 −2 −1 [0] +1 +2 +3 +4… is laid across a frozen channel;
+  // zero is marked apart, negatives to the WEST, positives to the EAST. A
+  // signpost names a TARGET ("stand on −4", "two east of zero", "three steps
+  // west of where you stand") and the kid WALKS to that stone — negatives are
+  // a place your feet go. REUSES the Wave 12 stepping-stone numeral-on-tile
+  // rendering idiom (a walkable floor stone carrying its carved label), NOT a
+  // bespoke system. Gated on E.negativesOn() (needs negatives): the entry
+  // (E.numberlineDoor) shows a gentle grown-up note when negatives are off,
+  // never a locked wall. Alphabet (own tileSprite block): '#' wall, 'X' door
+  // back to the castle, 'n' a labelled number-line stone (value from
+  // NUMBERLINE_ROW), 'i' the signpost (restates the target), 'P' start.
+  MM.maps.NUMBERLINE = [
+    '####################',
+    '#..................#',
+    '#........i.........#',
+    '#..................#',
+    '#..................#',
+    '#....nnnnnnnnn.....#',
+    '#..................#',
+    '#..................#',
+    '#........P.........#',
+    '#..................#',
+    '#.X................#',
+    '####################',
+  ];
+  // The row of signed stones. zero sits at x=9 (marked apart); value = x − 9,
+  // so x5..x13 read −4 −3 −2 −1 0 +1 +2 +3 +4. Generated so a value and its
+  // column can never drift apart (the numeral-hazard lesson).
+  MM.maps.NUMBERLINE_ROW = [];
+  for (let x = 5; x <= 13; x++) MM.maps.NUMBERLINE_ROW.push({ x, y: 5, value: x - 9 });
+  MM.maps.NUMBERLINE_ZERO_X = 9;
+  MM.maps.NUMBERLINE_META = {
+    signpost: { x: 9, y: 2 },
+    exit: { x: 1, y: 10 },
+    start: { x: 9, y: 8 },
+    reward: 24,   // one-time, on the first full crossing (gold is near-moot post-game)
+  };
+  // The fixed target sequence — one of each type, small magnitudes, all
+  // resolving to a stone that exists on the row. 'abs' = stand on a named
+  // signed number; 'zero' = N east/west of zero; 'rel' = N steps from where
+  // you stand (anchored to the stone you solved the last target on). dir +1 =
+  // east/positive, −1 = west/negative.
+  MM.maps.NUMBERLINE_SEQ = [
+    { kind: 'abs', dir: -1, mag: 4 },   // "stand on −4"
+    { kind: 'zero', dir: 1, mag: 2 },   // "two east of zero"  → +2
+    { kind: 'rel', dir: -1, mag: 3 },   // "three steps west of where you stand" (from +2 → −1)
+  ];
+
+  // Wave 23 (P3.5.1): the zero-meridian down the mirror overworld — a glowing
+  // N–S line at the map's middle column; WEST of it is "the Below" (negatives),
+  // EAST is "the Above". Pure THEMING (a render tint + a narrated crossing
+  // beat), gated on E.negativesOn(); the map geometry is never touched.
+  MM.maps.MERIDIAN_X = Math.floor(MM.maps.OVERWORLD[0].length / 2);
+
   // ===== Wave 13 (P2): Your Own Room — behind the Wing's named doorway =====
   // A separate tiny map (mapId 'myroom', an OVERWORLD like the castle:
   // combat-free, no stamina). The TEMPLATE below is the fixed shell; the
@@ -1807,7 +1864,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   // NPC pass may run (its alphabet avoids every NPCS key), castle movement.
   // 'myroom' (Wave 13) is an overworld like the castle and the Wing: no
   // monsters ever, no stamina, its own alphabet block below.
-  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom', 'parlor', 'garden', 'menagerie', 'tweedle'];
+  MM.maps.OVERWORLD_IDS = ['world', 'isles', 'horologe', 'chime', 'gullwrack', 'castle', 'wing', 'myroom', 'parlor', 'garden', 'menagerie', 'tweedle', 'numberline'];
   MM.maps.isOverworld = mapId => MM.maps.OVERWORLD_IDS.includes(mapId);
 
   // Gear gates (Clockwork Spire): exactly one of A/B/C is open at a time, and
@@ -2027,6 +2084,19 @@ var MM = globalThis.MM = globalThis.MM || {};
       if (ch === 'U') return 'slab';
       if (ch === '0') return 'socket';
       if (ch === 'l') return 'resetLever';
+      if (ch === 'i') return 'board';
+      return 'hallFloor';                      // '.', 'P'
+    }
+    // Wave 23 (P3.5): the number-line crossing owns its whole alphabet,
+    // castle-style — a mirror-only combat-free room. 'n' is a walkable
+    // number-line stone (its signed label is drawn live in ui.js, the
+    // stepStone numeral-on-tile idiom); 'i' the signpost, 'X' the door back.
+    // This block sits before every shared case (the v1.7.9 'Y' lesson); each
+    // collision has a unit guard in tests/test.js. None is an NPCS key.
+    if (mapId === 'numberline') {
+      if (ch === '#') return 'wall';
+      if (ch === 'X') return 'castleDoor';
+      if (ch === 'n') return 'stepStone';
       if (ch === 'i') return 'board';
       return 'hallFloor';                      // '.', 'P'
     }

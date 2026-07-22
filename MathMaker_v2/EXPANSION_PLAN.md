@@ -4874,6 +4874,35 @@ play or a switch-off mirror run. This phase's math must be flawless.
 
 ## Wave 23 order — Through the Looking Glass, P3.5: the number-line walk (Looking Glass P3.5) (user directive 2026-07-21)
 
+> ✅ SHIPPED v1.18.0 2026-07-21 (design-reviewed; exact target logic; gated + gentle). Shipped all three pieces:
+> (1) the zero-meridian mirror geography (a glowing N–S line at MM.maps.MERIDIAN_X
+> + a cool "the Below" wash west of it, render-tint only — no geometry flip — and
+> a once-per-visit narrated crossing beat, E.maybeCrossMeridian); (2) the
+> number-line CROSSING — a mirror-only combat-free room (mapId 'numberline',
+> modelled on the Wave 22 Tweedle room) with a walkable row of signed stones
+> …−4 −3 −2 −1 [0] +1 +2 +3 +4… (zero marked apart, REUSING the Wave 12
+> stepping-stone 'stepStone' numeral-on-tile rendering), a signpost that names a
+> target, and a gentle name-and-point nudge on a wrong stone (never a punish, feet
+> stay put); (3) the Cheshire number-line hint (existing armCheshire({negative:true})
+> + CHESHIRE_NEG_LINES). All THREE target types shipped (absolute "stand on −N",
+> "N east/west of zero", relative "N steps from where you stand" — anchored EXACTLY
+> to the stone last solved on). Everything gated on E.negativesOn() exactly like the
+> Tweedle room; switch-off shows a gentle grown-up note (MM.data.NUMBERLINE_OFF_NOTE,
+> same PATTERN as NEGATIVES_OFF_NOTE, themed to the channel). Reached from the
+> throne's mirror menu ("🌉 Walk the number-line crossing"). Evidence: unit exit 0
+> (Wave 23 block: EXACT target correctness table, gate both ways, meridian beat
+> gated, new-glyph guards, pre-Wave-23 save unaffected); drive-numberline.js
+> (~24 checks, 4 screenshots audited); full sweep; detached marathon.
+> DEVIATIONS: (a) the switch-off note is a crossing-themed NUMBERLINE_OFF_NOTE
+> following the NEGATIVES_OFF_NOTE pattern rather than the literal Tweedle-flavored
+> object (the Tweedle body names "two voices arguing" — wrong at a channel), all
+> non-negotiables intact (gate, gentle note never a wall, EXACT logic, gentle
+> nudge, reused stepping-stone rendering). (b) rel targets use "west/east" phrasing
+> (spatially accurate on the horizontal row) rather than "below/above". (c) did NOT
+> record the walk via recordAnswer (kept it purely embodied/gentle — implementer's
+> call per the order). No sw.js / tracker.js version bump. P4 (Carroll cast +
+> completed spiral) remains the finale after this.
+
 The deferred foundation from P3: negatives as GEOGRAPHY — you WALK the
 number line. Rounds out the pedagogy (the embodied representation, gentlest
 for the anxious kid) on top of P3's signed arithmetic. Two concrete pieces

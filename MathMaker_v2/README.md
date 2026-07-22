@@ -471,6 +471,21 @@ switched off.)
   their door simply shows a gentle note that a grown-up can open negatives —
   never a locked wall.) The Cheshire Cat learns negative-number hints to match.
 
+- **🌉 The number-line walk — negatives as a place your feet go
+  (parent-gated).** Before any signed arithmetic, the mirror lets you *walk*
+  the number line. From the throne, **"Walk the number-line crossing"** opens a
+  frozen channel laid with a row of numbered stones — `…−4 −3 −2 −1 [0] +1 +2
+  +3 +4…`, zero marked apart, negatives to the **west**, positives to the
+  **east**. A signpost names a stone — *"Stand on −4," "Meet me two east of
+  zero," "Take three steps west of where you stand"* — and you simply **walk
+  there.** Step on the right stone and it glows; step on a wrong one and a
+  gentle nudge names it and points the way (*"That stone is −3. One more step
+  west to go."*) — never a scold, never sent back. And the mirror overworld
+  itself gains a glowing **zero-line** down the middle: cross it westward and
+  you step into **the Below**, where every number is less than nothing. (Same
+  parent gate: with negatives off, the crossing shows the gentle grown-up note,
+  and none of the zero-line theming appears — the ordinary kingdom is untouched.)
+
 ### 🌀 The Tending — life after the ending
 
 You're the MathMaker now, which means tending the kingdom *is* the job. A few

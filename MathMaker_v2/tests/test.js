@@ -4958,5 +4958,127 @@ for (const skill of skills) {
   }
 }
 
+// ========== Wave 23 (Looking Glass P3.5): the number-line walk ==========
+// The two things that matter most: (1) the crossing + meridian appear ONLY
+// when negativesOn() (absent in normal play AND in a switch-off mirror run);
+// (2) the target logic is EXACT — a −4 target is the −4 stone and no other.
+{
+  const E = MM.engine;
+  const M = MM.maps;
+
+  // ---- (1) EXACT target logic — a correctness table (pure resolve) ----
+  const R = t => E.numberlineResolve(t);
+  if (R({ kind: 'abs', dir: -1, mag: 4 }) !== -4) fail('W23 resolve: "stand on −4" resolves to −4');
+  if (R({ kind: 'abs', dir: 1, mag: 3 }) !== 3) fail('W23 resolve: "stand on +3" resolves to +3');
+  if (R({ kind: 'zero', dir: 1, mag: 3 }) !== 3) fail('W23 resolve: "3 east of zero" = +3');
+  if (R({ kind: 'zero', dir: -1, mag: 2 }) !== -2) fail('W23 resolve: "2 west of zero" = −2');
+  if (R({ kind: 'rel', dir: -1, mag: 3, anchor: 2 }) !== -1) fail('W23 resolve: 3 steps west of +2 = −1');
+  if (R({ kind: 'rel', dir: 1, mag: 2, anchor: -4 }) !== -2) fail('W23 resolve: 2 steps east of −4 = −2');
+  if (R({ kind: 'rel', dir: 1, mag: 4, anchor: -4 }) !== 0) fail('W23 resolve: 4 steps east of −4 = 0');
+  // a −4 target is satisfied by the −4 stone and NO OTHER
+  const tgt = { kind: 'abs', dir: -1, mag: 4 };
+  for (let v = -4; v <= 4; v++) {
+    const hit = E.numberlineHit(tgt, v);
+    if (v === -4 && !hit) fail('W23 hit: the −4 target must be satisfied by the −4 stone');
+    if (v !== -4 && hit) fail(`W23 hit: the −4 target must NOT be satisfied by ${v}`);
+  }
+  // the row's label can never drift from its column (value = x − zeroX)
+  for (const r of M.NUMBERLINE_ROW) {
+    if (E.numberlineValueAt(r.x, r.y) !== r.value) fail('W23 row: valueAt must match the row entry');
+    if (r.value !== r.x - M.NUMBERLINE_ZERO_X) fail('W23 row: a stone value must equal x − zeroX');
+  }
+
+  // ---- (2) AIRTIGHT gate: the crossing opens ONLY when negativesOn() ----
+  let dlgTitle = null; const realDialog = MM.ui.dialog;
+  MM.ui.dialog = (t) => { dlgTitle = t; };
+  // NOT in the mirror → it isn't here, never opens
+  E.state = { name: 'w23a', ngPlus: 0, parent: { negatives: true }, gold: 0, calmMode: true, mapId: 'castle', px: 1, py: 1, equipped: {}, charmsOn: [], enchants: {} };
+  dlgTitle = null; E.numberlineDoor();
+  if (E.state.mapId === 'numberline') fail('W23 gate: outside the mirror the crossing must not open');
+  if (dlgTitle == null) fail('W23 gate: outside the mirror it explains itself, never a silent wall');
+  // mirror, switch OFF → the gentle grown-up note, never opens, never a locked wall
+  E.state = { name: 'w23b', ngPlus: 1, parent: { negatives: false }, gold: 0, calmMode: true, mapId: 'castle', px: 1, py: 1, equipped: {}, charmsOn: [], enchants: {} };
+  dlgTitle = null; E.numberlineDoor();
+  if (E.state.mapId === 'numberline') fail('W23 gate: with negatives OFF the crossing must not open');
+  if (dlgTitle !== MM.data.NUMBERLINE_OFF_NOTE.title) fail('W23 gate: negatives OFF shows the gentle grown-up note');
+  MM.ui.dialog = realDialog;
+  // mirror, switch ON → opens, a fresh crossing with a target waiting
+  E.state = { name: 'w23c', ngPlus: 1, parent: { negatives: true }, gold: 0, calmMode: true, mapId: 'castle', px: 1, py: 1, worldPos: null, equipped: {}, charmsOn: [], enchants: {} };
+  E.enterNumberline();
+  if (E.state.mapId !== 'numberline') fail('W23 gate: with negatives ON the crossing opens');
+  if (!E.numberlineActiveTarget()) fail('W23 enter: a fresh crossing has a target waiting');
+  if (E.state.numberline.idx !== 0) fail('W23 enter: a fresh crossing starts at target 0');
+
+  // ---- (3) the walk: right stone advances, wrong stone gently nudges (no yank) ----
+  let logs = []; const realLog = MM.ui.log;
+  MM.ui.log = (m) => { logs.push(m); };
+  E.state = { name: 'w23d', ngPlus: 1, parent: { negatives: true }, gold: 0, calmMode: true, mapId: 'numberline', equipped: {}, charmsOn: [], enchants: {} };
+  E.state.grid = M.parse(M.NUMBERLINE, '#');
+  E.state.numberline = { idx: 0, anchor: 0, done: false, rewarded: false };  // target 0 = "stand on −4"
+  const row = M.NUMBERLINE_ROW;
+  const at = v => row.find(r => r.value === v);
+  // step onto −3 (wrong): a directional nudge, idx unchanged, feet stay put
+  E.state.px = at(-3).x; E.state.py = at(-3).y;
+  logs = []; E.numberlineStep(at(-3).x, at(-3).y);
+  if (E.state.numberline.idx !== 0) fail('W23 walk: a wrong stone must not advance the target');
+  if (!logs.some(m => /−3/.test(m) && /west/.test(m))) fail('W23 walk: a wrong stone gives a gentle directional nudge (names it, points west)');
+  if (logs.some(m => /wrong|no|not allowed|lose/i.test(m))) fail('W23 walk: a wrong stone must never scold');
+  // step onto −4 (right): advances to target 1
+  logs = []; E.numberlineStep(at(-4).x, at(-4).y);
+  if (E.state.numberline.idx !== 1) fail('W23 walk: standing on the named stone advances the crossing');
+  // target 1 = "two east of zero" → +2
+  if (E.numberlineResolve(E.numberlineActiveTarget()) !== 2) fail('W23 walk: target 1 resolves to +2 (east of zero)');
+  logs = []; E.numberlineStep(at(2).x, at(2).y);
+  if (E.state.numberline.idx !== 2) fail('W23 walk: solving target 1 advances to target 2');
+  // target 2 = relative: 3 steps west of where you stand (+2) → −1 (anchor is EXACT)
+  if (E.numberlineResolve(E.numberlineActiveTarget()) !== -1) fail('W23 walk: the relative target anchors to the +2 stone → −1');
+  let doneDlg = null; const rd2 = MM.ui.dialog; MM.ui.dialog = (t) => { doneDlg = t; };
+  E.numberlineStep(at(-1).x, at(-1).y);
+  MM.ui.dialog = rd2;
+  if (!E.state.numberline.done) fail('W23 walk: standing every named stone completes the crossing');
+  if (E.state.gold <= 0) fail('W23 walk: the first full crossing pays a small reward');
+  if (doneDlg == null) fail('W23 walk: completing the crossing shows the done moment');
+
+  // ---- (4) the zero-meridian beat: only negativesOn(), only crossing WEST, once per visit ----
+  const mer = M.MERIDIAN_X;
+  E.state = { name: 'w23e', ngPlus: 1, parent: { negatives: true }, mapId: 'world' };
+  E._belowSeen = false; logs = [];
+  E.maybeCrossMeridian(mer, mer - 1);
+  if (!logs.some(m => /Below/.test(m))) fail('W23 meridian: crossing west of zero narrates the Below beat');
+  logs = []; E.maybeCrossMeridian(mer, mer - 1);
+  if (logs.length !== 0) fail('W23 meridian: the beat is once per visit');
+  // stepping EAST (out of the Below) narrates nothing
+  E._belowSeen = false; logs = [];
+  E.maybeCrossMeridian(mer - 1, mer);
+  if (logs.length !== 0) fail('W23 meridian: stepping east across the line is silent');
+  // negatives OFF → no beat ever
+  E.state = { name: 'w23f', ngPlus: 1, parent: { negatives: false }, mapId: 'world' };
+  E._belowSeen = false; logs = [];
+  E.maybeCrossMeridian(mer, mer - 1);
+  if (logs.length !== 0) fail('W23 meridian: negatives OFF crosses nothing');
+  // NOT in the mirror (normal play), switch on → no beat
+  E.state = { name: 'w23g', ngPlus: 0, parent: { negatives: true }, mapId: 'world' };
+  E._belowSeen = false; logs = [];
+  E.maybeCrossMeridian(mer, mer - 1);
+  if (logs.length !== 0) fail('W23 meridian: normal play crosses nothing');
+  MM.ui.log = realLog;
+
+  // ---- (5) new-glyph context guards (the numberline block precedes shared cases) ----
+  if (M.tileSprite('n', 5, 5, 'numberline') !== 'stepStone') fail('W23 glyph: a number-line stone renders as the stepStone idiom');
+  if (M.tileSprite('i', 9, 2, 'numberline') !== 'board') fail('W23 glyph: the signpost renders as a board');
+  if (M.tileSprite('X', 1, 10, 'numberline') !== 'castleDoor') fail('W23 glyph: the exit renders as a castle door');
+  if (M.tileSprite('#', 0, 0, 'numberline') !== 'wall') fail('W23 glyph: the wall renders as a wall');
+  // 'n' elsewhere is UNAFFECTED (the world notice board still reads its own sprite)
+  if (M.tileSprite('n', 20, 3, 'world') !== 'board') fail('W23 glyph: n on the world map must still be the notice board');
+  if (M.isOverworld('numberline') !== true) fail('W23: the crossing is an overworld (combat-free)');
+
+  // ---- (6) a pre-Wave-23 save (no s.numberline) is unaffected; ensure seeds it lazily ----
+  E.state = { name: 'w23h', ngPlus: 1, parent: { negatives: true } };
+  if (E.state.numberline) fail('W23: an old state has no numberline block until entered');
+  E.ensureNumberline();
+  if (!E.state.numberline || E.state.numberline.idx !== 0) fail('W23: ensureNumberline seeds a default crossing');
+  E.state = null;
+}
+
 console.log(fails ? `\n${fails} FAILURE(S)` : '\nALL TESTS PASSED');
 process.exit(fails ? 1 : 0);

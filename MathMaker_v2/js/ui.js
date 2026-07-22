@@ -1166,6 +1166,31 @@ var MM = globalThis.MM = globalThis.MM || {};
             ctx.fillText(st.label, vx * TILE + TILE / 2, vy * TILE + TILE / 2 + 4);
           }
         }
+        // Wave 23 (P3.5): the number-line stones carry their SIGNED numerals —
+        // the same numeral-on-tile recipe as the stepping stones, drawn on a
+        // 'stepStone' sprite. Zero is marked apart (a bright ring + a plain 0);
+        // negatives read cool, positives warm; the minus is U+2212, never a
+        // stray dash (the numeral-hazard watch that bit Waves 13/14/15/22).
+        if (s.mapId === 'numberline' && ch === 'n') {
+          const st = MM.maps.NUMBERLINE_ROW.find(t => t.x === x && t.y === y);
+          if (st) {
+            if (st.value === 0) {
+              ctx.save();
+              ctx.strokeStyle = '#fff6d8';
+              ctx.globalAlpha = 0.85;
+              ctx.lineWidth = 2;
+              ctx.strokeRect(vx * TILE + 3, vy * TILE + 3, TILE - 6, TILE - 6);
+              ctx.restore();
+            }
+            const label = MM.data.signedNum(st.value);
+            ctx.font = '9px "Press Start 2P", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#141221';
+            ctx.fillText(label, vx * TILE + TILE / 2 + 1, vy * TILE + TILE / 2 + 5);
+            ctx.fillStyle = st.value === 0 ? '#fff6d8' : (st.value < 0 ? '#9fd4ff' : '#ffe1a8');
+            ctx.fillText(label, vx * TILE + TILE / 2, vy * TILE + TILE / 2 + 4);
+          }
+        }
         // Wave 12 (P3): the confessed wardrobe wears its tiny hat in the
         // Study — non-negotiable, same emoji-overlay idiom as the pet's.
         if (s.mapId === 'castle' && ch === 'o' && s.wing && s.wing.wardrobeMoved) {
@@ -1607,6 +1632,34 @@ var MM = globalThis.MM = globalThis.MM || {};
       ctx.globalAlpha = MIRROR_TINT.sheenAlpha;
       ctx.fillStyle = MIRROR_TINT.sheen;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+
+    // Wave 23 (P3.5.1): the zero-meridian — drawn ON TOP of the mirror tint so
+    // it reads clearly. Through the glass WITH negatives on, a glowing N–S line
+    // runs down the mirror overworld's middle column (MM.maps.MERIDIAN_X); WEST
+    // of it is "the Below" (a cooler, frostier wash). Pure theming, gated on
+    // negativesOn() and the 'world' map — normal play and a switch-off mirror
+    // run draw none of it. Geometry is never touched (a render overlay only).
+    if (s.mapId === 'world' && MM.engine.negativesOn && MM.engine.negativesOn()) {
+      const mx = (MM.maps.MERIDIAN_X - camX) * TILE;
+      ctx.save();
+      // the Below: a cool frost wash over everything west of the line
+      if (mx > 0) {
+        ctx.fillStyle = 'rgba(70,130,200,0.22)';
+        ctx.fillRect(0, 0, mx, canvas.height);
+      }
+      // a soft glow band hugging the line, then the bright zero-line itself
+      const glow = 0.5 + 0.22 * Math.sin(now / 480);
+      const grad = ctx.createLinearGradient(mx - 18, 0, mx + 18, 0);
+      grad.addColorStop(0, 'rgba(180,225,255,0)');
+      grad.addColorStop(0.5, `rgba(190,230,255,${0.28 * glow})`);
+      grad.addColorStop(1, 'rgba(180,225,255,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(mx - 18, 0, 36, canvas.height);
+      ctx.globalAlpha = 0.7 + 0.25 * Math.sin(now / 480);
+      ctx.fillStyle = '#eaf7ff';
+      ctx.fillRect(mx - 1.5, 0, 3, canvas.height);
       ctx.restore();
     }
 
