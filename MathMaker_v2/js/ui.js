@@ -16,7 +16,11 @@ var MM = globalThis.MM = globalThis.MM || {};
   // blend shifts every hue toward cool blue while keeping luminance (so it
   // stays readable), a faint multiply deepens it, and a cyan sheen adds the
   // glassy glint. Warm greens/browns read as a cool moonlit reflection.
-  const MIRROR_TINT = { hue: '#4f93c9', hueAlpha: 0.60, mult: '#aecbe6', sheen: '#bfe4ff', sheenAlpha: 0.08 };
+  // v1.20.0 (live playtest: "the mirror world is too dark"): the multiply
+  // colour sat at #aecbe6 — a 32% cut to every red channel — under a 60%
+  // hue wash that flattened the palette. The glass now tints without
+  // gloom: a lighter hue pass, a near-white multiply, a touch more sheen.
+  const MIRROR_TINT = { hue: '#5a9fd4', hueAlpha: 0.38, mult: '#dfe9f4', sheen: '#cfe9ff', sheenAlpha: 0.10 };
 
   let canvas, ctx, modalEl, modalBox;
   let messages = [];
@@ -234,6 +238,11 @@ var MM = globalThis.MM = globalThis.MM || {};
       else if (k === '1') MM.engine.castScout();
       else if (k === '2') MM.engine.castBlink();
       else if (k === '3') MM.engine.castBeacon();
+      // v1.20.0: in Your Own Room, Space sets the carried piece down
+      else if (k === ' ' && MM.engine.state && MM.engine.state.mapId === 'myroom') {
+        ev.preventDefault();
+        MM.engine.myRoomSetDown();
+      }
     });
 
     document.getElementById('btnPotion').onclick = () => MM.engine.usePotion();
@@ -1647,6 +1656,15 @@ var MM = globalThis.MM = globalThis.MM || {};
         ctx.fillText(hat.emoji, (s.px - camX) * TILE + TILE / 2, (s.py - camY) * TILE + bob - 2);
       }
     }
+    // v1.20.0: in Your Own Room the carried piece floats over the hero —
+    // "you are holding something" must be visible, never just remembered.
+    if (s.mapId === 'myroom' && s.wing && s.wing.myRoom && s.wing.myRoom.hand) {
+      const carryBob = s.calmMode ? 0 : Math.sin(now / 300) * 2;
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(MM.data.MYROOM_PIECES[s.wing.myRoom.hand].emoji,
+        (s.px - camX) * TILE + TILE / 2, (s.py - camY) * TILE + bob + carryBob - 16);
+    }
 
     // Wave 21 (Looking Glass P2.2): the Cheshire Cat's disappearing-smile
     // fade — a pure function of elapsed time (MM.engine.cheshireAlphas), so
@@ -1735,7 +1753,8 @@ var MM = globalThis.MM = globalThis.MM || {};
       ctx.save();
       // the Below: a cool frost wash over everything west of the line
       if (mx > 0) {
-        ctx.fillStyle = 'rgba(70,130,200,0.22)';
+        // v1.20.0: lightened with the mirror tint — frosty, not gloomy
+        ctx.fillStyle = 'rgba(130,180,235,0.18)';
         ctx.fillRect(0, 0, mx, canvas.height);
       }
       // a soft glow band hugging the line, then the bright zero-line itself
@@ -1887,6 +1906,26 @@ var MM = globalThis.MM = globalThis.MM || {};
     renderSpellRow(s);
 
     const taskEl = document.getElementById('taskBox');
+    // v1.20.0: in Your Own Room the task box becomes the builder's hands —
+    // the carrying state must be one glance away (the sticky-state rule),
+    // and ⬇ Set it down is the room's one new verb, so it lives right here.
+    if (s.mapId === 'myroom') {
+      const mr = MM.engine.ensureWing().myRoom;
+      if (mr.hand) {
+        const info = MM.data.MYROOM_PIECES[mr.hand];
+        const left = MM.maps.MYROOM_BUDGET[mr.hand] - mr.pieces.filter(p => p.t === mr.hand).length;
+        taskEl.innerHTML =
+          `🧺 <b>Carrying:</b> ${info.label} <span class="dim">(×${left})</span><br>` +
+          `<button id="myroomLay">⬇ Set it down here</button> <span class="dim">or press Space</span>`;
+        const lay = document.getElementById('myroomLay');
+        if (lay) lay.onclick = () => { lay.blur(); MM.engine.myRoomSetDown(); };
+      } else {
+        taskEl.innerHTML = '🧱 <b>Your room.</b> The 🛠 workbench lends pieces; the 🔔 cord invites a pupil to try it.';
+      }
+      document.getElementById('log').innerHTML = messages.map(m => `<div>${m}</div>`).join('');
+      checkAlmost(s);
+      return;
+    }
     if (s.taskIndex === 0) {
       taskEl.innerHTML = '🏰 <b>Visit the castle</b> to meet the MathMaker!';
     } else if (s.taskIndex > 13) {

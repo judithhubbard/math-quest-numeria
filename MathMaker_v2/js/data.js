@@ -2243,9 +2243,32 @@ var MM = globalThis.MM = globalThis.MM || {};
   MM.data.MYROOM_ENTER_LINE = '🧱 <b>Your own room.</b> Bare stone, good light. The workbench is ready when you are.';
   MM.data.MYROOM_BENCH_TITLE = '🛠 The workbench';
   MM.data.MYROOM_BENCH_BODY =
-    'Everything a room needs, in neat labeled crates. Choose what to carry — ' +
-    'you\'ll set one down on each tile you <b>step off</b>, like a mason laying a course. ' +
-    'Bump a placed piece to take it back; the bench takes back plates, cracked tiles and slabs.';
+    'Everything a room needs, in neat labeled crates. Choose what to carry — then stand on ' +
+    'the very spot you want it and press <b>⬇ Set it down</b>. ' +
+    'Bump a placed wall or chest to lift it up again; the bench takes back slabs, plates, cracked tiles and gates.';
+  // v1.20.0: the mason's-trail lines are gone with the mechanic. These are
+  // the deliberate-placement voice lines (log channel — small moments).
+  MM.data.MYROOM_CARRY = label =>
+    `🧺 Carrying: ${label}. Stand on the spot you want, then press ⬇ Set it down.`;
+  MM.data.MYROOM_LIFT = name =>
+    `🧺 You lift the ${name} — carry it where you like, then ⬇ set it down.`;
+  MM.data.MYROOM_HANDS_EMPTY = '🧺 Your hands are empty — the 🛠 workbench lends pieces.';
+  MM.data.MYROOM_HANDS_FULL = '🧺 Your hands are full — set down what you\'re carrying first.';
+  MM.data.MYROOM_NOT_ARCH = '🚪 Not on the arch tile — the way in always stays clear.';
+  MM.data.MYROOM_SPOT_TAKEN = '🧱 Something already rests here. Pick a patch of open floor.';
+  MM.data.MYROOM_BOXED_IN = '🧍 No room to step aside — lay it somewhere with a little elbow room.';
+  // v1.20.0 (live playtest: "unclear what the purpose of this room is"):
+  // the room's whole loop, said once, the first time the kid walks in.
+  MM.data.MYROOM_GUIDE = {
+    title: '🧱 Your own proving room',
+    body: 'Every Keeper builds one. The craft has three parts:<br><br>' +
+      '🛠 The <b>workbench</b> lends pieces — walls, push-slabs, a plate and its gate, a cracked tile, a chest. ' +
+      'Carry one to a spot and <b>⬇ set it down</b>. Bump it to lift it back up. Nothing is ever stuck.<br><br>' +
+      '🔔 When your room asks a good question, pull the <b>invite cord</b> by the arch — a pupil will come ' +
+      'and try to reach the far pedestal, right before your eyes.<br><br>' +
+      '🏆 The <b>pedestal</b> remembers every pupil who solves your room.<br><br>' +
+      '<i>Build kindly. Revise often. A room is allowed to be a work in progress.</i>',
+  };
   MM.data.MYROOM_PIECES = {
     wall: { label: '🧱 Wall block', emoji: '🧱' },
     slab: { label: '🪨 Push-slab', emoji: '🪨' },

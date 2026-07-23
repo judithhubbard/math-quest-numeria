@@ -1,6 +1,8 @@
 // Drive Wave 13 (P2): Your Own Room. The named doorway opens once the Wing
 // title is earned (the v1.8.2 "masons" note is GONE); building is in-world
-// (workbench hand + the mason's trail); budgets cap; the pupil VISIBLY
+// (v1.20.0: carry a piece, stand on the spot, ⬇ Set it down — the mason's
+// trail is gone; bumped walls/chests lift back into hand); budgets cap;
+// a once-ever guide modal states the room's purpose; the pupil VISIBLY
 // attempts the room — solvable rooms celebrate (once-ever, with Miscount's
 // cameo), unsolvable rooms end in the polite-stuck flow (💭 + a kind ask,
 // no cost) — revise and it solves. The reset cord + wedge nudge work here.
@@ -73,7 +75,14 @@ fs.mkdirSync(SHOTS, { recursive: true });
   check(await ev(() => MM.engine.state.mapId) === 'myroom', 'closing the modal steps into Your Own Room');
   await page.screenshot({ path: SHOTS + '/2-bare-room.png' });
 
-  // ---------- the workbench + the mason's trail ----------
+  // ---------- first entry says the room's purpose, once ----------
+  // (the guide modal was drained above with the doorway prose; a second
+  // entry must NOT reopen it)
+  await ev(() => { MM.engine.exitMyRoom(); MM.engine.enterMyRoom(); });
+  await page.waitForTimeout(150);
+  check(await ev(() => !MM.ui.modalOpen()), 'the purpose guide is once-ever — a second entry opens no modal');
+
+  // ---------- the workbench + deliberate placement (v1.20.0) ----------
   await ev(() => { const s = MM.engine.state; s.px = 1; s.py = 3; MM.engine.tryMove(0, -1); });
   await page.waitForTimeout(150);
   const bench = await modalText();
@@ -81,16 +90,55 @@ fs.mkdirSync(SHOTS, { recursive: true });
     'the workbench shows every piece with its remaining count');
   await ev(() => { [...document.querySelectorAll('#modalBox button')].find(b => /Wall block/.test(b.textContent)).click(); });
   await page.waitForTimeout(120);
-  // walk south: pieces lay on the tiles you step OFF — but never the entry tile
-  await ev(() => MM.engine.tryMove(0, 1));   // (1,3) -> (1,4): lays a wall at (1,3)
-  await ev(() => MM.engine.tryMove(0, 1));   // (1,4) -> (1,5): entry tile (1,4) is PROTECTED
-  await ev(() => MM.engine.tryMove(0, 1));   // (1,5) -> (1,6): lays a wall at (1,5)
-  const laid = await ev(() => MM.engine.ensureWing().myRoom.pieces.map(p => p.t + '@' + p.x + ',' + p.y).join(' '));
-  check(laid === 'wall@1,3 wall@1,5', `the mason's trail lays walls on vacated tiles, never the entry (got: ${laid})`);
-  // bump a placed piece to pick it back up
-  await ev(() => MM.engine.tryMove(0, -1));   // bump the wall at (1,5)
-  await page.waitForTimeout(120);
-  check(await ev(() => MM.engine.ensureWing().myRoom.pieces.length) === 1, 'bumping a placed wall picks it back up');
+  // the sidebar shows the carrying state + the Set-it-down button
+  check(await ev(() => /Carrying/.test(document.getElementById('taskBox').innerText)
+    && !!document.getElementById('myroomLay')), 'the sidebar shows Carrying + the ⬇ Set it down button');
+  // walking while carrying lays NOTHING (the mason's trail is gone)
+  await ev(() => MM.engine.tryMove(0, 1));   // (1,3) -> (1,4)
+  await ev(() => MM.engine.tryMove(1, 0));   // (1,4) -> (2,4)
+  await ev(() => MM.engine.tryMove(1, 0));   // (2,4) -> (3,4)
+  check(await ev(() => MM.engine.ensureWing().myRoom.pieces.length) === 0,
+    'walking while carrying lays nothing — placement is deliberate now');
+  // set it down: the wall lands exactly where you stood; you hop one tile aside
+  const sd = await ev(() => {
+    MM.engine.myRoomSetDown();
+    const s = MM.engine.state;
+    return { laid: MM.engine.ensureWing().myRoom.pieces.map(p => p.t + '@' + p.x + ',' + p.y).join(' '), px: s.px, py: s.py };
+  });
+  check(sd.laid === 'wall@3,4' && !(sd.px === 3 && sd.py === 4),
+    `set-down lays the wall where you stood and steps you aside (got ${sd.laid}, kid@${sd.px},${sd.py})`);
+  // the arch/entry tile refuses a set-down — the way in stays clear
+  const arch = await ev(() => {
+    const s = MM.engine.state; s.px = 1; s.py = 4;
+    MM.engine.myRoomSetDown();
+    return MM.engine.ensureWing().myRoom.pieces.length;
+  });
+  check(arch === 1, 'the entry tile refuses a set-down (the way in stays clear)');
+  // bump the placed wall: it lifts back into your HANDS (not off to the bench)
+  const lift = await ev(() => {
+    const s = MM.engine.state; s.px = 2; s.py = 4;
+    MM.engine.tryMove(1, 0);   // bump the wall at (3,4)
+    return { n: MM.engine.ensureWing().myRoom.pieces.length, hand: MM.engine.ensureWing().myRoom.hand };
+  });
+  check(lift.n === 0 && lift.hand === 'wall', 'bumping a placed wall lifts it back into your hands');
+  // carrying one type, a bumped OTHER type stays put (solid thud, no swap)
+  const solid = await ev(() => {
+    const E = MM.engine, s = E.state;
+    const mr = E.ensureWing().myRoom;
+    mr.hand = 'wall';
+    mr.pieces.push({ t: 'chest', x: 5, y: 4 });
+    E.buildMyRoomGrid();
+    s.px = 4; s.py = 4;
+    E.tryMove(1, 0);   // bump the chest while carrying walls
+    return { n: mr.pieces.length, hand: mr.hand };
+  });
+  check(solid.n === 1 && solid.hand === 'wall', 'hands full: bumping a different piece leaves it in place');
+  await ev(() => {   // clean up the probe chest
+    const E = MM.engine;
+    E.ensureWing().myRoom.pieces = [];
+    E.ensureWing().myRoom.hand = null;
+    E.buildMyRoomGrid();
+  });
   // budget cap: a hard 10-wall ceiling
   const capped = await ev(() => {
     const E = MM.engine;
@@ -99,7 +147,7 @@ fs.mkdirSync(SHOTS, { recursive: true });
     for (let i = 0; i < 12; i++) if (E.myRoomPlace('wall', 3 + (i % 6), 6 + Math.floor(i / 6))) ok++;
     return ok + E.ensureWing().myRoom.pieces.filter(p => p.t === 'wall').length * 100;
   });
-  check(capped === 9 + 10 * 100, `the wall budget caps at 10 (${capped})`);
+  check(capped === 10 + 10 * 100, `the wall budget caps at 10 (${capped})`);
 
   // ---------- build the solvable room (wall line + gate + plate + slab) ----------
   await ev(() => {
@@ -191,7 +239,9 @@ fs.mkdirSync(SHOTS, { recursive: true });
   check(await ev(() => !MM.ui.modalOpen()), 'later solves are purely social — no repeat celebration modal');
 
   // ---------- the reset cord + wedge nudge live inside the kid's room ----------
-  await page.waitForTimeout(2800);   // joy bounce ends, pupil leaves
+  // wait for the pupil to actually LEAVE (a fixed sleep raced its joy bounce)
+  await page.waitForFunction(() => MM.engine.pupil === null, null, { timeout: 15000 });
+  await page.waitForTimeout(200);
   const wedge = await ev(() => {
     const E = MM.engine, s = MM.engine.state;
     E._futileSlab = 0; E._wedgeNoted = false;
