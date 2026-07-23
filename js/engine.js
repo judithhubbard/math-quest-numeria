@@ -3465,6 +3465,7 @@ var MM = globalThis.MM = globalThis.MM || {};
   E.stairPos = null;     // where the following staircase stands (2 moves back)
   E._stairTrail = [];
   E._myRoomSlabs = null; // Your Own Room's live slab positions (rebuilt per visit)
+  E._myRoomFrom = null;  // the tile last stepped from (set-down hops back there)
   E.resetTransientEntities = function () {
     E.stepBuffer = [];
     E.understudy = null;
@@ -3472,6 +3473,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.stairPos = null;
     E._stairTrail = [];
     E._myRoomSlabs = null;
+    E._myRoomFrom = null;
   };
 
   // ---------- P1: echo plates & the Understudy ----------
@@ -3578,6 +3580,13 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.buildMyRoomGrid();
     E.petPos = { x: s.px, y: s.py };
     MM.ui.log(MM.data.MYROOM_ENTER_LINE);
+    // v1.20.0 (live playtest: "it is unclear what the purpose of this room
+    // is"): the loop — build, invite, watch — is now SAID once, up front.
+    const mr = E.ensureWing().myRoom;
+    if (!mr.seenGuide) {
+      mr.seenGuide = 1;
+      MM.ui.dialog(MM.data.MYROOM_GUIDE.title, MM.data.MYROOM_GUIDE.body);
+    }
     E.save();
     MM.ui.refresh();
   };
@@ -3634,11 +3643,46 @@ var MM = globalThis.MM = globalThis.MM || {};
     return true;
   };
   const pieceName = t => MM.data.MYROOM_PIECES[t].label.replace(/^\S+\s/, '');
-  // The mason's trail: carrying a piece, each step sets one down on the
-  // tile you just left. (Deviation, documented: the order's literal
-  // "bumping an empty floor tile places it" freezes the builder in place —
-  // any step IS a bump on empty floor. Laying-behind keeps walking free,
-  // reads instantly, and every mislaid piece is one bump from recovery.)
+  // v1.20.0 (live playtest: "at best I can drop blocks right next to the
+  // bench"): the mason's trail — auto-laying a piece on every vacated tile —
+  // is GONE. The first step off the bench dropped a piece right there, so a
+  // piece could never be carried anywhere. Placement is now deliberate:
+  // stand on the chosen spot, press ⬇ Set it down (sidebar button or Space),
+  // and you hop one tile aside while the piece rests exactly where you
+  // stood. No aiming, no facing — and nothing can be laid where the builder
+  // couldn't walk.
+  E.myRoomSetDown = function () {
+    const s = E.state;
+    if (!s || s.mapId !== 'myroom') return;
+    const mr = E.ensureWing().myRoom;
+    if (E.pupil) return MM.ui.log('🐌 The pupil is mid-attempt — watch!');
+    const t = mr.hand;
+    if (!t) return MM.ui.log(MM.data.MYROOM_HANDS_EMPTY);
+    const en = MM.maps.MYROOM_ENTRY;
+    if (s.px === en.x && s.py === en.y) { MM.sound.thud(); return MM.ui.log(MM.data.MYROOM_NOT_ARCH); }
+    if (s.grid[s.py][s.px] !== '.') { MM.sound.thud(); return MM.ui.log(MM.data.MYROOM_SPOT_TAKEN); }
+    // hop one tile aside (the tile you came from, if it's free) so the
+    // piece has the floor to itself; boxed in on all four sides = refused
+    const cands = [];
+    if (E._myRoomFrom) cands.push([E._myRoomFrom.x - s.px, E._myRoomFrom.y - s.py]);
+    cands.push([0, 1], [1, 0], [0, -1], [-1, 0]);
+    let hop = null;
+    for (const [dx, dy] of cands) {
+      if (Math.abs(dx) + Math.abs(dy) !== 1) continue;
+      const hx = s.px + dx, hy = s.py + dy;
+      const ch = s.grid[hy] && s.grid[hy][hx];
+      if (ch === '.' || ch === '+') { hop = { x: hx, y: hy }; break; }
+    }
+    if (!hop) { MM.sound.thud(); return MM.ui.log(MM.data.MYROOM_BOXED_IN); }
+    const fx = s.px, fy = s.py;
+    E.petPos = { x: fx, y: fy };
+    s.px = hop.x; s.py = hop.y;
+    E._myRoomFrom = { x: fx, y: fy };
+    E.myRoomLay(fx, fy);
+    MM.ui.refresh();
+  };
+  // The placement executor: lays the carried piece at (x, y), frees the
+  // hands when the crate runs dry.
   E.myRoomLay = function (x, y) {
     const mr = E.ensureWing().myRoom;
     const t = mr.hand;
@@ -3665,7 +3709,8 @@ var MM = globalThis.MM = globalThis.MM || {};
           onClick: () => {
             mr.hand = t;
             E.save();
-            MM.ui.log(`🧺 Carrying: ${MM.data.MYROOM_PIECES[t].label}. Each step sets one down on the tile you leave.`);
+            MM.ui.log(MM.data.MYROOM_CARRY(MM.data.MYROOM_PIECES[t].label));
+            MM.ui.refresh();   // the sidebar's Set-it-down button appears at once
           },
         });
       }
@@ -3693,6 +3738,10 @@ var MM = globalThis.MM = globalThis.MM || {};
     E.save();
     MM.ui.refresh();
   };
+  // v1.20.0 (live playtest: "bumping into them puts them back"): a bumped
+  // wall/chest now lifts back INTO YOUR HANDS to be re-set wherever you
+  // like — it no longer flies all the way home to the bench, which read as
+  // the room rejecting the kid's work. Carrying something else? Solid thud.
   E.myRoomPickupBump = function (nx, ny) {
     const s = E.state;
     const mr = E.ensureWing().myRoom;
@@ -3700,10 +3749,12 @@ var MM = globalThis.MM = globalThis.MM || {};
     const i = mr.pieces.findIndex(p => p.x === nx && p.y === ny && (p.t === 'wall' || p.t === 'chest'));
     if (i < 0) return;
     const t = mr.pieces[i].t;
+    if (mr.hand && mr.hand !== t) { MM.sound.thud(); return MM.ui.log(MM.data.MYROOM_HANDS_FULL); }
     mr.pieces.splice(i, 1);
     s.grid[ny][nx] = '.';
+    mr.hand = t;
     MM.sound.tone(2);
-    MM.ui.log(`↩ You lift the ${pieceName(t).toLowerCase()} back out — it returns to the bench.`);
+    MM.ui.log(MM.data.MYROOM_LIFT(pieceName(t).toLowerCase()));
     E.save();
     MM.ui.refresh();
   };
@@ -3781,7 +3832,7 @@ var MM = globalThis.MM = globalThis.MM || {};
     if (fromCh === '!') E.crumbleBehind(fromX, fromY);
     if (ch === '!') E.crackCreak();
     if (ch === '+') E.platePressFeedback();
-    if (mr.hand) E.myRoomLay(fromX, fromY);   // the mason's trail
+    E._myRoomFrom = { x: fromX, y: fromY };   // set-down hops back this way
   };
 
   // ---------- P2: the pupil's solver ----------
